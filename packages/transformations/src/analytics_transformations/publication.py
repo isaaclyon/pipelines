@@ -15,12 +15,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from analytics_transformations.column_declarations import check_column_declarations
-from analytics_transformations.layer_dependencies import (
-    check,
-    parse_manifest,
-    root_project,
-)
+from analytics_transformations.layer_dependencies import root_project
+from analytics_transformations.manifest_checks import check_manifest
 from analytics_transformations.mart_contracts import (
     REVIEWED_ACCESS_TIGHTENINGS,
     MartContract,
@@ -33,7 +29,6 @@ from analytics_transformations.mart_contracts import (
     snapshot,
     text,
 )
-from analytics_transformations.pii import check_pii
 
 Runner = Callable[[Sequence[str], Mapping[str, str], int], None]
 
@@ -316,15 +311,7 @@ def build_candidate(
     selected_plan = contracts(scoped)
     if expected_sources is not None:
         validate_publication_sources(scoped, expected_sources)
-    violations = check(
-        parse_manifest(parsed), root_project(parsed), namespace=env["DBT_NAMESPACE"]
-    )
-    if violations:
-        raise ValueError(
-            "Candidate naming/layer violations: " + "; ".join(map(str, violations))
-        )
-    check_column_declarations(parsed)
-    check_pii(parsed)
+    _ = check_manifest(parsed, namespace=env["DBT_NAMESPACE"])
     for value in mapping(mapping(parsed).get("nodes")).values():
         node = mapping(value)
         if node.get("resource_type") != "model":

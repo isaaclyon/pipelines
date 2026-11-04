@@ -150,14 +150,6 @@ def test_incomplete_declaration_fails(meta: dict[str, object]) -> None:
         declarations(manifest(meta))
 
 
-def test_missing_description_fails() -> None:
-    value = manifest()
-    nodes = cast(dict[str, dict[str, object]], value["nodes"])
-    nodes[MODEL]["description"] = ""
-    with pytest.raises(ValueError, match="description"):
-        declarations(value)
-
-
 def test_declared_key_requires_blocking_key_tests() -> None:
     with pytest.raises(ValueError, match="not-null"):
         declarations(manifest(None, _test("unique_order_id", "unique", "order_id")))

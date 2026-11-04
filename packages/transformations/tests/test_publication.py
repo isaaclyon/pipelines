@@ -59,6 +59,21 @@ def test_internal_output_drift_fails_validation(tmp_path: Path, drift: str) -> N
         build()
 
 
+def test_candidate_runs_every_manifest_check(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    _ = shutil.copytree(ROOT / "tests/fixtures/publication", project)
+    _ = shutil.copytree(ROOT / "dbt/macros", project / "macros")
+    schema = project / "models/staging/schema.yml"
+    _ = schema.write_text(
+        schema.read_text().replace("        owner: Analytics Platform\n", "")
+    )
+    raw = tmp_path / "raw.duckdb"
+    with duckdb.connect(str(raw)):
+        pass
+    with pytest.raises(ValueError, match="owner and grain"):
+        _ = build_models(raw, namespace="ci_declarations", project=project)
+
+
 @pytest.mark.dbt_subprocess
 def test_real_dbt_ephemeral_ancestor_builds(tmp_path: Path) -> None:
     project = tmp_path / "project"

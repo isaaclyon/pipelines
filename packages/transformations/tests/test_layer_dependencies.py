@@ -12,7 +12,6 @@ from analytics_transformations.layer_dependencies import (
     Violation,
     check,
     find_hard_coded_relations,
-    main,
     parse_manifest,
     root_project,
 )
@@ -62,7 +61,6 @@ def test_permitted_layers_seeds_snapshots_and_exempt_resources_pass(
     [generic] = [r for r in resources if r.name == "CustomGenericTest"]
     assert generic.alias == "CustomFailureAlias"
     assert _violations(manifest) == []
-    assert main([str(manifest)]) == 0
 
 
 def test_backward_bypassing_and_misplaced_dependencies_fail(tmp_path: Path) -> None:
@@ -85,7 +83,6 @@ def test_backward_bypassing_and_misplaced_dependencies_fail(tmp_path: Path) -> N
         ("orders_snapshot", "forbidden-dependency"),
         ("internal_dashboard", "forbidden-dependency"),
     }
-    assert main([str(manifest)]) == 1
 
 
 def test_hard_coded_relations_are_reported_with_their_names(tmp_path: Path) -> None:
