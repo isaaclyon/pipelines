@@ -7,6 +7,7 @@ shellcheck scripts/platform scripts/platform.d/*.sh scripts/*.sh
 sh scripts/check-scripts.sh
 sh scripts/check-versions.sh
 python3 scripts/test_ci_docs.py
+sh scripts/test-platform-defaults.sh
 sh scripts/test-check.sh
 sh scripts/test-verify.sh
 sh scripts/test-worktree-setup.sh

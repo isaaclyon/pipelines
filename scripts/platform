@@ -45,11 +45,18 @@ if [ -z "$command_file" ] || [ ! -f "$command_file" ]; then
 fi
 
 export ANALYTICS_ENVIRONMENT="$target"
-export ANALYTICS_PROJECT="${ANALYTICS_PROJECT:-analytics-$target}"
 
 case "$target" in
-    local|ci)
-        export DBT_TARGET=local CUBEJS_DB_TYPE=snowflake
+    local)
+        # Each checkout gets its own stack and uses its local env file if present.
+        checkout=$(basename "$repo_root" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_\n-' '-')
+        export ANALYTICS_PROJECT="${ANALYTICS_PROJECT:-analytics-$checkout}"
+        env_file=deploy/compose/.env.local
+        [ -f "$env_file" ] || env_file=deploy/compose/.env.local.example
+        env_file=${ANALYTICS_ENV_FILE:-$env_file}
+        ;;
+    ci)
+        export ANALYTICS_PROJECT="${ANALYTICS_PROJECT:-analytics-ci}"
         env_file=${ANALYTICS_ENV_FILE:-deploy/compose/.env.local.example}
         ;;
     *)
@@ -57,6 +64,7 @@ case "$target" in
         exit 2
         ;;
 esac
+export DBT_TARGET=local CUBEJS_DB_TYPE=snowflake
 
 allowed_targets=$(command_field targets "$command_file")
 case " $allowed_targets " in
