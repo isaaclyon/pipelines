@@ -13,6 +13,20 @@ standards define the direction.
 Verify implementation in source and configuration rather than assuming an
 accepted decision or a scaffolding README describes completed functionality.
 
+## Current stage: no users or deployments
+
+Nothing is deployed, and no person or system depends on this repository.
+The platform runs only locally, including in Docker on a developer machine.
+
+- Make breaking changes freely when they produce a simpler design. Do not keep
+  shims, fallbacks, deprecated paths or migration windows for existing users.
+- Prefer strict, uniform checks. A failing check costs a local rerun, not an
+  outage.
+- Keep building the release, compatibility and publication safeguards that
+  accepted ADRs describe; they are part of the product. Do not weaken a design
+  to protect current behavior or data.
+- Update this section when the first shared deployment or consumer exists.
+
 ## Folder guidance
 
 | Folder | Responsibility |
