@@ -1,4 +1,4 @@
-"""Customer runtime configuration; reuses the orders destination and shop."""
+"""Customer runtime configuration: its own kit source, sharing the orders shop."""
 
 from __future__ import annotations
 
@@ -20,8 +20,9 @@ def customer_settings_from_env(env: Mapping[str, str]) -> Settings:
     """Settings for the customer pipeline.
 
     ``SHOPIFY_CUSTOMERS_CREDENTIALS_PATH`` selects a credential limited to
-    customer scopes; without it the shared credential file is used. The
-    destination is the orders destination, with its own dataset and dlt state.
+    customer scopes; without it the shared credential file is used. Customers
+    are their own kit source: their own state folder, local raw file and
+    dataset, in the same Snowflake database as orders.
     """
     selected = dict(env)
     own = env.get("SHOPIFY_CUSTOMERS_CREDENTIALS_PATH", "").strip()
@@ -30,7 +31,9 @@ def customer_settings_from_env(env: Mapping[str, str]) -> Settings:
     dataset = env.get("SHOPIFY_CUSTOMERS_DATASET", DEFAULT_CUSTOMERS_DATASET)
     if not _IDENTIFIER.fullmatch(dataset):
         raise ConfigurationError("SHOPIFY_CUSTOMERS_DATASET must be an identifier")
-    return replace(settings_from_env(selected), dataset=dataset)
+    return replace(
+        settings_from_env(selected, source="shopify_customers"), dataset=dataset
+    )
 
 
 APPROVED_METAFIELDS_VAR = "SHOPIFY_CUSTOMERS_APPROVED_METAFIELDS"

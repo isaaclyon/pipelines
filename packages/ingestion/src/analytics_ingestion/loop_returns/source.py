@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
+from analytics_ingestion.kit.capture import recover
 from analytics_ingestion.loop_returns.checkpoint import Checkpoint, restore
 from analytics_ingestion.loop_returns.client import (
     HttpGet,
@@ -27,13 +28,12 @@ from analytics_ingestion.loop_returns.dlt_load import (
     candidate_rows,
     pipeline,
     published_result,
-    recover_pending,
     removed_count,
     run_snapshot,
     stage_window,
 )
 from analytics_ingestion.loop_returns.errors import GuardError
-from analytics_ingestion.loop_returns.settings import DuckDbTarget, LoopSettings
+from analytics_ingestion.loop_returns.settings import LoopSettings
 from analytics_ingestion.loop_returns.snapshot import windows
 
 Progress = Callable[[dict[str, object]], None]
@@ -79,8 +79,8 @@ def load_snapshot(
     progress: Progress | None = None,
     restart_candidate: bool = False,
 ) -> LoadReport:
-    settings.target_root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with (settings.target_root / "snapshot.lock").open("a") as lock:
+    settings.target.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (settings.target.root / "snapshot.lock").open("a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -98,11 +98,12 @@ def load_snapshot(
 
 
 def _scope(settings: LoopSettings, hours: int, end: datetime | None) -> str:
-    target = settings.destination
+    # Keep these inputs fixed: a changed scope stops an unfinished snapshot.
+    target = settings.target
     identity = (
-        str(target.path.resolve())
-        if isinstance(target, DuckDbTarget)
-        else f"{target.account}/{target.database}"
+        str(target.duckdb_path.resolve())
+        if target.snowflake is None
+        else f"{target.snowflake['host']}/{target.snowflake['database']}"
     )
     values = [
         settings.environment,
@@ -163,7 +164,7 @@ def _load_snapshot(
             "Loop candidate scope changed; unfinished work was not modified"
         )
     recovering_candidate = candidate.has_pending_data
-    recover_pending(candidate)
+    recover(candidate)
     candidate.sync_destination()
     saved = restore(candidate)
     if (
@@ -176,7 +177,7 @@ def _load_snapshot(
         and (not saved.published or candidate.has_pending_data or pipe.has_pending_data)
     ):
         raise GuardError("Restored Loop candidate scope does not match this request")
-    recover_pending(pipe)
+    recover(pipe)
     if (
         saved is not None
         and saved.scope == scope

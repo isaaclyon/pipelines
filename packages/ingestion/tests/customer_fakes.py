@@ -8,11 +8,11 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from analytics_ingestion.kit.runtime import Target
 from analytics_ingestion.shopify.client import HttpResponse
 from analytics_ingestion.shopify.jsonvalue import JsonObject, as_object, load_object
 from analytics_ingestion.shopify.queries import API_VERSION
 from analytics_ingestion.shopify.settings import (
-    DuckDbTarget,
     Settings,
     ShopifyCredentials,
 )
@@ -374,10 +374,9 @@ def _matches(data: JsonObject, search: str) -> bool:
 
 
 def customer_settings(root: Path) -> Settings:
+    """Local settings that load ``root / "shopify_customers.duckdb"``."""
     return Settings(
-        environment="local",
         credentials=ShopifyCredentials(DOMAIN, "fixture-token-not-a-secret"),
-        state_root=root,
         dataset="shopify_customers_raw",
-        destination=DuckDbTarget(root / "raw.duckdb"),
+        target=Target("shopify_customers", "local", root, None),
     )

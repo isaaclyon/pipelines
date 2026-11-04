@@ -62,7 +62,9 @@ def run(
 
 
 def rows(root: Path, sql: str) -> list[tuple[object, ...]]:
-    with duckdb.connect(str(root / "raw.duckdb"), read_only=True) as connection:
+    with duckdb.connect(
+        str(root / "shopify_orders.duckdb"), read_only=True
+    ) as connection:
         return connection.execute(sql.replace("{s}", SCHEMA)).fetchall()
 
 
@@ -152,7 +154,7 @@ def test_incomplete_order_fails_the_run_and_loads_nothing(tmp_path: Path) -> Non
     shop.add(bad)
     with pytest.raises(SourceError, match="transactions_unverified"):
         run(tmp_path, shop)
-    assert not (tmp_path / "raw.duckdb").exists() or rows(
+    assert not (tmp_path / "shopify_orders.duckdb").exists() or rows(
         tmp_path,
         "select count(*) from information_schema.tables where table_schema = '{s}'"
         " and table_name = 'orders'",
@@ -457,3 +459,16 @@ def test_repeated_sales_identity_across_pages_is_rejected(tmp_path: Path) -> Non
     source["agreements"] = agreements
     with pytest.raises(SourceError, match="duplicate sales"):
         run(tmp_path, shop)
+
+
+def test_unsafe_loader_configuration_is_refused_before_loading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Recovery shares the kit guard: a failed job must never count as loaded."""
+    monkeypatch.setenv("LOAD__RAISE_ON_FAILED_JOBS", "false")
+    shop = FakeShop()
+    shop.add(order(1, created="2026-10-01T00:10:00Z"))
+
+    with pytest.raises(ValueError, match="raise_on_failed_jobs"):
+        _ = run(tmp_path, shop)
+    assert not (tmp_path / "shopify_orders.duckdb").exists()

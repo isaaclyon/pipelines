@@ -13,9 +13,10 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast
+from typing import TypedDict, cast
 
 import dlt
+from dlt.common.schema.typing import TLoaderReplaceStrategy
 from dlt.pipeline.pipeline import Pipeline
 
 STATE_ROOT = "/var/lib/analytics/ingestion"
@@ -82,6 +83,10 @@ def mapping(settings: Mapping[str, object], source: str, key: str) -> dict[str, 
     return cast(dict[str, object], value)
 
 
+class _DestinationOptions(TypedDict, total=False):
+    replace_strategy: TLoaderReplaceStrategy
+
+
 @dataclass(frozen=True)
 class Target:
     """Where one source loads in this environment, and its dlt state directory."""
@@ -110,16 +115,29 @@ class Target:
             ("SNOWFLAKE_PRIVATE_KEY_PATH", Path(self.snowflake["private_key_path"]))
         ]
 
-    def pipeline(self, name: str, dataset: str) -> Pipeline:
-        """Callers serialize runs of this pipeline (one exclusive-resource tag)."""
+    def pipeline(
+        self,
+        name: str,
+        dataset: str,
+        *,
+        replace_strategy: TLoaderReplaceStrategy | None = None,
+    ) -> Pipeline:
+        """Callers serialize runs of this pipeline (one exclusive-resource tag).
+
+        ``replace_strategy`` sets how ``replace`` tables load; dlt's default
+        applies when it is unset."""
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # An explicit None would hide dlt's environment configuration.
+        options: _DestinationOptions = {}
+        if replace_strategy is not None:
+            options["replace_strategy"] = replace_strategy
         return dlt.pipeline(
             pipeline_name=name,
             pipelines_dir=str(self.root),
             destination=(
-                dlt.destinations.duckdb(str(self.duckdb_path))
+                dlt.destinations.duckdb(str(self.duckdb_path), **options)
                 if self.snowflake is None
-                else dlt.destinations.snowflake(credentials=self.snowflake)
+                else dlt.destinations.snowflake(credentials=self.snowflake, **options)
             ),
             dataset_name=dataset,
         )

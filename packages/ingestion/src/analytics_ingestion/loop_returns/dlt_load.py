@@ -12,11 +12,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
 from datetime import datetime
-from pathlib import Path
 from typing import Literal, cast
 
 import dlt
-from dlt.common.destination.reference import TDestinationReferenceArg
 from dlt.common.schema.typing import TColumnSchema, TTableSchemaColumns
 from dlt.destinations.exceptions import DatabaseUndefinedRelation
 from dlt.extract.resource import DltResource
@@ -31,11 +29,7 @@ from analytics_ingestion.loop_returns.contract import (
     Column,
 )
 from analytics_ingestion.loop_returns.errors import GuardError, LoopIngestionError
-from analytics_ingestion.loop_returns.settings import (
-    DuckDbTarget,
-    LoopSettings,
-    SnowflakeTarget,
-)
+from analytics_ingestion.loop_returns.settings import LoopSettings
 
 RETURNS_TABLE = "returns"
 SNAPSHOTS_TABLE = "return_snapshots"
@@ -74,37 +68,10 @@ def pipeline(settings: LoopSettings, *, candidate: bool = False) -> Pipeline:
     dataset = settings.dataset.lower() + suffix
     if len(dataset) > 255:
         raise GuardError("Loop candidate dataset exceeds the identifier limit")
-    root = settings.target_root / ("dlt_candidate" if candidate else "dlt_source")
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
     shop_number = settings.shop_id.rsplit("/", 1)[-1]
-    return dlt.pipeline(
-        pipeline_name=f"loop_returns_dlt_{settings.environment}_{shop_number}{suffix}",
-        pipelines_dir=str(root),
-        destination=_destination(settings),
-        dataset_name=dataset,
-    )
-
-
-def _destination(settings: LoopSettings) -> TDestinationReferenceArg:
-    target = settings.destination
-    if isinstance(target, DuckDbTarget):
-        target.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        return dlt.destinations.duckdb(
-            str(target.path), replace_strategy=REPLACE_STRATEGY
-        )
-    return _snowflake(target)
-
-
-def _snowflake(target: SnowflakeTarget) -> TDestinationReferenceArg:
-    return dlt.destinations.snowflake(
-        credentials={
-            "database": target.database,
-            "username": target.user,
-            "host": target.account,
-            "warehouse": target.warehouse,
-            "role": target.role,
-            "private_key_path": str(Path(target.private_key_path)),
-        },
+    return settings.target.pipeline(
+        f"loop_returns_dlt_{settings.environment}_{shop_number}{suffix}",
+        dataset,
         replace_strategy=REPLACE_STRATEGY,
     )
 
@@ -155,14 +122,6 @@ def run_snapshot(
         if cause is None:
             raise
         raise cause from error
-
-
-def recover_pending(pipe: Pipeline) -> None:
-    """Recover before run() can synchronize an uninitialized destination."""
-    if pipe.has_pending_data:
-        _ = pipe.normalize()
-        info = pipe.load()
-        info.raise_on_failed_jobs()
 
 
 @dlt.source(name=SOURCE, max_table_nesting=0)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -9,16 +10,15 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from analytics_ingestion.kit.runtime import Target
 from analytics_ingestion.loop_returns.contract import RETURN_COLUMNS
+from analytics_ingestion.loop_returns.dlt_load import pipeline
 from analytics_ingestion.loop_returns.errors import (
     ContractError,
     GuardError,
     SourceError,
 )
-from analytics_ingestion.loop_returns.settings import (
-    DuckDbTarget,
-    LoopSettings,
-)
+from analytics_ingestion.loop_returns.settings import LoopSettings
 from analytics_ingestion.loop_returns.snapshot import windows
 from analytics_ingestion.loop_returns.source import load_snapshot
 from tests.loop_returns_fakes import (
@@ -40,15 +40,17 @@ CREATED_C = "2026-07-15T10:00:00+00:00"
 
 def settings(tmp_path: Path, max_removed_rows: int = 200) -> LoopSettings:
     return LoopSettings(
-        environment="local",
         api_key=API_KEY,
         shop_id=SHOP_ID,
-        state_root=tmp_path / "state",
         dataset=DATASET,
         history_start=HISTORY_START,
         max_removed_rows=max_removed_rows,
-        destination=DuckDbTarget(tmp_path / "raw.duckdb"),
+        target=Target("loop_returns", "local", tmp_path / "state", None),
     )
+
+
+def in_environment(original: LoopSettings, environment: str) -> LoopSettings:
+    return replace(original, target=replace(original.target, environment=environment))
 
 
 def clock() -> datetime:
@@ -69,7 +71,9 @@ def run(
 
 
 def query(tmp_path: Path, sql: str) -> list[tuple[object, ...]]:
-    with duckdb.connect(str(tmp_path / "raw.duckdb"), read_only=True) as connection:
+    with duckdb.connect(
+        str(tmp_path / "state" / "loop_returns.duckdb"), read_only=True
+    ) as connection:
         return connection.sql(sql).fetchall()
 
 
@@ -317,8 +321,8 @@ def test_removal_guard_uses_destination_when_dlt_state_is_lost(tmp_path: Path) -
     import shutil
 
     run(tmp_path, FakeLoopApi(records=[api_return("1", CREATED_A)]))
-    shutil.rmtree(settings(tmp_path).target_root / "dlt_source")
-    with duckdb.connect(str(tmp_path / "raw.duckdb")) as connection:
+    shutil.rmtree(pipeline(settings(tmp_path)).working_dir)
+    with duckdb.connect(str(tmp_path / "state" / "loop_returns.duckdb")) as connection:
         _ = connection.execute(f"update {DATASET}._dlt_loads set status = 1")
     with pytest.raises(GuardError, match="empty"):
         run(tmp_path, FakeLoopApi(records=[]))
@@ -328,13 +332,13 @@ def test_removal_guard_uses_destination_when_dlt_state_is_lost(tmp_path: Path) -
 def test_concurrent_local_snapshot_is_refused(tmp_path: Path) -> None:
     import fcntl
 
-    root = settings(tmp_path).target_root
+    root = settings(tmp_path).target.root
     root.mkdir(parents=True)
     with (root / "snapshot.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         with pytest.raises(GuardError, match="already running"):
             run(tmp_path, FakeLoopApi(records=[api_return("1", CREATED_A)]))
-    assert not (tmp_path / "raw.duckdb").exists()
+    assert not (tmp_path / "state" / "loop_returns.duckdb").exists()
 
 
 def test_empty_first_snapshot_creates_the_declared_table(tmp_path: Path) -> None:
@@ -409,16 +413,15 @@ load_snapshot(settings(Path({str(tmp_path)!r})),
     assert result.returncode == -signal.SIGKILL
     from dataclasses import replace
 
-    wrong_target = replace(
-        settings(tmp_path), destination=DuckDbTarget(tmp_path / "other.duckdb")
-    )
+    original = settings(tmp_path)
+    wrong_target = replace(original, target=replace(original.target, source="other"))
     refused = FakeLoopApi(records=[api_return("1", CREATED_A)])
     with pytest.raises(GuardError, match="scope"):
         _ = load_snapshot(
             wrong_target, transport=refused, clock=clock, restart_candidate=True
         )
     assert refused.calls == []
-    assert not (tmp_path / "other.duckdb").exists()
+    assert not (tmp_path / "state" / "other.duckdb").exists()
     retry = FakeLoopApi(records=[api_return("2", CREATED_B)])
     run(tmp_path, retry)
     assert return_ids(tmp_path) == ["1", "2"]
@@ -526,3 +529,15 @@ def test_restart_can_correct_rejected_history_bounds(
     _ = load_snapshot(original, transport=healthy, clock=clock, restart_candidate=True)
     assert len(healthy.calls) == 3
     assert return_ids(tmp_path) == ["1", "2"]
+
+
+def test_unsafe_loader_configuration_is_refused_before_loading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Recovery shares the kit guard: a failed job must never count as loaded."""
+    monkeypatch.setenv("LOAD__AUTO_ABORT_ON_TERMINAL_ERROR", "true")
+    api = FakeLoopApi(records=[api_return("1", CREATED_A)])
+
+    with pytest.raises(ValueError, match="auto_abort_on_terminal_error"):
+        run(tmp_path, api)
+    assert api.calls == []

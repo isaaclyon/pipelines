@@ -141,7 +141,7 @@ def test_configuration_fails_before_any_read_or_write(tmp_path: Path) -> None:
     )
     base = {
         "SHOPIFY_CREDENTIALS_PATH": str(credentials),
-        "SHOPIFY_STATE_ROOT": str(tmp_path),
+        "ANALYTICS_INGESTION_STATE_ROOT": str(tmp_path),
     }
     with pytest.raises(ConfigurationError, match="ANALYTICS_ENVIRONMENT"):
         settings_from_env(base)
@@ -150,10 +150,10 @@ def test_configuration_fails_before_any_read_or_write(tmp_path: Path) -> None:
     credentials.write_text(
         json.dumps({"shop_domain": "example.myshopify.com", "access_token": "x" * 32})
     )
-    with pytest.raises(ConfigurationError, match="SNOWFLAKE_DATABASE"):
+    with pytest.raises(ConfigurationError, match="SNOWFLAKE_"):
         settings_from_env({**base, "ANALYTICS_ENVIRONMENT": "development"})
     local = settings_from_env({**base, "ANALYTICS_ENVIRONMENT": "local"})
-    assert local.target_root.is_relative_to(tmp_path / "shopify_orders" / "local")
+    assert local.target.root == tmp_path / "shopify_orders" / "local"
 
 
 def test_graphql_responses_consume_the_source_byte_budget() -> None:

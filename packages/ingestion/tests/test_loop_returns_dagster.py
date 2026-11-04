@@ -140,32 +140,30 @@ def test_trial_runs_without_materializing_the_maintained_asset(restart: bool) ->
 
 
 def test_trial_settings_isolate_dataset_state_and_date(tmp_path: Path) -> None:
-    from dataclasses import replace
     from datetime import timedelta
 
     from analytics_ingestion.defs.loop_returns import trial_settings
-    from tests.test_loop_returns_load import settings
+    from tests.test_loop_returns_load import in_environment, settings
 
-    original = replace(settings(tmp_path), environment="development")
+    original = in_environment(settings(tmp_path), "development")
     trial, end = trial_settings(original, "2026-07-02")
     assert trial.dataset != original.dataset
-    assert trial.target_root != original.target_root
+    assert trial.target.root != original.target.root
     assert end - trial.history_start == timedelta(days=1)
-    assert trial.destination == original.destination
+    assert trial.target.snowflake == original.target.snowflake
 
 
 def test_trial_refuses_production_and_future_dates(tmp_path: Path) -> None:
-    from dataclasses import replace
 
     from analytics_ingestion.defs.loop_returns import trial_settings
     from analytics_ingestion.loop_returns.errors import ConfigurationError
-    from tests.test_loop_returns_load import settings
+    from tests.test_loop_returns_load import in_environment, settings
 
     with pytest.raises(ConfigurationError, match="development"):
         _ = trial_settings(
-            replace(settings(tmp_path), environment="production"), "2026-07-02"
+            in_environment(settings(tmp_path), "production"), "2026-07-02"
         )
     with pytest.raises(ConfigurationError, match="past"):
         _ = trial_settings(
-            replace(settings(tmp_path), environment="development"), "2999-07-02"
+            in_environment(settings(tmp_path), "development"), "2999-07-02"
         )

@@ -118,6 +118,9 @@ source/WAL handle, inspection error or missing tool refuses refresh before any
 copying. The protected macOS Virtualization service's cached filesystem
 transport is not a database client. Instead, any running container mounting the
 source or an ancestor directory causes refusal, even with a read-only mount.
+Docker Desktop `/host_mnt/` bind paths are checked as host paths; a bind path
+that does not exist on the host, such as Docker Desktop's socket proxy, is a VM
+path and cannot reach the source. Any other uninspectable bind mount refuses.
 This conservative check can reject an unrelated container; the command reports
 its ID but never stops another container automatically. Docker Desktop locks are
 not reliable between host and container, or between different bind mounts.
