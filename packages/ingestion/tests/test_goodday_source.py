@@ -12,6 +12,7 @@ from dlt.common.schema.typing import TTableSchemaColumns
 from dlt.pipeline.pipeline import Pipeline
 
 from analytics_ingestion.goodday.source import capture_inventory
+from analytics_ingestion.kit.writes import open_writes
 
 
 class Snapshot:
@@ -79,9 +80,9 @@ def test_retains_captures_and_empty_capture_is_not_old_inventory(
     tmp_path: Path,
 ) -> None:
     p = pipeline(tmp_path)
-    first = capture_inventory(p, Snapshot([1, 2]))
-    second = capture_inventory(p, Snapshot([2]))
-    empty = capture_inventory(p, Snapshot([]))
+    first = capture_inventory(open_writes(p), Snapshot([1, 2]))
+    second = capture_inventory(open_writes(p), Snapshot([2]))
+    empty = capture_inventory(open_writes(p), Snapshot([]))
     assert len({first.capture_id, second.capture_id, empty.capture_id}) == 3
     assert rows(tmp_path, "select count(*) from goodday.inventory_by_item") == [(3,)]
     assert rows(
@@ -102,10 +103,10 @@ def test_failed_read_does_not_publish_and_retry_does_not_load_partial_capture(
     tmp_path: Path,
 ) -> None:
     p = pipeline(tmp_path)
-    capture_inventory(p, Snapshot([1]))
+    capture_inventory(open_writes(p), Snapshot([1]))
     with pytest.raises(Exception, match="fixture interrupted page"):
-        capture_inventory(p, Snapshot([2, 3], fail=True))
-    capture_inventory(p, Snapshot([4]))
+        capture_inventory(open_writes(p), Snapshot([2, 3], fail=True))
+    capture_inventory(open_writes(p), Snapshot([4]))
     assert rows(
         tmp_path, "select item_id from goodday.inventory_by_item order by item_id"
     ) == [(1,), (4,)]
@@ -119,10 +120,8 @@ def test_failed_load_is_not_complete_and_recovery_keeps_capture_identity(
     from dlt.common.destination.exceptions import DestinationTerminalException
     from dlt.destinations.insert_job_client import InsertValuesLoadJob
 
-    from analytics_ingestion.kit.capture import recover
-
     p = pipeline(tmp_path)
-    capture_inventory(p, Snapshot([1]))
+    capture_inventory(open_writes(p), Snapshot([1]))
     original = InsertValuesLoadJob.run
 
     def fail_evidence(job: InsertValuesLoadJob) -> None:
@@ -135,12 +134,12 @@ def test_failed_load_is_not_complete_and_recovery_keeps_capture_identity(
         with pytest.raises(
             Exception, match="fixture evidence load failure|failed jobs"
         ):
-            capture_inventory(p, Snapshot([2, 3]))
+            capture_inventory(open_writes(p), Snapshot([2, 3]))
     assert p.has_pending_data
     assert rows(
         tmp_path, "select count(*) from goodday._dlt_loads where status = 0"
     ) == [(1,)]
-    recover(pipeline(tmp_path))
+    _ = open_writes(pipeline(tmp_path))
     assert rows(
         tmp_path, "select count(*) from goodday._dlt_loads where status = 0"
     ) == [(2,)]
@@ -152,7 +151,7 @@ def test_failed_load_is_not_complete_and_recovery_keeps_capture_identity(
 
 
 def test_first_empty_capture_creates_inventory_table(tmp_path: Path) -> None:
-    capture_inventory(pipeline(tmp_path), Snapshot([]))
+    capture_inventory(open_writes(pipeline(tmp_path)), Snapshot([]))
     assert rows(tmp_path, "select count(*) from goodday.inventory_by_item") == [(0,)]
     assert rows(tmp_path, "select row_count from goodday.inventory_captures") == [(0,)]
 
@@ -174,7 +173,7 @@ def test_unknown_fields_and_nested_data_survive_capture(tmp_path: Path) -> None:
                     "vendor_extension": {"tags": ["one", "two"], "nullable": None},
                 }
 
-    capture_inventory(pipeline(tmp_path), Extended([1]))
+    capture_inventory(open_writes(pipeline(tmp_path)), Extended([1]))
     assert rows(
         tmp_path,
         "select vendor_extension ->> '$.tags[1]' from goodday.inventory_by_item",
@@ -185,8 +184,8 @@ def test_latest_complete_capture_query_does_not_fall_back_after_empty(
     tmp_path: Path,
 ) -> None:
     p = pipeline(tmp_path)
-    capture_inventory(p, Snapshot([1]))
-    capture_inventory(p, Snapshot([]))
+    capture_inventory(open_writes(p), Snapshot([1]))
+    capture_inventory(open_writes(p), Snapshot([]))
     assert (
         rows(
             tmp_path,
@@ -207,7 +206,7 @@ def test_latest_complete_capture_query_does_not_fall_back_after_empty(
 
 def test_raw_capture_schema_has_descriptions(tmp_path: Path) -> None:
     p = pipeline(tmp_path)
-    capture_inventory(p, Snapshot([]))
+    capture_inventory(open_writes(p), Snapshot([]))
     for name in ("inventory_by_item", "inventory_captures"):
         table = p.default_schema.tables[name]
         assert table.get("description")
@@ -229,5 +228,5 @@ def test_unsafe_loader_configuration_fails_before_capture(
 ) -> None:
     monkeypatch.setenv(key, value)
     with pytest.raises(ValueError, match="requires dlt"):
-        capture_inventory(pipeline(tmp_path), Snapshot([1]))
+        capture_inventory(open_writes(pipeline(tmp_path)), Snapshot([1]))
     assert not (tmp_path / "raw.duckdb").exists()

@@ -3,8 +3,8 @@
 Orders and customers load the same way. Each source supplies its resources and
 evidence; this module owns the order of the steps and what each one keeps:
 
-1. A load package a crashed run left is finished first. dlt's ``run`` would
-   load it and exit without extracting, so this run keeps its own window.
+1. A load package a crashed run left is finished first (``kit.writes``), so
+   this run still loads its own window.
 2. A refresh re-reads open rejects by ID in a separate load without the cursor,
    since a reject is older than the cursor.
 3. The run's window loads. A reject seen again at a version already recorded
@@ -15,16 +15,12 @@ evidence; this module owns the order of the steps and what each one keeps:
 A reject stays open until a version at least as new loads, or until
 reconciliation confirms the record deleted at source after the reject.
 
-Loaded packages keep no payload files, since orders and customers both hold
-restricted personal data. Failed and pending packages keep theirs, so recovery
-still works.
+``kit.writes`` owns the pending-package, loader-setting and payload-file rules.
 """
 
 from __future__ import annotations
 
-import os
-from collections.abc import Callable, Generator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -32,7 +28,7 @@ from dlt.common.destination.exceptions import DestinationUndefinedEntity
 from dlt.extract.resource import DltResource
 from dlt.pipeline.pipeline import Pipeline
 
-from analytics_ingestion.kit.capture import recover
+from analytics_ingestion.kit.writes import open_writes
 from analytics_ingestion.shopify.errors import SourceError
 from analytics_ingestion.shopify.pipeline import source_failures
 
@@ -86,24 +82,23 @@ def run_load_cycle(
     fills; ``window`` builds the run's resource; both skip rejects already
     recorded at a version. ``evidence`` builds the rows that prove coverage.
     Source failures surface as ShopifyIngestionError."""
-    with delete_completed_jobs(pipeline):
-        with source_failures():
-            recover(pipeline)
-            known = open_rejects(pipeline, shop_id, ledger) if kind == "refresh" else {}
-            if known:
-                resource, again = reread(sorted(known), _versions(known))
-                report.load_ids += pipeline.run(resource).loads_ids
-                report.rereads, report.rejects = len(known), again.rejects
-                known = open_rejects(pipeline, shop_id, ledger)
-            info = pipeline.run(window(_versions(known)))
-        report.load_ids += info.loads_ids
-        still_open = open_rejects(pipeline, shop_id, ledger)
-        report.open_rejects = len(still_open)
-        report.oldest_open_reject = min(
-            (first for _, first in still_open.values()), default=None
-        )
-        if report.observed_started_at is not None:
-            pipeline.run(list(evidence()))
+    with source_failures():
+        writes = open_writes(pipeline)
+        known = open_rejects(pipeline, shop_id, ledger) if kind == "refresh" else {}
+        if known:
+            resource, again = reread(sorted(known), _versions(known))
+            report.load_ids += writes.run(resource).loads_ids
+            report.rereads, report.rejects = len(known), again.rejects
+            known = open_rejects(pipeline, shop_id, ledger)
+        info = writes.run(window(_versions(known)))
+    report.load_ids += info.loads_ids
+    still_open = open_rejects(pipeline, shop_id, ledger)
+    report.open_rejects = len(still_open)
+    report.oldest_open_reject = min(
+        (first for _, first in still_open.values()), default=None
+    )
+    if report.observed_started_at is not None:
+        _ = writes.run(list(evidence()))
 
 
 def _versions(known: Mapping[str, tuple[datetime, datetime]]) -> Recorded:
@@ -151,39 +146,3 @@ def open_rejects(
             raise SourceError("Open rejects returned a non-timestamp value")
         result[str(record_id)] = (version.astimezone(UTC), first.astimezone(UTC))
     return result
-
-
-DELETE_COMPLETED_JOBS_ENV = "LOAD__DELETE_COMPLETED_JOBS"
-
-
-@contextmanager
-def delete_completed_jobs(pipeline: Pipeline) -> Generator[None]:
-    """Keep no payload files of a loaded package.
-
-    dlt reads ``load.delete_completed_jobs`` when its load step starts and
-    exposes no per-pipeline argument, so the setting applies for this scope
-    only and the previous value is restored. dlt keeps the files of a package
-    with a failed job and never touches pending packages, so recovery still
-    works. Completed packages that earlier runs left behind are cleaned once on
-    entry."""
-    previous = os.environ.get(DELETE_COMPLETED_JOBS_ENV)
-    os.environ[DELETE_COMPLETED_JOBS_ENV] = "true"
-    try:
-        purge_completed_jobs(pipeline)
-        yield
-    finally:
-        if previous is None:
-            _ = os.environ.pop(DELETE_COMPLETED_JOBS_ENV, None)
-        else:
-            os.environ[DELETE_COMPLETED_JOBS_ENV] = previous
-
-
-def purge_completed_jobs(pipeline: Pipeline) -> None:
-    """Remove job files of loaded packages in this pipeline's own working
-    directory. A package with a failed job keeps its files."""
-    storage = pipeline._get_load_storage()  # pyright: ignore[reportPrivateUsage]
-    for load_id in pipeline.list_completed_load_packages():
-        try:
-            storage.loaded_packages.remove_completed_jobs(load_id)
-        except NotADirectoryError:
-            continue  # already cleaned

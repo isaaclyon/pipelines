@@ -20,6 +20,7 @@ import dlt
 from dlt.common.destination.exceptions import DestinationUndefinedEntity
 from dlt.pipeline.pipeline import Pipeline
 
+from analytics_ingestion.kit.writes import open_writes
 from analytics_ingestion.shopify.client import (
     Budget,
     ExecutionLimits,
@@ -103,6 +104,7 @@ def reconcile(
     )
     shop_id = shop_identity(client)
     pipeline = build_pipeline(settings)
+    writes = open_writes(pipeline, pending="refuse")
     report = ReconcileReport(run_id)
     [(end, raw_first)] = _sql(
         pipeline,
@@ -185,7 +187,7 @@ def reconcile(
         for key, made, status, detail in marked
     ]
     if status_rows:
-        pipeline.run(
+        _ = writes.run(
             dlt.resource(
                 status_rows,
                 name=SOURCE_STATUS_TABLE,

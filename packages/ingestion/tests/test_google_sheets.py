@@ -19,7 +19,7 @@ from analytics_ingestion.google_sheets import client
 from analytics_ingestion.google_sheets.client import google_reader, read_capture
 from analytics_ingestion.google_sheets.source import capture_sheet
 from analytics_ingestion.google_sheets.spec import SheetSpec
-from analytics_ingestion.kit.capture import recover
+from analytics_ingestion.kit.writes import open_writes
 
 NOW = datetime(2026, 11, 1, tzinfo=UTC)
 SPREADSHEET_ID = "fixture-spreadsheet"
@@ -596,7 +596,7 @@ def test_recovery_keeps_observation_without_reread(
     assert rows(tmp_path, "select count(*) from master._dlt_loads where status=0") == [
         (1,)
     ]
-    recover(pipeline(tmp_path))
+    _ = open_writes(pipeline(tmp_path))
     assert len(sheet.calls) == 3
     assert (
         rows(

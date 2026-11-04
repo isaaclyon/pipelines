@@ -114,7 +114,7 @@ def shopify_order_source_status(  # pyright: ignore[reportUnknownParameterType]
     """Fails its check while any month has a gap or an unconfirmed absence."""
     try:
         report = shopify_orders.reconcile(context.run.run_id)
-    except ConfigurationError as error:
+    except (ValueError, ConfigurationError) as error:
         raise dg.Failure(str(error), allow_retries=False) from None
     metadata = dict(report.metadata())
     return dg.MaterializeResult(

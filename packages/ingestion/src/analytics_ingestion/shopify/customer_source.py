@@ -21,7 +21,7 @@ Field groups Shopify denies are probed once per run and left out of the query;
 ``customer_field_access`` records the result so a denied group is never read
 as a source NULL. Log and error text never contains customer values.
 ``load_cycle`` owns the steps around the read: recovery, reject re-reads,
-reject closure, evidence and payload-file deletion.
+reject closure and evidence; ``kit.writes`` deletes payload files.
 """
 
 from __future__ import annotations

@@ -289,7 +289,7 @@ def test_reconcile_blocks_pending_customer_packages(tmp_path: Path) -> None:
     pipeline.extract(
         dlt.resource([{"email": "pending@example.invalid"}], name="pending")
     )
-    with pytest.raises(ConfigurationError, match="pending"):
+    with pytest.raises(ValueError, match="pending"):
         reconcile(tmp_path, shop)
     assert pipeline.has_pending_data
 
@@ -297,7 +297,7 @@ def test_reconcile_blocks_pending_customer_packages(tmp_path: Path) -> None:
 def test_reconcile_removes_legacy_completed_payload_jobs(tmp_path: Path) -> None:
     import dlt
 
-    from tests.test_customer_package_retention import holders
+    from tests.test_kit_writes import holders
 
     shop = seed(tmp_path)
     pipeline = build_pipeline(customer_settings(tmp_path))
