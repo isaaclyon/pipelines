@@ -160,3 +160,7 @@ for project MCP approval.
 The server starts and exposes its tools before a Dagster project exists. Tool
 calls require a running Dagster instance at `http://localhost:3000/graphql`.
 Once the project is ready, start its local Dagster webserver on port 3000.
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).
