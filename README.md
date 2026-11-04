@@ -12,6 +12,12 @@ accepted [local-first lifecycle](docs/specs/20261101-local-first-development.md)
 is partly implemented. It ships only the local and CI targets; running it on a
 shared host needs your own deployment.
 
+The platform is becoming a reusable toolkit for small D2C brands, with one VM
+and one MotherDuck or Snowflake warehouse per client. The [roadmap](ROADMAP.md)
+describes the phases; some content below still describes the earlier
+single-brand setup until Phase 1 lands.
+
+- [Roadmap](ROADMAP.md)
 - [Architecture decisions](docs/adrs/README.md)
 - [Engineering standards](engineering-standards.md)
 - [Delivery policy](docs/delivery-policy.md) — outcomes, acceptance, focus, and tracking

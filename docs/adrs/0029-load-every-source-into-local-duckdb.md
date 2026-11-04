@@ -7,6 +7,9 @@ Date: 2026-11-01
 Proposed on 2026-11-01 and accepted by the owner on 2026-11-02. Extends
 [0028](0028-develop-locally-before-shared-snowflake-release.md), which made local
 DuckDB the development target but did not authorize new source fetches.
+The developer-credentials rule is superseded on 2026-11-04 by
+[0032](0032-read-secrets-from-environment-files.md); remote destinations follow
+[0031](0031-serve-each-client-from-motherduck-or-snowflake.md).
 
 ## Context
 

@@ -4,7 +4,8 @@ Date: 2026-10-07
 
 ## Status
 
-Accepted.
+Accepted. Extended by [0036](0036-upgrade-clients-one-at-a-time-on-pinned-toolkit-versions.md),
+which pins one toolkit version per client.
 
 ## Context
 

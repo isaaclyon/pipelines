@@ -4,7 +4,8 @@ Date: 2026-10-29
 
 ## Status
 
-Accepted.
+Superseded on 2026-11-04 by [0037](0037-build-marts-in-place-in-the-serving-warehouse.md).
+Previously accepted.
 Extends [ADR 0022](0022-publish-marts-through-forward-only-transformation-layers.md).
 Uses the Snowflake-only publication boundary in
 [ADR 0025](0025-use-duckdb-for-deterministic-tests.md).

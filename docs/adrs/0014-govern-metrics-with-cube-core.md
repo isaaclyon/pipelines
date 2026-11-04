@@ -5,6 +5,7 @@ Date: 2026-10-07
 ## Status
 
 Accepted. Local serving equivalence is superseded by [0025](0025-use-duckdb-for-deterministic-tests.md).
+Extended by [0034](0034-serve-dashboards-with-metabase-through-cube.md) for Metabase dashboards.
 
 ## Context
 
