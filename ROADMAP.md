@@ -101,9 +101,10 @@ MotherDuck and on Snowflake development targets.
 - Answer Lola's first business question, "How much money did we make?", the way
   Shopify's own sales reports do: gross sales, discounts, returns, net sales,
   shipping, taxes, total sales, order count and average order value, by day and
-  month. Build the generic orders marts and Cube measures this needs. Write the
-  question as an outcome issue under the [delivery policy](docs/delivery-policy.md),
-  including the acceptance reference and tolerance, before building.
+  month. Build the generic orders marts and Cube measures this needs, and track
+  the question as an outcome issue under the [delivery policy](docs/delivery-policy.md).
+  The acceptance owner is the operator, acting as Lola's freelance analytics
+  lead. The reference is the sales overview in Lola's Shopify Analytics dashboard.
 - Connect Metabase to Cube's SQL API and build Lola's first dashboard.
 - Update the "Current stage" section of `AGENTS.md`, because Lola becomes the
   first real deployment.
@@ -144,6 +145,4 @@ duplicates, and its dry run matches its real run.
 
 ## Open questions
 
-- Who at Lola Blankets accepts the first sales answer, and which Shopify report
-  is the comparison reference?
 - Which VM host and size to standardize on for clients.
