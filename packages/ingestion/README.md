@@ -29,6 +29,8 @@ defines the tables and columns.
 | `model` | Source rows to raw tables with exact decimals and ancestor IDs |
 | `source` | Paged reads, follow-up completion and rejects |
 | `pipeline` | Column hints, write settings and the dlt pipeline shared with the customer source |
+| `load_cycle` | The run steps both sources share: recovery, reject re-reads, the window load, evidence, reject closure and payload-file deletion |
+| `dagster` | Run bounds, the `open_rejects` check and the three schedules both sources share |
 | `reconcile` | Monthly count comparison and confirmed-deletion marks |
 | `extract` | Shop identity, order counts and cursor paging shared by the two above |
 | `defs/shopify_orders.py` | Dagster assets, two jobs and three schedules (all stopped by default) |
@@ -84,11 +86,19 @@ two-minute lag; lookback reads an explicit `[start, end)` window by
 re-extraction windows from order creation times, not from `updated_at`. An order that fails the field contract is written to
 `shopify_order_rejects` and the rest of the run loads; any other incomplete
 order fails the run before anything is written. A reject stays open until a
-version at least as new loads. Each refresh first re-reads open rejects by ID
+version at least as new loads, or until [count reconciliation](#count-reconciliation)
+marks the order `unavailable` after the reject. Each refresh first re-reads open rejects by ID
 (an `id:` search, 50 per request) in a separate load without the cursor, and
 an order that fails again at the same version is not recorded twice. The
 `open_rejects` asset check warns while any reject is open and fails once one
 has been open for 24 hours.
+
+Orders and customers run the same cycle, defined once in `load_cycle`: finish
+a package a crashed run left, re-read open rejects on refresh, load the window,
+then append evidence. Orders hold contact email, phone and addresses, so, as for
+customers, dlt deletes the job files of each loaded package. The next run also
+removes job files that earlier loaded packages left. Failed and pending packages keep
+their files, so recovery still works.
 
 Launch a window by hand with the `shopify_orders_dlt_load` job:
 
@@ -146,7 +156,10 @@ refresh's `window_end`. Only months that differ read their raw orders directly
 by ID, 250 per request, so a month raw barely covers costs almost nothing. A raw
 order that two direct reads miss is marked `unavailable` in
 `order_source_status`, and a marked order that a read returns is marked
-`available`; raw rows are never removed. More than 500 candidates marks nothing
+`available`; raw rows are never removed. An `unavailable` mark closes the
+order's older rejects. Reconciliation reads only orders raw holds, so the
+reject of an order that never loaded stays open after Shopify deletes it.
+More than 500 candidates marks nothing
 and fails the run, since that suggests lost access rather than deletions.
 Shopify's count minus the raw orders it still returns is the gap a `reextract`
 must fill. The `counts_match` check fails while any gap or unconfirmed absence
@@ -295,7 +308,8 @@ run, and dlt discards the extract, so a failed run loads nothing and keeps the
 cursor. Completed dlt job files are deleted after loading. The next load or
 reconcile also removes legacy completed job files in this pipeline. Failed and
 pending packages remain recoverable; reconciliation fails until recovery finishes.
-A package left by a killed run loads first on the next run. A customer
+A package left by a killed run loads first on the next run. These steps are
+the `load_cycle` that orders also run. A customer
 that breaks the field contract goes to `shopify_customer_rejects` with an error
 that names the field and never the value. The next refresh re-reads open rejects
 by ID. The `open_rejects` check warns for a day and then fails.

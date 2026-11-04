@@ -9,8 +9,14 @@ Use the repository-root `scripts/platform` dispatcher; `help` lists commands.
 | local | compose.yaml + local.yaml | Offline fixtures and metadata-only scaffold |
 | ci | compose.yaml + local.yaml + ci.yaml | Offline checks; Compose services publish no ports |
 
-The local env example contains fixture-only credentials and is used automatically.
-Set `ANALYTICS_PROJECT` to isolate a second stack's volumes and network, and
+The `local` target reads the ignored `deploy/compose/.env.local` when it exists
+and otherwise the fixture-only `.env.local.example`; the `ci` target always uses
+the example. Set `ANALYTICS_ENV_FILE` to choose another file.
+Each checkout gets its own local stack, named `analytics-<checkout folder>`
+(for example `analytics-pipelines`), so worktrees do not share volumes or a
+network. Stacks started before this default were named `analytics-local`; set
+`ANALYTICS_PROJECT=analytics-local` to keep using their volumes. Set
+`ANALYTICS_PROJECT` to choose another name, and
 `DAGSTER_PORT`/`CUBE_PORT`/`DOCS_PORT` to select different local ports.
 
 ## One configuration path for code locations and runs
@@ -269,7 +275,8 @@ mkdir -p ~/.config/analytics-platform/local/sources && chmod 700 ~/.config/analy
 ```
 
 Copy `.env.local.example` to the ignored `deploy/compose/.env.local`, add the
-host paths and the kit sources to enable, then start the stack with that file:
+host paths and the kit sources to enable, then start the stack; the `local`
+target reads that file automatically:
 
 ```sh
 SHOPIFY_CREDENTIALS_HOST_PATH=/Users/<you>/.config/analytics-platform/local/shopify_credentials.json
@@ -278,7 +285,7 @@ ANALYTICS_SOURCES=impact_radius,google_sheets
 ```
 
 ```sh
-ANALYTICS_ENV_FILE=deploy/compose/.env.local ./scripts/platform local up
+./scripts/platform local up
 ```
 
 The ingestion service and its run containers mount each file, and the settings
@@ -310,7 +317,7 @@ Orders keep their saved progress in the moved file; a reloaded window starts
 from the window you give it.
 
 ```sh
-ANALYTICS_ENV_FILE=deploy/compose/.env.local ./scripts/platform local compose \
+./scripts/platform local compose \
   run --rm --no-deps --entrypoint mv ingestion \
   /var/lib/analytics/ingestion/shopify_orders/local/raw_shopify_orders.duckdb \
   /var/lib/analytics/ingestion/shopify_orders/local/shopify_orders.duckdb
@@ -348,12 +355,12 @@ Impact Radius reads the last three days of actions for the program in
 
 After the loads, materialize the marts in the transformations code location,
 or build every enabled model from the checkout with
-`ANALYTICS_ENV_FILE=deploy/compose/.env.local ./scripts/platform local dbt build`.
+`./scripts/platform local dbt build`.
 Local `dbt` commands write the `local_*` schemas unless `DBT_NAMESPACE` is set;
 the `ci` target and Snowflake targets require an explicit namespace.
 
 To look at the data, run
-`ANALYTICS_ENV_FILE=deploy/compose/.env.local ./scripts/platform local browse`.
+`./scripts/platform local browse`.
 It needs the DuckDB CLI on the host (`brew install duckdb`). It copies the
 warehouse and each raw file into a private temporary folder, opens them
 read-only in the DuckDB UI at <http://localhost:4213>, and deletes the copies
@@ -369,7 +376,9 @@ The `docs` Compose service runs Caddy, a web server, from `Caddyfile`. It starts
 only where `COMPOSE_PROFILES` includes `docs`, as in the local and CI example
 file. It serves the dbt documentation and column lineage at
 `http://localhost:8080` behind a shared login, with the fixture password in
-`.env.local.example`. Caddy serves the `docs` volume read-only and proxies
+`.env.local.example`. `local smoke` checks that login with the fixture password,
+so keep the example's `DOCS_PASSWORD_HASH` in a local env file you smoke-test.
+Caddy serves the `docs` volume read-only and proxies
 nothing, so Dagster and Cube stay on loopback. Its content security policy
 allows only the pages' inline code and blocks every network connection, which
 also blocks the usage tracking bundled in both pages.

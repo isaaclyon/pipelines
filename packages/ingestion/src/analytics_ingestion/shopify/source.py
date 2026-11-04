@@ -6,8 +6,8 @@ Each page is handed to dlt as it is read, so memory stays flat as runs grow;
 dlt keeps the newest version of an order seen twice. Incomplete source data
 raises, and dlt discards the run's extract, so a failed run loads nothing.
 An order whose content breaks the row contract is appended to the rejects
-table while the rest of the run loads. Each refresh first re-reads open
-rejects by ID; a reject closes once a version at least as new loads.
+table while the rest of the run loads. ``load_cycle`` owns the steps around
+the read: recovery, reject re-reads, reject closure and evidence.
 
 Windows are closed at the start and open at the end. Shopify's ``<`` matches
 the whole end second, so rows at or after the end are dropped here. Several
@@ -28,13 +28,11 @@ from threading import Event
 from typing import Literal
 
 import dlt
-from dlt.common.destination.exceptions import DestinationUndefinedEntity
 from dlt.common.typing import TTableNames
 from dlt.extract.hints import TResourceNestedHints
 from dlt.extract.resource import DltResource
 from dlt.pipeline.pipeline import Pipeline
 
-from analytics_ingestion.kit.capture import recover
 from analytics_ingestion.shopify.client import (
     Budget,
     ExecutionLimits,
@@ -56,6 +54,12 @@ from analytics_ingestion.shopify.jsonvalue import (
     parse_instant,
     required_str,
 )
+from analytics_ingestion.shopify.load_cycle import (
+    CycleReport,
+    Recorded,
+    RejectLedger,
+    run_load_cycle,
+)
 from analytics_ingestion.shopify.model import (
     ANCESTOR_DESCRIPTIONS,
     BATCH_EVIDENCE_COLUMNS,
@@ -63,6 +67,7 @@ from analytics_ingestion.shopify.model import (
     NESTED_TABLES,
     ORDER_COLUMNS,
     ROOT_TABLE,
+    SOURCE_STATUS_TABLE,
     OrderException,
     ParsedOrder,
     RefundChildren,
@@ -76,7 +81,6 @@ from analytics_ingestion.shopify.pipeline import (
     Row,
     column_hints,
     pipeline,
-    source_failures,
 )
 from analytics_ingestion.shopify.queries import (
     API_VERSION,
@@ -106,6 +110,16 @@ READER_LIMITS = ExecutionLimits(
     max_source_bytes=1024 * 1024 * 1024, max_active_seconds=60 * 60
 )
 ExtractionKind = Literal["refresh", "lookback", "reextract"]
+# A reject closes once a version at least as new loads, or once count
+# reconciliation marks the order unavailable after the reject.
+REJECTS = RejectLedger(
+    REJECTS_TABLE,
+    ROOT_TABLE,
+    "order_id",
+    SOURCE_STATUS_TABLE,
+    "unavailable",
+    "detected_at",
+)
 REJECT_COLUMNS = [
     Column("shop_id", "text", False, description=ANCESTOR_DESCRIPTIONS["shop_id"]),
     Column("order_id", "text", False, description=ANCESTOR_DESCRIPTIONS["order_id"]),
@@ -417,27 +431,18 @@ def slices(
 
 
 @dataclass
-class RunReport:
+class RunReport(CycleReport):
     """Throughput and outcome evidence; counts and costs only, no payloads."""
 
     run_id: str
     kind: ExtractionKind
-    window_start: datetime | None = None
-    window_end: datetime | None = None
-    observed_started_at: datetime | None = None
-    observed_finished_at: datetime | None = None
     orders: int = 0
-    rejects: int = 0
-    rereads: int = 0
-    open_rejects: int = 0
-    oldest_open_reject: datetime | None = None
     moved: int = 0
     outside_window: int = 0
     pages: int = 0
     workers: int = 0
     extract_seconds: float = 0.0
     stats: list[RequestStats] = field(default_factory=list)
-    load_ids: list[str] = field(default_factory=list)
 
     def metadata(self) -> Mapping[str, str | int | float | None]:
         requests = sum(sum(stats.requests.values()) for stats in self.stats)
@@ -651,73 +656,32 @@ def load_orders(
             finally:
                 stop.set()
 
-    pipeline = build_pipeline(settings)
-    with source_failures():
-        # dlt's run loads a package left by a crashed run and exits without
-        # extracting, so finish it first and keep this run's window.
-        recover(pipeline)
-        known = open_rejects(pipeline, shop_id) if run.kind == "refresh" else {}
-        if known:
-            # Rejects are older than the cursor, so they load on their own.
-            ids, again = sorted(known), RunReport(run.run_id, run.kind)
+    def reread(ids: Sequence[str], recorded: Recorded) -> tuple[DltResource, RunReport]:
+        def read_ids(
+            field: WindowField, start: datetime, end: datetime, observed: Observed
+        ) -> Iterator[Page]:
+            del field, start, end
+            reader = PageReader(client(), shop_id)
+            yield from reader.read_ids(ids)
+            observed.absorb(reader.observed)
 
-            def read_ids(
-                field: WindowField, start: datetime, end: datetime, observed: Observed
-            ) -> Iterator[Page]:
-                del field, start, end
-                reader = PageReader(client(), shop_id)
-                yield from reader.read_ids(ids)
-                observed.absorb(reader.observed)
+        again = RunReport(run.run_id, run.kind)
+        resource = orders_resource(
+            run, shop_id, read_ids, again, recorded, stateless=True
+        )
+        return resource, again
 
-            reread = orders_resource(
-                run,
-                shop_id,
-                read_ids,
-                again,
-                {order_id: version for order_id, (version, _) in known.items()},
-                stateless=True,
-            )
-            report.load_ids += pipeline.run(reread).loads_ids
-            report.rereads, report.rejects = len(ids), again.rejects
-            known = open_rejects(pipeline, shop_id)
-        recorded = {order_id: version for order_id, (version, _) in known.items()}
-        info = pipeline.run(orders_resource(run, shop_id, read, report, recorded))
-    report.load_ids += info.loads_ids
-    still_open = open_rejects(pipeline, shop_id)
-    report.open_rejects = len(still_open)
-    report.oldest_open_reject = min(
-        (first for _, first in still_open.values()), default=None
+    run_load_cycle(
+        build_pipeline(settings),
+        shop_id,
+        REJECTS,
+        run.kind,
+        report,
+        reread=reread,
+        window=lambda recorded: orders_resource(run, shop_id, read, report, recorded),
+        evidence=lambda: [evidence_resource(run, shop_id, report)],
     )
-    if report.observed_started_at is not None:
-        pipeline.run(evidence_resource(run, shop_id, report))
     return report
-
-
-def open_rejects(
-    pipeline: Pipeline, shop_id: str
-) -> dict[str, tuple[datetime, datetime]]:
-    """Order ID to (newest rejected version, first rejected_at) for rejects that
-    no loaded version supersedes. Empty before the first rejects are written."""
-    with pipeline.sql_client() as client:
-        rejects = client.make_qualified_table_name(REJECTS_TABLE)
-        orders = client.make_qualified_table_name(ROOT_TABLE)
-        try:
-            rows: Sequence[Sequence[object]] | None = client.execute_sql(
-                f"""select r.order_id, max(r.updated_at), min(r.rejected_at)
-                from {rejects} r where r.shop_id = %s and not exists (
-                    select 1 from {orders} o where o.shop_id = r.shop_id
-                    and o.order_id = r.order_id and o.updated_at >= r.updated_at)
-                group by r.order_id""",
-                shop_id,
-            )
-        except DestinationUndefinedEntity:
-            return {}
-    result: dict[str, tuple[datetime, datetime]] = {}
-    for order_id, version, first in rows or []:
-        if not isinstance(version, datetime) or not isinstance(first, datetime):
-            raise SourceError("Open rejects returned a non-timestamp value")
-        result[str(order_id)] = (version.astimezone(UTC), first.astimezone(UTC))
-    return result
 
 
 def evidence_resource(run: OrdersRun, shop_id: str, report: RunReport) -> DltResource:

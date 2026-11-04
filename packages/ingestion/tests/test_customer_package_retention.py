@@ -12,9 +12,9 @@ from dlt.common.exceptions import TerminalValueError
 from dlt.common.schema.typing import TTableSchema
 from dlt.common.typing import TDataItems
 
-from analytics_ingestion.shopify.customer_source import (
+from analytics_ingestion.shopify.customer_source import build_pipeline
+from analytics_ingestion.shopify.load_cycle import (
     DELETE_COMPLETED_JOBS_ENV,
-    build_pipeline,
     delete_completed_jobs,
 )
 from tests.customer_fakes import FakeCustomerShop, customer, customer_settings

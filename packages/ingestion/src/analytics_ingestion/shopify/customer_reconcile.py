@@ -50,14 +50,14 @@ from analytics_ingestion.shopify.customer_queries import (
     IDS_PER_READ,
 )
 from analytics_ingestion.shopify.customer_source import (
+    REJECTS,
     REQUIRED_SCOPES,
     build_pipeline,
-    open_rejects,
-    purge_completed_jobs,
 )
 from analytics_ingestion.shopify.errors import ConfigurationError, SourceError
 from analytics_ingestion.shopify.extract import shop_identity
 from analytics_ingestion.shopify.jsonvalue import as_list, as_object
+from analytics_ingestion.shopify.load_cycle import open_rejects, purge_completed_jobs
 from analytics_ingestion.shopify.pipeline import (
     MERGE,
     SCHEMA_CONTRACT,
@@ -120,7 +120,7 @@ def reconcile_customers(
         )
     purge_completed_jobs(pipeline)
     report = CustomerReconcileReport(run_id)
-    open_ids = sorted(open_rejects(pipeline, shop_id))
+    open_ids = sorted(open_rejects(pipeline, shop_id, REJECTS))
     sweeps = _sql(
         pipeline,
         "select batch_id, observed_started_at from {evidence} where shop_id = %s "

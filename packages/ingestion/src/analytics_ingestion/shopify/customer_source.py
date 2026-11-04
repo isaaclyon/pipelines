@@ -20,26 +20,24 @@ Run kinds:
 Field groups Shopify denies are probed once per run and left out of the query;
 ``customer_field_access`` records the result so a denied group is never read
 as a source NULL. Log and error text never contains customer values.
+``load_cycle`` owns the steps around the read: recovery, reject re-reads,
+reject closure, evidence and payload-file deletion.
 """
 
 from __future__ import annotations
 
-import os
 import time
-from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal
 
 import dlt
-from dlt.common.destination.exceptions import DestinationUndefinedEntity
 from dlt.common.typing import TTableNames
 from dlt.extract.hints import TResourceNestedHints
 from dlt.extract.resource import DltResource
 from dlt.pipeline.pipeline import Pipeline
 
-from analytics_ingestion.kit.capture import recover
 from analytics_ingestion.shopify.client import (
     Budget,
     ExecutionLimits,
@@ -96,6 +94,12 @@ from analytics_ingestion.shopify.jsonvalue import (
     parse_instant,
     required_str,
 )
+from analytics_ingestion.shopify.load_cycle import (
+    CycleReport,
+    Recorded,
+    RejectLedger,
+    run_load_cycle,
+)
 from analytics_ingestion.shopify.pipeline import (
     LAG_SECONDS,
     MERGE,
@@ -104,7 +108,6 @@ from analytics_ingestion.shopify.pipeline import (
     Row,
     column_hints,
     pipeline,
-    source_failures,
 )
 from analytics_ingestion.shopify.queries import API_VERSION, format_instant
 from analytics_ingestion.shopify.settings import Settings
@@ -118,6 +121,16 @@ READER_LIMITS = ExecutionLimits(
     max_requests=200_000, max_source_bytes=2 * 1024**3, max_active_seconds=4 * 3600
 )
 CustomerKind = Literal["refresh", "lookback", "reextract", "sweep"]
+# A reject closes once a version at least as new loads, or once two direct
+# reads after a sweep confirm the customer deleted after the reject.
+REJECTS = RejectLedger(
+    REJECTS_TABLE,
+    ROOT_TABLE,
+    "customer_id",
+    STATUS_TABLE,
+    "confirmed_unavailable",
+    "checked_at",
+)
 
 
 @dataclass(frozen=True)
@@ -389,20 +402,12 @@ class CustomerReader:
 
 
 @dataclass
-class RunReport:
+class RunReport(CycleReport):
     """Throughput and outcome evidence; counts and costs only, no payloads."""
 
     run_id: str
     kind: CustomerKind
-    window_start: datetime | None = None
-    window_end: datetime | None = None
-    observed_started_at: datetime | None = None
-    observed_finished_at: datetime | None = None
     customers: int = 0
-    rejects: int = 0
-    rereads: int = 0
-    open_rejects: int = 0
-    oldest_open_reject: datetime | None = None
     moved: int = 0
     outside_window: int = 0
     pages: int = 0
@@ -410,7 +415,6 @@ class RunReport:
     access: dict[str, str] = field(default_factory=dict)
     inventory: dict[tuple[str, str, str], list[int]] = field(default_factory=dict)
     stats: list[RequestStats] = field(default_factory=list)
-    load_ids: list[str] = field(default_factory=list)
 
     def metadata(self) -> Mapping[str, str | int | float | None]:
         floors = [s.min_available for s in self.stats if s.min_available is not None]
@@ -566,42 +570,6 @@ def build_pipeline(settings: Settings) -> Pipeline:
     return pipeline(settings, "customers")
 
 
-DELETE_COMPLETED_JOBS_ENV = "LOAD__DELETE_COMPLETED_JOBS"
-
-
-@contextmanager
-def delete_completed_jobs(pipeline: Pipeline) -> Generator[None]:
-    """Keep no customer payload files of a loaded package.
-
-    dlt reads ``load.delete_completed_jobs`` when its load step starts and
-    exposes no per-pipeline argument, so the setting applies for the scope of
-    this customers pipeline only and the previous value is restored. dlt keeps
-    the files of a package with a failed job and never touches pending
-    packages, so recovery still works. Completed packages that earlier runs
-    left behind are cleaned once on entry."""
-    previous = os.environ.get(DELETE_COMPLETED_JOBS_ENV)
-    os.environ[DELETE_COMPLETED_JOBS_ENV] = "true"
-    try:
-        purge_completed_jobs(pipeline)
-        yield
-    finally:
-        if previous is None:
-            _ = os.environ.pop(DELETE_COMPLETED_JOBS_ENV, None)
-        else:
-            os.environ[DELETE_COMPLETED_JOBS_ENV] = previous
-
-
-def purge_completed_jobs(pipeline: Pipeline) -> None:
-    """Remove job files of loaded packages in this pipeline's own working
-    directory. A package with a failed job keeps its files."""
-    storage = pipeline._get_load_storage()  # pyright: ignore[reportPrivateUsage]
-    for load_id in pipeline.list_completed_load_packages():
-        try:
-            storage.loaded_packages.remove_completed_jobs(load_id)
-        except NotADirectoryError:
-            continue  # already cleaned
-
-
 def load_customers(
     settings: Settings,
     run: CustomersRun,
@@ -643,64 +611,49 @@ def load_customers(
         yield from reader.read(start, end, accept)
         _absorb(observed, reader.observed)
 
-    pipeline = build_pipeline(settings)
-    with delete_completed_jobs(pipeline):
-        with source_failures():
-            # dlt loads a package left by a crashed run and then exits without
-            # extracting, so finish it first and keep this run's window.
-            recover(pipeline)
-            known = open_rejects(pipeline, shop_id) if run.kind == "refresh" else {}
-            if known:
-                ids, again = sorted(known), RunReport(run.run_id, run.kind)
-
-                def read_ids(
-                    start: datetime | None,
-                    end: datetime,
-                    accept: Callable[[JsonObject], bool],
-                    observed: Observed,
-                ) -> Iterator[Page]:
-                    del start, end, accept
-                    reader = CustomerReader(
-                        client(),
-                        shop_id,
-                        groups,
-                        approved_metafields=approved_metafields,
-                    )
-                    yield from reader.read_ids(ids)
-                    _absorb(observed, reader.observed)
-
-                reread = customers_resource(
-                    run,
-                    shop_id,
-                    read_ids,
-                    again,
-                    {cid: version for cid, (version, _) in known.items()},
-                    stateless=True,
-                    by_id=True,
-                )
-                report.load_ids += pipeline.run(reread).loads_ids
-                report.rereads, report.rejects = len(ids), again.rejects
-                known = open_rejects(pipeline, shop_id)
-            recorded = {cid: version for cid, (version, _) in known.items()}
-            info = pipeline.run(
-                customers_resource(run, shop_id, read, report, recorded)
+    def reread(ids: Sequence[str], recorded: Recorded) -> tuple[DltResource, RunReport]:
+        def read_ids(
+            start: datetime | None,
+            end: datetime,
+            accept: Callable[[JsonObject], bool],
+            observed: Observed,
+        ) -> Iterator[Page]:
+            del start, end, accept
+            reader = CustomerReader(
+                client(), shop_id, groups, approved_metafields=approved_metafields
             )
-        report.load_ids += info.loads_ids
-        still_open = open_rejects(pipeline, shop_id)
-        report.open_rejects = len(still_open)
-        report.oldest_open_reject = min(
-            (first for _, first in still_open.values()), default=None
+            yield from reader.read_ids(ids)
+            _absorb(observed, reader.observed)
+
+        again = RunReport(run.run_id, run.kind)
+        resource = customers_resource(
+            run, shop_id, read_ids, again, recorded, stateless=True, by_id=True
         )
-        if report.observed_started_at is not None:
-            ensure_child_tables(pipeline, settings)
-            pipeline.run(
-                [
-                    evidence_resource(run, shop_id, report),
-                    access_resource(run, shop_id, report),
-                    inventory_resource(run, shop_id, report),
-                ]
-            )
-        return report
+        return resource, again
+
+    pipeline = build_pipeline(settings)
+
+    def evidence() -> list[DltResource]:
+        ensure_child_tables(pipeline, settings)
+        return [
+            evidence_resource(run, shop_id, report),
+            access_resource(run, shop_id, report),
+            inventory_resource(run, shop_id, report),
+        ]
+
+    run_load_cycle(
+        pipeline,
+        shop_id,
+        REJECTS,
+        run.kind,
+        report,
+        reread=reread,
+        window=lambda recorded: customers_resource(
+            run, shop_id, read, report, recorded
+        ),
+        evidence=evidence,
+    )
+    return report
 
 
 _DUCKDB_TYPES = {
@@ -753,50 +706,6 @@ def _absorb(into: Observed, other: Observed) -> None:
     for key, (count, collected) in other.inventory.items():
         entry = into.inventory.setdefault(key, [0, collected])
         entry[0] += count
-
-
-def open_rejects(
-    pipeline: Pipeline, shop_id: str
-) -> dict[str, tuple[datetime, datetime]]:
-    """Customer ID to (newest rejected version, first rejected_at) for rejects
-    that no loaded version supersedes and that no later
-    ``confirmed_unavailable`` status closes (a deletion proven by two direct
-    reads)."""
-    with pipeline.sql_client() as client:
-        rejects = client.make_qualified_table_name(REJECTS_TABLE)
-        customers = client.make_qualified_table_name(ROOT_TABLE)
-        status = client.make_qualified_table_name(STATUS_TABLE)
-        # Legacy pipelines may not have a status table before reconciliation.
-        # Keep resolution in SQL so deleted-customer history is not loaded into
-        # memory on every refresh.
-        try:
-            client.execute_sql(f"select customer_id from {status} where 1 = 0")
-        except DestinationUndefinedEntity:
-            resolved = ""
-        else:
-            resolved = f"""and not exists (
-                select 1 from {status} s where s.shop_id = r.shop_id
-                and s.customer_id = r.customer_id
-                and s.status = 'confirmed_unavailable'
-                and s.checked_at >= r.rejected_at)"""
-        try:
-            rows: Sequence[Sequence[object]] | None = client.execute_sql(
-                f"""select r.customer_id, max(r.updated_at), min(r.rejected_at)
-                from {rejects} r where r.shop_id = %s and not exists (
-                    select 1 from {customers} c where c.shop_id = r.shop_id
-                    and c.customer_id = r.customer_id and c.updated_at >= r.updated_at)
-                {resolved}
-                group by r.customer_id""",
-                shop_id,
-            )
-        except DestinationUndefinedEntity:
-            return {}
-    result: dict[str, tuple[datetime, datetime]] = {}
-    for customer_id, version, first in rows or []:
-        if not isinstance(version, datetime) or not isinstance(first, datetime):
-            raise SourceError("Open rejects returned a non-timestamp value")
-        result[str(customer_id)] = (version.astimezone(UTC), first.astimezone(UTC))
-    return result
 
 
 def _append(name: str, rows: list[Row], columns: Sequence[Column]) -> DltResource:

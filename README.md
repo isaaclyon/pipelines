@@ -96,7 +96,8 @@ Business rules live in two places, so no brand detail is written into SQL:
   characteristic flags (specialty, bulk, gifting, broadcast and others). Edit
   the `vars` block, or override values for one run with `dbt --vars`.
 - **Environment variables** in your Compose env file
-  (`ANALYTICS_ENV_FILE`, default `deploy/compose/.env.local.example`):
+  (`ANALYTICS_ENV_FILE`; `local` defaults to `deploy/compose/.env.local` when it
+  exists, otherwise `deploy/compose/.env.local.example`):
   `ANALYTICS_REPORTING_TIME_ZONE` sets the calendar zone for order dates in
   dbt and Cube (default `America/Los_Angeles`). Source connectors read their
   own settings files; see the [ingestion README](packages/ingestion/README.md).
@@ -136,15 +137,16 @@ To retry setup or prepare an existing checkout, run from its root:
 sh scripts/worktree-setup.sh /absolute/path/to/primary-checkout
 ```
 
-For simultaneous container stacks, select a distinct project name and ports:
+Each checkout's local stack is named after its folder (`analytics-<folder>`),
+so worktrees keep separate volumes. To run two stacks at once, select distinct
+ports:
 
 ```sh
-ANALYTICS_PROJECT=analytics-my-change DAGSTER_PORT=3100 CUBE_PORT=4100 \
-  ANALYTICS_ENV_FILE=deploy/compose/.env.local ./scripts/platform local up
+DAGSTER_PORT=3100 CUBE_PORT=4100 DOCS_PORT=8180 ./scripts/platform local up
 ```
 
-Omit `ANALYTICS_ENV_FILE` to use the fixture example if no local file exists.
-Use the same project name and ports for subsequent commands. See
+The `local` target reads `deploy/compose/.env.local` when it exists and the
+fixture example otherwise. Use the same ports for subsequent commands. See
 [deployment configuration](deploy/compose/README.md) for details.
 
 ## Agent MCP configuration
