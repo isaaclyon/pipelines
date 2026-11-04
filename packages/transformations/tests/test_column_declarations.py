@@ -197,7 +197,9 @@ def parent_currency_manifest() -> dict[str, object]:
 
 
 def test_parent_currency_correctness_link() -> None:
-    check_column_declarations({"nodes": parent_currency_manifest()})
+    check_column_declarations(
+        {"metadata": {"project_name": "p"}, "nodes": parent_currency_manifest()}
+    )
 
 
 @pytest.mark.parametrize(
@@ -236,7 +238,12 @@ def test_parent_currency_requires_real_correctness_link(change: str) -> None:
         nodes["test.p.currencies_match"] = test
     nodes["model.p.lines"] = child
     with pytest.raises(ValueError):
-        check_column_declarations({"nodes": nodes})
+        check_column_declarations({"metadata": {"project_name": "p"}, "nodes": nodes})
+
+
+def test_root_project_must_be_named() -> None:
+    with pytest.raises(ValueError, match="project_name"):
+        check_column_declarations({"nodes": parent_currency_manifest()})
 
 
 def test_unrelated_resources_and_package_models_are_ignored() -> None:

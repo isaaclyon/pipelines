@@ -8,6 +8,7 @@ meaning. Temporal value tests establish conversion correctness separately.
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from analytics_transformations.layer_dependencies import root_project
 from analytics_transformations.mart_contracts import (
     check_blocking,
     identifier,
@@ -57,9 +58,7 @@ def _columns(node: dict[str, object]) -> dict[str, dict[str, object]]:
 
 
 def _meta(column: dict[str, object]) -> dict[str, object]:
-    # dbt 1.12 serializes column config.meta; older manifests use column.meta.
-    config = mapping(column.get("config", {}))
-    return mapping(config.get("meta", column.get("meta", {})))
+    return mapping(mapping(column.get("config", {})).get("meta", {}))
 
 
 def _test(
@@ -247,11 +246,9 @@ def check_column_declarations(data: object) -> None:
     nodes = {
         key: mapping(value) for key, value in mapping(manifest.get("nodes")).items()
     }
-    project = mapping(manifest.get("metadata", {})).get("project_name")
+    project = root_project(data)
     for model_id, node in nodes.items():
-        if node.get("resource_type") != "model" or (
-            project is not None and node.get("package_name") != project
-        ):
+        if node.get("resource_type") != "model" or node.get("package_name") != project:
             continue
         try:
             columns = _columns(node)

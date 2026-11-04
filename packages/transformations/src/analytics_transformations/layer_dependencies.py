@@ -1,8 +1,6 @@
 """Check ADR 0022's forward-only layer dependencies in a parsed dbt manifest.
 
-Run after ``dbt parse``:
-
-    python -m analytics_transformations.layer_dependencies dbt/target/manifest.json
+``manifest_checks`` runs these rules after ``dbt parse``.
 
 A model's folder under its model path sets its layer, and its name prefix must
 name the same layer. Layers read only from the layers ADR 0022 allows:
@@ -24,10 +22,7 @@ a subquery, or a table function in ``ROW_FUNCTIONS``.
 
 from __future__ import annotations
 
-import json
-import os
 import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
@@ -517,34 +512,3 @@ def check(
                 for relation in find_hard_coded_relations(resource.raw_code)
             )
     return sorted(violations)
-
-
-def main(argv: list[str]) -> int:
-    if len(argv) != 1:
-        print(
-            "Usage: python -m analytics_transformations.layer_dependencies MANIFEST",
-            file=sys.stderr,
-        )
-        return 2
-    manifest = cast(object, json.loads(Path(argv[0]).read_text()))
-    project = root_project(manifest)
-    resources = parse_manifest(manifest)
-    violations = check(resources, project, namespace=os.environ.get("DBT_NAMESPACE"))
-    for violation in violations:
-        print(violation, file=sys.stderr)
-    models = sum(
-        resource.resource_type == "model" and resource.package == project
-        for resource in resources
-    )
-    if violations:
-        print(
-            f"Layer dependencies: {len(violations)} violation(s) in {models} model(s)",
-            file=sys.stderr,
-        )
-        return 1
-    print(f"Layer dependencies: {models} model(s) checked")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))

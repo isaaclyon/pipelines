@@ -1,5 +1,7 @@
 """Explicit classification is required; lineage never supplies a default."""
 
+from typing import cast
+
 import pytest
 
 from analytics_transformations.pii import check_pii
@@ -31,6 +33,16 @@ def manifest(value: object) -> dict[str, object]:
 def test_missing_or_non_boolean_declaration_fails(value: object) -> None:
     with pytest.raises(ValueError, match="derived.customer_count.*boolean"):
         check_pii(manifest(value))
+
+
+def test_only_dbt_column_config_meta_declares_pii() -> None:
+    data = manifest(False)
+    model = cast(dict[str, dict[str, object]], data["nodes"])[
+        "model.pii_fixture.derived"
+    ]
+    model["columns"] = {"customer_count": {"meta": {"pii": False}}}
+    with pytest.raises(ValueError, match="customer_count.*boolean"):
+        check_pii(data)
 
 
 @pytest.mark.parametrize("value", [False, True])
