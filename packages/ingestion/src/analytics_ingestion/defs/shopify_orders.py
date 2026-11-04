@@ -38,7 +38,6 @@ STATUS_KEY = dg.AssetKey(["raw", "shopify", "shopify_order_source_status"])
 COUNTS_CHECK = "counts_match"
 EXCLUSIVE = {
     "analytics/exclusive-resource": "shopify-orders",
-    "analytics/publication-input": "development-marts",
     "dagster/retry_on_asset_or_op_failure": "false",
 }
 SCHEDULES = ScheduleSpec(

@@ -78,112 +78,11 @@ def test_empty_column_inventory_fails() -> None:
         check_pii(data)
 
 
-def exposed(value: object) -> dict[str, object]:
-    data = manifest(False)
-    data["exposures"] = {
-        "exposure.pii_fixture.customers": {
-            "resource_type": "exposure",
-            "package_name": "pii_fixture",
-            "config": {
-                "meta": {
-                    "cube_fields": {"customers.count": ["derived.customer_count"]},
-                    "cube_pii": {"customers.count": value},
-                    "cube_direct_columns": {"customers.count": None},
-                }
-            },
-        }
-    }
-    return data
-
-
-def test_explicit_non_pii_exposure_passes() -> None:
-    check_pii(exposed(False))
-
-
-@pytest.mark.parametrize("value", [True, None, "false", 0])
-def test_restricted_or_unclassified_cube_exposure_fails(value: object) -> None:
-    with pytest.raises(ValueError, match="customers.count"):
-        check_pii(exposed(value))
-
-
-def test_exposure_requires_exact_field_classifications() -> None:
-    data = manifest(False)
-    data["exposures"] = {
-        "exposure.pii_fixture.customers": {
-            "resource_type": "exposure",
-            "package_name": "pii_fixture",
-            "config": {"meta": {"cube_fields": {"customers.count": []}}},
-        }
-    }
-    with pytest.raises(ValueError, match="every Cube field"):
-        check_pii(data)
-
-
-def test_direct_cube_alias_cannot_relabel_a_restricted_mart_column() -> None:
-    data = manifest(True)
-    data["exposures"] = {
-        "exposure.pii_fixture.customers": {
-            "resource_type": "exposure",
-            "package_name": "pii_fixture",
-            "config": {
-                "meta": {
-                    "cube_fields": {"customers.value": ["derived.customer_count"]},
-                    "cube_pii": {"customers.value": False},
-                    "cube_direct_columns": {
-                        "customers.value": "derived.customer_count",
-                    },
-                }
-            },
-        }
-    }
-    with pytest.raises(ValueError, match="customers.value.*classification"):
-        check_pii(data)
-
-
-def test_derived_cube_field_keeps_its_own_classification() -> None:
-    data = exposed(False)
-    data["nodes"] = manifest(True)["nodes"]
-    check_pii(data)
-
-
-def test_model_default_does_not_classify_a_new_field() -> None:
-    data = manifest(False)
-    data["nodes"] = {
-        "model.pii_fixture.new": {
-            "name": "new",
-            "resource_type": "model",
-            "package_name": "pii_fixture",
-            "config": {"meta": {"pii": False}},
-            "columns": {"email": {}},
-        }
-    }
-    with pytest.raises(ValueError, match="new.email.*boolean"):
-        check_pii(data)
-
-
-def test_direct_alias_map_cannot_be_omitted() -> None:
-    data = manifest(False)
-    data["exposures"] = {
-        "exposure.pii_fixture.customers": {
-            "resource_type": "exposure",
-            "package_name": "pii_fixture",
-            "config": {
-                "meta": {
-                    "cube_fields": {"customers.count": []},
-                    "cube_pii": {"customers.count": False},
-                }
-            },
-        }
-    }
-    with pytest.raises(ValueError, match="cube_direct_columns"):
-        check_pii(data)
-
-
 def test_source_declaration_removal_cannot_reduce_reviewed_coverage() -> None:
     from pathlib import Path
 
     from analytics_transformations import pii
-    from analytics_transformations.mart_contracts import (
+    from analytics_transformations.manifest_values import (
         mapping,
         read_json,
         sequence,
@@ -223,7 +122,7 @@ def test_new_source_fields_must_join_reviewed_inventory() -> None:
     from pathlib import Path
 
     from analytics_transformations import pii
-    from analytics_transformations.mart_contracts import (
+    from analytics_transformations.manifest_values import (
         mapping,
         read_json,
         sequence,

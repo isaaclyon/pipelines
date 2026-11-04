@@ -1,7 +1,7 @@
-{{ config(meta={'dagster': {'ref': {'name': 'fct_orders'}}}) }}
+{{ config(meta={'dagster': {'ref': {'name': 'stg_shopify_orders__orders'}}}) }}
 
--- Verify UTC normalization against raw instants and preserve the Pacific date
--- and fallback through publication. Unit tests cover DST and midnight.
+-- Verify UTC normalization against raw instants and the reporting-zone
+-- order date and its fallback. Unit tests cover DST and midnight.
 {% set instants = ['created_at', 'processed_at', 'updated_at',
     'cancelled_at', 'closed_at'] %}
 with staged as (
@@ -10,10 +10,6 @@ with staged as (
 
 raw_orders as (
     select * from {{ source('shopify_orders', 'orders') }}
-),
-
-published as (
-    select * from {{ ref('fct_orders') }}
 )
 
 select
@@ -22,24 +18,16 @@ select
 from staged
 inner join raw_orders as original
     on staged.shop_id = original.shop_id and staged.order_id = original.order_id
-inner join published
-    on
-        staged.shop_id = published.shopify_shop_id
-        and staged.order_id = published.shopify_order_id
 where
     staged.ordered_at is distinct from {{ utc_timestamp(
         'coalesce(original.processed_at, original.created_at)'
     ) }}
     or staged.order_date is distinct from {{ local_date(
-        'staged.ordered_at', 'America/Los_Angeles'
+        'staged.ordered_at', reporting_time_zone()
     ) }}
     or staged.source_observed_at
     is distinct from {{ utc_timestamp('original._observed_at') }}
-    or published.source_observed_at is distinct from staged.source_observed_at
-    or published.ordered_at is distinct from staged.ordered_at
-    or published.order_date is distinct from staged.order_date
     {% for name in instants %}
         or staged.{{ name }}
         is distinct from {{ utc_timestamp('original.' ~ name) }}
-        or published.{{ name }} is distinct from staged.{{ name }}
     {% endfor %}

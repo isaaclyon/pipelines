@@ -48,7 +48,6 @@ UNCONFIRMED_CHECK = "no_unconfirmed_absence"
 RECONCILE_JOB_NAME = "shopify_customers_reconcile"
 EXCLUSIVE = {
     "analytics/exclusive-resource": "shopify-customers",
-    "analytics/publication-input": "development-customers",
     "dagster/retry_on_asset_or_op_failure": "false",
 }
 MAX_CANDIDATES_LIMIT = 5000

@@ -2,9 +2,9 @@
 # summary: Run dbt for this target using the checked-out dbt project
 # targets: local ci
 
-# Model schemas route through DBT_NAMESPACE. Local defaults to `local`, the
-# schemas local Cube reads (local_marts). Shared targets need an explicit one,
-# so a direct build never writes the published schemas by accident.
+# Model schemas route through DBT_NAMESPACE. Local defaults to `local`.
+# Shared targets need an explicit one, so a direct build never writes a shared
+# client schema by accident.
 # shellcheck disable=SC2154 # target is set by scripts/platform.
 if [ "$target" = local ]; then
     DBT_NAMESPACE=${DBT_NAMESPACE:-local}

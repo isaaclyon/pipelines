@@ -1,11 +1,54 @@
-"""Build deterministic fixtures in disposable files, without serving or promotion."""
+"""Build deterministic fixtures in disposable files through the model gates.
 
+The gates are the manifest checks, ``dbt build`` with every data and unit test,
+and a comparison of each built model's output columns and types with its
+declarations, including decimal precision and scale.
+"""
+
+import json
 import os
+import subprocess
+import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from analytics_transformations.publication import Runner, build_candidate, run_dbt
+from analytics_transformations.manifest_checks import check_manifest
+from analytics_transformations.manifest_values import (
+    mapping,
+    read_json,
+    sequence,
+    text,
+)
 
 ROOT = Path(__file__).parents[1]
+
+
+def run_dbt(command: Sequence[str], env: Mapping[str, str], timeout: int) -> None:
+    """Run dbt and raise with its console output when it fails."""
+    target = Path(command[command.index("--target-path") + 1])
+    target.mkdir(parents=True, exist_ok=True)
+    result = subprocess.run(
+        [str(Path(sys.executable).with_name("dbt")), *command[1:]],
+        env={**env, "DBT_LOG_PATH": str(target)},
+        timeout=timeout,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        raise RuntimeError(f"dbt {command[1]} failed:\n{result.stdout}{result.stderr}")
+
+
+def _options(project: Path, target: Path) -> list[str]:
+    return [
+        "--project-dir",
+        str(project),
+        "--profiles-dir",
+        str(ROOT / "dbt"),
+        "--target-path",
+        str(target),
+        "--no-partial-parse",
+    ]
 
 
 def build_models(
@@ -13,28 +56,56 @@ def build_models(
     *,
     namespace: str,
     project: Path = ROOT / "dbt",
-    runner: Runner = run_dbt,
-    publication_group: str | None = None,
-) -> str:
-    """Run the same model gates as Snowflake, directly in the test-owned file."""
-    generation = "deterministic-fixture"
+    timeout: int = 240,
+) -> Path:
+    """Build every node in the test-owned file; return the build artifacts."""
     env = dict(os.environ)
     env.update(
         ANALYTICS_ENVIRONMENT="ci",
         DBT_TARGET="local",
         DBT_NAMESPACE=namespace,
         DUCKDB_PATH=str(database),
-        DBT_PUBLICATION_ID=generation,
     )
-    build_candidate(
-        project,
-        ROOT / "dbt",
-        database.parent / "target",
+    artifacts = database.parent / "target"
+    parsed, built = artifacts / "parse", artifacts / "build"
+    run_dbt(["dbt", "parse", *_options(project, parsed)], env, timeout)
+    check_manifest(read_json(parsed / "manifest.json"), namespace=namespace)
+    run_dbt(["dbt", "build", *_options(project, built)], env, timeout)
+    manifest = mapping(read_json(built / "manifest.json"))
+    nodes = mapping(manifest.get("nodes"))
+    project_name = text(mapping(manifest.get("metadata")).get("project_name"))
+    outputs: list[dict[str, object]] = []
+    for node_id, value in sorted(nodes.items()):
+        node = mapping(value)
+        if node.get("resource_type") != "model" or node.get("package_name") != (
+            project_name
+        ):
+            continue
+        config = mapping(node.get("config"))
+        # Ephemeral SQL has dbt's injected CTEs; other models are read directly.
+        sql = (
+            text(node.get("compiled_code"))
+            if config.get("materialized") == "ephemeral"
+            else "select * from " + text(node.get("relation_name"))
+        )
+        # Only type declarations: full column metadata can exceed Linux's
+        # per-argument limit for a moderately sized project.
+        columns = {
+            name: {"name": name, "data_type": mapping(column).get("data_type")}
+            for name, column in mapping(node.get("columns")).items()
+        }
+        outputs.append({"model_id": node_id, "sql": sql, "columns": columns})
+    _ = sequence(outputs)
+    run_dbt(
+        [
+            "dbt",
+            "run-operation",
+            "validate_model_outputs",
+            *_options(project, artifacts / "validate-outputs"),
+            "--args",
+            json.dumps({"outputs": outputs}),
+        ],
         env,
-        240,
-        runner,
-        publication_group=(publication_group or "orders")
-        if project == ROOT / "dbt"
-        else publication_group,
+        timeout,
     )
-    return generation
+    return built

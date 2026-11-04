@@ -1,8 +1,7 @@
 """Manual Dagster job for the Loop Returns header snapshot.
 
 The job has no schedule. It shares the ``loop-returns`` exclusive tag so two
-snapshot runs never write at once. A second input-lock tag prevents
-replacement while enabled marts capture facts and evidence. Failed runs never retry.
+snapshot runs never write at once. Failed runs never retry.
 """
 
 import json
@@ -28,7 +27,6 @@ ASSET_KEY = dg.AssetKey(["raw", "loop_returns", "loop_returns_raw"])
 EXCLUSIVE_TAG = "analytics/exclusive-resource"
 EXCLUSIVE = {
     EXCLUSIVE_TAG: "loop-returns",
-    "analytics/publication-input": "development-marts",
     "dagster/retry_on_asset_or_op_failure": "false",
     "dagster/max_runtime": "300",
 }
@@ -172,7 +170,7 @@ def loop_returns_recovery_trial(
 # Dagster job metadata exposes permissive third-party types.
 @dg.job(  # pyright: ignore[reportUnknownMemberType]
     tags=EXCLUSIVE,
-    description="One-day development Loop recovery trial; no consumer publication.",
+    description="One-day development Loop recovery trial; maintained data unchanged.",
 )
 def loop_returns_dlt_recovery_trial() -> None:
     loop_returns_recovery_trial()

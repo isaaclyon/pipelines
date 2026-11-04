@@ -1,8 +1,7 @@
-{{ config(meta={'dagster': {'ref': {'name': 'int_shopify_orders__line_rollups'}}}) }}
+{{ config(meta={'dagster': {'ref': {'name': 'stg_shopify_orders__order_lines'}}}) }}
 
--- Every shop amount is USD (the reporting currency) and every amount uses its
--- order's shop or presentment currency, so summing amounts never mixes
--- currencies. A missing currency code fails; an amount's code may be missing
+-- Every amount uses its order's shop or presentment currency, so summing an
+-- order's amounts never mixes currencies. A missing currency code fails; an amount's code may be missing
 -- only when the amount itself is.
 {% set money = ['total_price', 'current_total_price', 'original_total_price',
     'subtotal_price', 'current_subtotal_price', 'total_discounts', 'total_tax',
@@ -26,7 +25,7 @@ order_mismatches as (
         'order' as level
     from orders
     where
-        currency_code is distinct from 'USD'
+        currency_code is null
         or presentment_currency_code is null
         {%- for name in money %}{% for kind, code in pairs %}
         or (
@@ -59,16 +58,10 @@ select * from order_mismatches
 union all
 select * from line_mismatches
 union all
--- Parent currency declarations require a matching staged order for every line
--- and rollup; otherwise the amount has no associated currency.
+-- Parent currency declarations require a matching staged order for every
+-- line; otherwise the amount has no associated currency.
 select lines.shop_id, lines.order_id, 'orphan_line' as level
 from {{ ref('stg_shopify_orders__order_lines') }} as lines
 left join {{ ref('stg_shopify_orders__orders') }} as parent
     on lines.shop_id = parent.shop_id and lines.order_id = parent.order_id
-where parent.order_id is null
-union all
-select rollups.shop_id, rollups.order_id, 'orphan_rollup' as level
-from {{ ref('int_shopify_orders__line_rollups') }} as rollups
-left join {{ ref('stg_shopify_orders__orders') }} as parent
-    on rollups.shop_id = parent.shop_id and rollups.order_id = parent.order_id
 where parent.order_id is null

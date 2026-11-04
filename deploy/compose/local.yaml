@@ -11,14 +11,9 @@ services:
     # Remote serving retains the base /readyz probe and real credentials.
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4000/livez').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
-    environment:
-      # Published marts schema (`<namespace>_marts`) the semantic model reads.
-      ANALYTICS_MARTS_SCHEMA: ${ANALYTICS_MARTS_SCHEMA:-${ANALYTICS_ENVIRONMENT}_marts}
-      SHOPIFY_CUSTOMERS_ENABLED: ${SHOPIFY_CUSTOMERS_ENABLED:-false}
-      ANALYTICS_CUSTOMERS_MARTS_SCHEMA: ${ANALYTICS_CUSTOMERS_MARTS_SCHEMA:-}
 
   # ADR 0029: manual live loads into per-source raw DuckDB files. Credentials
-  # are the developer's own, rendered from 1Password outside the checkout and
+  # are the developer's own, put in place outside the checkout and
   # mounted read-only. Unset paths mount an empty file and the job fails closed.
   ingestion:
     environment:

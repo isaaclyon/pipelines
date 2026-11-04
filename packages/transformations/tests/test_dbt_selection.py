@@ -98,15 +98,15 @@ def test_changed_model_skips_tests_that_share_only_a_data_test(base: Path) -> No
     [
         "tests/test_loop_returns_staging.py",
         "tests/conftest.py",
-        # Imported by test_shopify_orders_marts through tests.model_build.
-        "src/analytics_transformations/publication.py",
+        # Imported by test_output_types_adapters through tests.model_build.
+        "src/analytics_transformations/manifest_checks.py",
     ],
 )
 def test_changed_test_code_runs_its_tests(base: Path, changed: str) -> None:
     module = (
         LOOP_TEST
         if changed.startswith("tests/")
-        else ROOT / "tests/test_shopify_orders_marts.py"
+        else ROOT / "tests/test_output_types_adapters.py"
     )
     selectors = ("+stg_shop__orders",)
     assert not dbt_selection.runs(module, selectors)
@@ -134,7 +134,7 @@ def test_changed_project_file_runs_tests_that_declare_it(
 
 @pytest.mark.usefixtures("sample")
 def test_undeclared_nodes_include_sources_and_ignore_other_projects() -> None:
-    executed = {ORDERS, "model.publication_fixture.fct_observations"}
+    executed = {ORDERS, "model.sample_fixture.fct_observations"}
     assert not dbt_selection.undeclared(executed, ("+stg_shop__orders",))
     # A model's sources are part of what it executes.
     sources = dbt_selection.undeclared(executed, ("stg_shop__orders",))

@@ -133,7 +133,7 @@ models:
     data_type: boolean
     description: 'True for complete zero-reject updated_at windows with revision and query lineage, a
       nonnegative observed count and ordered observation times. Does not prove order-date population completeness,
-      publication freshness, deleted-order coverage or Loop availability.
+      answer freshness, deleted-order coverage or Loop availability.
 
       '
     config:

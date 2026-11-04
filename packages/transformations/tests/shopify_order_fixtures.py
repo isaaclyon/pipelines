@@ -240,7 +240,7 @@ GOOD_ORDERS = [
     # Extraction revision 1 never selected tags, codes or email.
     order_row("1003", "2026-07-01 12:00:00+00", _extraction_revision=None),
     # No processing time: order_date falls back to created_at (00:00 Pacific),
-    # and the warning-only fallback test does not block publication.
+    # and the warning-only fallback test does not block the build.
     order_row("1004", "2026-07-02 07:00:00+00") | {"processed_at": None},
 ]
 GOOD_TAGS = [

@@ -289,7 +289,8 @@ approval of each exact namespace/key pair and its reporting purpose. The invento
 records accessible namespace/key/type counts even when values are excluded.
 Namespaces starting with `secret`, `$app:`, `multipass`, `password` or `token`
 remain excluded even when listed. Wildcards are rejected. After an approval
-change, run a complete sweep before publication to replace existing child rows.
+change, run a complete sweep before dbt builds on the change, to replace existing
+child rows.
 The `field_group_access` asset check warns while any group is denied or
 unsupported. Before enabling the source, run a read-only probe that verifies
 `read_customers` and every enabled group, and check that a 50-customer query's
@@ -423,11 +424,8 @@ IDs, a new empty snapshot after a nonempty snapshot, and removals above the
 configured count limit. The guard reads destination rows, not a second ID
 inventory in dlt state. A destination with another shop is rejected. A local
 advisory lock also prevents concurrent runs that share the state root.
-The job retains its `loop-returns` exclusive-resource tag and also shares
-`analytics/publication-input=development-marts` with order-group publication. The second
-queue limit prevents a snapshot replacement between fact builds and availability
-capture. Deploy both code locations and the coordinator, then drain older
-untagged runs before relying on this isolation.
+The job carries the `loop-returns` exclusive-resource tag, so the run queue
+serializes Loop writers.
 
 ### Recovery, progress and limits
 
@@ -483,7 +481,7 @@ It refuses production and future days. It uses
 `<LOOP_RETURNS_DATASET>_trial_YYYYMMDD` plus that dataset's `_candidate` schema and
 separate `loop_recovery_trial/YYYYMMDD` working state inside the Loop state folder. It never materializes the
 maintained Loop asset or changes its dataset, and has no schedule. It retains the
-same exclusive/input-lock tags and five-minute worker limit as the normal job.
+same exclusive-resource tag and five-minute worker limit as the normal job.
 
 To verify recovery after release, launch the trial through development Dagster,
 wait for a `window_committed` log, cancel that run, and verify it has stopped.
@@ -727,23 +725,6 @@ report before activation. Run fixture parity and recovery checks in development
 Snowflake before claiming remote acceptance; ordinary offline tests prove only
 the local loading contract. No maximum business data age is promised yet.
 
-### Publication coordination
-Every maintained writer, including reconciliation, carries its consistency
-group's `analytics/publication-input` tag in addition to its exclusive-resource
-tag. Orders and Loop use `development-marts`; customers use
-`development-customers`; inventory uses `development-inventory`. Each publisher
-shares only its group's limit for the whole run. This serializes contributing
-writers with their publisher without making unrelated groups wait. Successful
-manual, scheduled and reconciliation runs trigger only their enabled group's
-success sensor. Sensors ship stopped; extraction schedules do not change.
-
-New sources apply the shared tag to their own writers and add a source-neutral
-publication entry. Map the dbt source to its ingestion asset in the transformation
-`CandidateTranslator` for model lineage. They do not modify another source's
-module or the coordinator.
-See the [publication contract and migration](../transformations/README.md#development-publication)
-before deployment. Direct calls outside Dagster must provide equivalent isolation.
-
 ## Google Sheets captures
 
 The `google_sheets` source captures one or more spreadsheet tabs as retained
@@ -846,7 +827,7 @@ fails safely; do not assume fixture success proves that source representation.
   case changes. Other cells retain display text without date interpretation. Empty cells are nullable. Columns in `text_columns` must
   have a string-valued source cell, never numeric coercion. Duplicate or blank
   keys in populated rows remain raw evidence; downstream business-key checks
-  decide publication validity.
+  decide whether they are valid.
   Entirely empty selected rows are not captured. Excluded-only rows do not create
   membership. Formula results are observations, not source formula history.
 

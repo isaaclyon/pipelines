@@ -47,34 +47,6 @@ class ConcurrencyChecks(unittest.TestCase):
         counter.update_counters_with_launched_item(independent)
         self.assertTrue(counter.is_blocked(independent))
 
-    def test_publication_excludes_every_input_writer_in_both_directions(self) -> None:
-        limits = coordinator().get_run_queue_config().tag_concurrency_limits or []
-        resources = (
-            "shopify-orders",
-            "shopify-customers",
-            "loop-returns",
-            "goodday-inventory",
-        )
-        publication = DagsterRun(
-            job_name="publication",
-            tags={"analytics/publication-input": "development-marts"},
-        )
-        for resource in resources:
-            writer = DagsterRun(
-                job_name=resource,
-                tags={"analytics/publication-input": "development-marts"},
-            )
-            for active, waiting in ((writer, publication), (publication, writer)):
-                counter = TagConcurrencyLimitsCounter(limits, [active])
-                self.assertTrue(counter.is_blocked(waiting))
-                self.assertFalse(counter.is_blocked(DagsterRun(job_name="validation")))
-            independent = DagsterRun(
-                job_name="independent",
-                tags={"analytics/publication-input": "unrelated"},
-            )
-            counter = TagConcurrencyLimitsCounter(limits, [writer])
-            self.assertFalse(counter.is_blocked(independent))
-
     def test_selected_capacity_is_bounded_and_local_is_serial(self) -> None:
         limit = coordinator().get_run_queue_config().max_concurrent_runs
         self.assertIn(limit, (1, 2))

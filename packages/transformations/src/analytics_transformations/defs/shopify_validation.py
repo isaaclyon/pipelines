@@ -12,7 +12,7 @@ from pathlib import Path
 
 import dagster as dg
 
-from analytics_transformations.mart_contracts import mapping, read_json, sequence
+from analytics_transformations.manifest_values import mapping, read_json, sequence
 
 RAW_ORDERS = dg.AssetKey(["raw", "shopify", "shopify_orders_raw"])
 SOURCE = "source:shopify_orders.ingestion_batches"
@@ -94,7 +94,7 @@ validation_job = dg.define_asset_job(  # pyright: ignore[reportUnknownMemberType
     tags={"dagster/priority": "20", "dagster/max_retries": "0"},
 )
 # Checks raw freshness throughout the day, ahead of morning reporting.
-# This is not a substitute for published-answer freshness and coverage.
+# This is not a substitute for mart freshness and coverage.
 validation_schedule = dg.ScheduleDefinition(
     name="shopify_raw_validation_schedule",
     job=validation_job,

@@ -31,10 +31,6 @@ run_coordinator:
         value:
           applyLimitPerUniqueValue: true
         limit: 1
-      - key: analytics/publication-input
-        value:
-          applyLimitPerUniqueValue: true
-        limit: 1
 
 run_launcher:
   module: dagster_docker

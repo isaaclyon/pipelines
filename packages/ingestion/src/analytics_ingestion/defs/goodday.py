@@ -31,10 +31,7 @@ def build_definitions(env: Mapping[str, str]) -> dg.Definitions:
         kinds={"dlt", "bigquery"},
         description="Retained GoodDay inventory capture with matching load evidence.",
         run=run,
-        tags={
-            "analytics/exclusive-resource": "goodday-inventory",
-            "analytics/publication-input": "development-inventory",
-        },
+        tags={"analytics/exclusive-resource": "goodday-inventory"},
     )
 
 

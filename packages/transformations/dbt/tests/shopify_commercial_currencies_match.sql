@@ -1,8 +1,8 @@
-{{ config(meta={'dagster': {'ref': {'name': 'fct_orders'}}}) }}
+{{ config(meta={'dagster': {'ref': {'name': 'stg_shopify_orders__orders'}}}) }}
 
--- depends_on: {{ ref('fct_orders') }}
+-- depends_on: {{ ref('stg_shopify_orders__orders') }}
 {{ config(tags=['shopify_commercial_cross_model']) }}
--- Check raw children so an unused staging view is not required by publication.
+-- Check raw children, which hold the per-amount currency codes.
 -- Every commercial child money amount uses the currency of its order: shop
 -- money in the order's shop currency and presentment money in its presentment
 -- currency. A child whose order is missing fails, because its currency is unknown.

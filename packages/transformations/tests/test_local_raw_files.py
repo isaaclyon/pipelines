@@ -15,11 +15,11 @@ from typing import cast
 import duckdb
 import pytest
 
-from tests.test_goodday_inventory import write_inventory
+from tests.goodday_fixtures import write_inventory
 
 # Real dbt project nodes these tests execute or parse (ADR 0026).
 pytestmark = pytest.mark.dbt(
-    "+fct_inventory__current",
+    "+stg_goodday__inventory_items",
     "stg_shopify_orders__orders",
     "+stg_shopify_orders__ingestion_batches",
     "+stg_shopify_orders__refund_duties",
@@ -73,7 +73,7 @@ def test_local_build_reads_a_separate_raw_file_read_only(tmp_path: Path) -> None
         "--target-path",
         str(tmp_path / "target"),
         "--select",
-        "+fct_inventory__current",
+        "+stg_goodday__inventory_items",
         env=_local(tmp_path, root),
     )
 
@@ -81,14 +81,17 @@ def test_local_build_reads_a_separate_raw_file_read_only(tmp_path: Path) -> None
     assert raw.read_bytes() == before
     assert not (root / SHOPIFY_FILE).exists()
     with duckdb.connect(str(tmp_path / "warehouse.duckdb"), read_only=True) as db:
-        assert db.execute(
-            "select goodday_item_id from ci_raw_files_marts.fct_inventory__current"
-        ).fetchall() == [(2,)]
         # The warehouse holds no copy of raw tables.
         assert db.execute(
             "select count(*) from information_schema.schemata "
             "where schema_name = 'goodday_raw'"
         ).fetchone() == (0,)
+        # The staging view reads the raw file through its attachment.
+        _ = db.execute(f"attach '{raw}' as raw_goodday (read_only)")
+        assert db.execute(
+            "select item_id from ci_raw_files_staging.stg_goodday__inventory_items "
+            "order by item_id"
+        ).fetchall() == [(1,), (2,), (3,)]
 
 
 def test_missing_raw_file_fails_the_dependent_build_clearly(tmp_path: Path) -> None:

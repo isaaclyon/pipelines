@@ -22,7 +22,3 @@ const invalidConfig = {
   // @ts-expect-error Validate against Cube's upstream configuration types.
   schemaPath: 123,
 };
-
-const { DuckDBDriver } = require('@cubejs-backend/duckdb-driver');
-// @ts-expect-error Validate against the installed driver's types.
-new DuckDBDriver({ databasePath: 123 });

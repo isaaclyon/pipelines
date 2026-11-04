@@ -1,0 +1,20 @@
+name: sample_fixture
+version: '1.0'
+config-version: 2
+profile: analytics
+models:
+  sample_fixture:
+    staging:
+      +schema: staging
+      +meta: {schema_description: Synthetic source-shaped fixture views.}
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +meta: {schema_description: Synthetic fixture transformations.}
+    marts:
+      +schema: marts
+      +meta: {schema_description: Synthetic fixture tables that consumers read.}
+      +materialized: table
+      +access: public
+      +contract:
+        enforced: true

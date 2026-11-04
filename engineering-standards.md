@@ -100,18 +100,18 @@ blocking weight as consumer safety.
 
 | Category | Enforcement |
 | --- | --- |
-| Security and correctness | Block missing privacy decisions, unsafe access, incomplete candidate checks, incorrect values and namespace/identifier collisions. Keep forward-only layer enforcement. |
-| Published compatibility | Enforce contracts at the mart and metrics consumer interfaces, against the actual previous publication. Internal models are not stable consumer contracts. |
-| Internal conventions | Prefer native dbt/SQLFluff configuration and lightweight review. Descriptive naming preferences do not block publication. |
+| Security and correctness | Block missing privacy decisions, unsafe access, failing required tests, incorrect values and namespace/identifier collisions. Keep forward-only layer enforcement. |
+| Consumer interfaces | Marts and Cube members are the consumer interfaces; review every change to them. Internal models are not stable consumer contracts. |
+| Internal conventions | Prefer native dbt/SQLFluff configuration and lightweight review. Descriptive naming preferences do not block a change. |
 
 - Before adding a custom declaration or validator, name the concrete failure it
   prevents and explain why native tooling or an existing check is insufficient.
   Its benefit must justify the contributor's authoring and maintenance burden.
 - Generate mechanically derivable metadata. Native test severity determines
   blocking behavior; composite-key tests are matched by their columns. Generate
-  Cube exposures, proposed contract snapshots and source-field inventories.
-- Generation does not approve a change. Review published compatibility and source
-  retirements; never silently replace their reviewed baselines. Privacy decisions,
+  proposed source-field inventories.
+- Generation does not approve a change. Review source retirements; never
+  silently replace the reviewed inventory. Privacy decisions,
   business meaning, grain and consequential correctness checks remain explicit.
 
 ## Transformation naming
@@ -129,7 +129,7 @@ blocking weight as consumer safety.
   portable 255-character limit and do not collide case-insensitively. Schemas use
   `<namespace>_<layer>`; seeds, snapshots and stored test failures use
   `<namespace>_seeds`, `<namespace>_snapshots` and `<namespace>_test_failures`.
-  Raw schemas belong to ingestion. Publication uses lowercase unquoted names.
+  Raw schemas belong to ingestion. Schemas use lowercase unquoted names.
 - Every model output column declares its name, description and explicit privacy
   decision. Actual outputs must match this inventory, including ephemeral
   ancestors, so omitting an internal type never hides an unclassified output.
@@ -139,7 +139,7 @@ blocking weight as consumer safety.
   including decimal precision and scale; they are not compatibility promises.
 - Prefer `<entity>_id`, `<event>_at`, `<event>_date`, `is_`/`has_` booleans,
   `<meaning>_amount`, `<entity>_count` and `<thing>_quantity`. Prefix/suffix style
-  does not block publication. Recognized amounts, counts and quantities still
+  does not block a change. Recognized amounts, counts and quantities still
   require exact-decimal, integer and numeric types respectively.
 - Money keeps exact decimals. Published amounts expose their currency locally.
   Internal currency and temporal metadata are optional: document meaning and
@@ -157,10 +157,10 @@ blocking weight as consumer safety.
   of relaxed internal naming preferences.
 
 *(checked: [model checks](packages/transformations/README.md#model-checks) and
-candidate output validation before publication)* Ordinary container checks run
-static checks and executed DuckDB fixtures. Development Snowflake
-acceptance verifies identifier isolation and maintained-model type/value parity
-before shared activation; local evidence does not replace that deferred gate.
+output validation in fixture builds)* Ordinary container checks run static
+checks and executed DuckDB fixtures. Development Snowflake acceptance verifies
+identifier isolation before shared activation; local evidence does not replace
+that deferred gate.
 
 ## Transformation contracts and tests
 
@@ -171,15 +171,13 @@ before shared activation; local evidence does not replace that deferred gate.
   Models sit in their layer folder and depend only forward.
 - Each model documents its grain and key, and tests the key for uniqueness and
   non-null where it promises them.
-- Published marts have column/type contracts, tests for consequential business
-  rules, and reconciliation against upstream data.
+- Marts declare every column type, test consequential business rules, and
+  reconcile against upstream data.
 - Incremental models have repeat-run, update, and deletion tests alongside a
   full-refresh test.
-- Each check uses native dbt severity: `error` blocks publication and `warn` is
+- Each check uses native dbt severity: `error` fails the build and `warn` is
   informational. No duplicate blocking flag is required. A warning never
   satisfies a required correctness check.
-- A failing candidate cannot replace a published output. Running tests after
-  overwriting the consumer relation does not satisfy this.
 - *(checked: `packages/transformations/tests/conftest.py`)* CI cost follows the
   change ([ADR 0026](docs/adrs/0026-scale-dbt-checks-with-the-change.md)). A
   test that executes real dbt project nodes declares them with
@@ -200,11 +198,9 @@ before shared activation; local evidence does not replace that deferred gate.
   or legal certification.
 - Authors make explicit classifications; reviewers assess their accuracy.
   Derived fields need their own decision. Do not infer or propagate classifications
-  through lineage. Direct Cube aliases of the same mart column must agree with
-  that column's declaration; this consistency check does not classify expressions
-  or aggregates.
-- *(checked: transformation declarations and pre-publication check; metrics
-  exposure compilation)* Missing classifications fail, including disabled
+  through lineage.
+- *(checked: transformation model checks; metrics model compilation)* Missing
+  classifications fail, including disabled
   definitions. The current declared-field inventory has no legacy exceptions.
   New or changed fields require declarations and existing declarations cannot be
   removed while keeping the field. The reviewed transformation
@@ -215,23 +211,20 @@ before shared activation; local evidence does not replace that deferred gate.
 - Classification, exposure approval and a user's access grant are separate.
   Until the platform has named-user
   authentication, approved-field access and minimal auditing, restricted PII
-  cannot be modeled in Cube, even as a hidden member. Keep existing allowlists,
-  reader restrictions and query-denial tests. Public Cube members mean query
-  interface exposure, not necessarily internet access.
+  cannot be modeled in Cube, even as a hidden member. Public Cube members mean
+  query interface exposure, not necessarily internet access.
 - The data owner approves initial classifications and exposure decisions and
   records the approval with the change. Existing exposure is not
   automatic approval. Later privacy/legal review, retention, deletion requests
   and general raw-warehouse access governance remain separate work.
 
-## Materialization and publication
+## Materialization
+
+[ADR 0037](docs/adrs/0037-build-marts-in-place-in-the-serving-warehouse.md).
 
 - Staging and intermediate models are views unless measured cost says otherwise.
-- Marts are validated tables, built and tested before becoming visible.
-- Publish the smallest group of outputs that requires a consistent version.
-  Give unrelated groups separate validation/build scope, destinations, markers,
-  locks, and recovery. Orders and their availability evidence stay together;
-  customer profiles and inventory publish independently. See
-  [ADR 0027](docs/adrs/0027-isolate-mart-publication-by-consistency-group.md).
+- dbt builds marts in place in the serving schema, as tables. Tests run in the
+  same `dbt build`; a failing test stops the models downstream of it.
 - Incremental models are introduced only on measured need, with keys, deletion
   behavior, and full-refresh recovery defined.
 
@@ -239,39 +232,20 @@ before shared activation; local evidence does not replace that deferred gate.
 
 [ADR 0028](docs/adrs/0028-develop-locally-before-shared-snowflake-release.md).
 
-- Single-user development uses DuckDB and the same maintained Cube definitions.
-  Deterministic CI fixtures remain separate from private real-data experiments.
-  The bounded local copy/export/serve command accepts already validated orders
-  marts; source refresh and dbt build remain separate. See the
-  [command](packages/metrics/README.md#worktree-local-copy-and-serving) and
-  [full implementation scope](docs/specs/20261101-local-first-development.md).
+- Single-user development uses local DuckDB files. Deterministic CI fixtures
+  remain separate from private real-data experiments.
 - Each worktree owns its writable database and ingestion state. Stop all handles,
   checkpoint and close before making an independent copy. No hot filesystem copy,
-  shared writable file, or shared source checkpoint across branches. The local
-  copy command requires owner-prepared WAL-free input and never opens the source
-  writable, checkpoints it, or repairs its recovery state.
-- Cube reads a separate analytical-only file, never the raw/restricted working
-  file. Enforce read-only file/driver access, loopback binding and a non-fixture
-  API secret. Existing PII classifications and access approvals still apply.
-- Stop Cube before refresh, validate data and the serving file before restart,
-  and leave Cube stopped on any failure. No live replacement or multi-user
-  availability machinery is required for single-user development.
+  shared writable file, or shared source checkpoint across branches.
 - Keep one set of transformation models and governed metrics across backends.
   Database-specific SQL remains in adapter-dispatched macros with implementations
   for both adapters. Ordinary executed checks use DuckDB; compilation does not
   prove Snowflake compatibility.
-- Before shared Snowflake activation, execute representative type/value parity,
-  actual-predecessor compatibility, publication/failure and reader-denial/privacy
-  checks in explicit development targets with an approved compute budget. These
-  checks are deferred, not waived or passed by local results.
-- Keep new consumers default off in remote releases until their publication is
-  ready. Automatic development deployment remains active; local-only work must
-  not introduce remote references to unpublished fields. Implement and test the
-  configuration/model gate before merging those consumers. Automatic publication
-  also counts as shared activation: affected model changes require applicable
-  Snowflake acceptance or a separately approved, verified publication hold before
-  merge. A consumer flag does not stop publication, and default sensor settings
-  do not prove the deployed state. Remote inspection/changes need approval.
+- Before shared Snowflake activation, execute representative type/value parity
+  and privacy checks in explicit development targets with an approved compute
+  budget. These checks are deferred, not waived or passed by local results.
+- Local-only work must not make a shared deployment reference mart columns that
+  its serving schema does not have yet. Remote inspection/changes need approval.
 
 ## Containers and releases
 
@@ -295,8 +269,8 @@ before shared activation; local evidence does not replace that deferred gate.
 - Each release is compatible with the one before it; breaking changes ship as
   expand, migrate, and contract releases.
 - Shared-environment data changes are stated in the PR and run as Dagster runs
-  after deploy. Single-user local experiments use the bounded stop/validate/restart
-  lifecycle in ADR 0028; they authorize no remote or source-access changes.
+  after deploy. Single-user local experiments follow ADR 0028; they authorize
+  no remote or source-access changes.
 - *(checked: `scripts/storage_assessment.py`)* Dagster storage dependency
   changes carry an updated `deploy/dagster/storage-upgrade.json` assessment.
 

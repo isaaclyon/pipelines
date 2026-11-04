@@ -34,9 +34,9 @@ The first client is **Lola Blankets**. Lola serves from MotherDuck.
 - Containers, Dagster code locations, dlt loaders and package checks work locally.
 - Connectors exist for Shopify orders and customers, Loop Returns, Impact
   Radius, GoodDay inventory and Google Sheets. All stay in the toolkit.
-- dbt marts, intermediate models, Cube models and several specs encode one
-  brand's Shopify rules. They do not belong in the toolkit.
-- A custom Snowflake publication mechanism and 1Password templates remain.
+- dbt holds only raw sources and staging models. Cube serves one placeholder
+  model. Phase 1 removed the brand-specific marts, the publication mechanism
+  and the 1Password templates.
 - There is no VM deployment, MotherDuck support, Metabase, Elementary or
   reverse ETL.
 
@@ -45,7 +45,7 @@ The first client is **Lola Blankets**. Lola serves from MotherDuck.
 Each phase ends with a check that a person can run. Work one phase at a time
 unless a later item is independent and small.
 
-### Phase 1: Strip back to the core
+### Phase 1: Strip back to the core (done)
 
 Remove brand-specific and superseded code so the toolkit starts from raw loads
 and staging models.

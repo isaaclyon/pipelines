@@ -9,7 +9,7 @@ import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from analytics_transformations.layer_dependencies import root_project
-from analytics_transformations.mart_contracts import (
+from analytics_transformations.manifest_values import (
     check_blocking,
     identifier,
     mapping,

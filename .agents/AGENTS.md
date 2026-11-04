@@ -22,7 +22,7 @@ The platform runs only locally, including in Docker on a developer machine.
   shims, fallbacks, deprecated paths or migration windows for existing users.
 - Prefer strict, uniform checks. A failing check costs a local rerun, not an
   outage.
-- Keep building the release, compatibility and publication safeguards that
+- Keep building the release and compatibility safeguards that
   accepted ADRs describe; they are part of the product. Do not weaken a design
   to protect current behavior or data.
 - Update this section when the first shared deployment or consumer exists.

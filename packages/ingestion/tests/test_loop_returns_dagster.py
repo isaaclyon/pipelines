@@ -56,7 +56,6 @@ def test_job_is_manual_exclusive_and_has_no_schedules() -> None:
     assert JOB.name == JOB_NAME == "loop_returns_dlt_snapshot"
     assert JOB.tags is not None
     assert JOB.tags[EXCLUSIVE_TAG] == "loop-returns"
-    assert JOB.tags["analytics/publication-input"] == "development-marts"
     assert JOB.tags["dagster/retry_on_asset_or_op_failure"] == "false"
     assert list(defs.schedules or []) == []
     assert list(defs.sensors or []) == []

@@ -2,15 +2,15 @@
 
 A container-first analytics platform using dlt for ingestion, Dagster for
 orchestration, dbt Core for transformations, Snowflake as the warehouse, and
-Cube Core for metrics. Single-user development follows local-first DuckDB and
-the same Cube definitions; Snowflake remains the shared release target.
+Cube Core for metrics. Single-user development loads and transforms data in
+local DuckDB files; Snowflake remains the shared release target.
 
 The repository includes source connectors (Shopify orders and customers, Loop
-Returns, Impact Radius, GoodDay inventory and Google Sheets), dbt models, Cube
-metrics, a local Docker Compose stack and independent package checks. The
-accepted [local-first lifecycle](docs/specs/20261101-local-first-development.md)
-is partly implemented. It ships only the local and CI targets; running it on a
-shared host needs your own deployment.
+Returns, Impact Radius, GoodDay inventory and Google Sheets), dbt staging
+models, a placeholder Cube model, a local Docker Compose stack and independent
+package checks. Marts and their Cube metrics arrive in Roadmap Phase 4. It ships
+only the local and CI targets; running it on a shared host needs your own
+deployment.
 
 The platform is becoming a reusable toolkit for small D2C brands, with one VM
 and one MotherDuck or Snowflake warehouse per client. The [roadmap](ROADMAP.md)
@@ -36,7 +36,6 @@ packages/
 deploy/
   dagster/           # Control-plane configuration
   compose/           # Local and CI Compose configuration
-  secrets/           # Optional 1Password templates
 docs/
   adrs/              # Accepted architecture decisions
   specs/             # Implementation specifications
@@ -75,7 +74,7 @@ location loads, and Cube returns its model metadata to a token signed with
 `CUBEJS_API_SECRET`. Local and CI targets then launch `scaffold_check`
 in both code locations. Cube uses Snowflake configuration for metadata compilation
 but has no warehouse credentials in the offline scaffold. It does not serve
-fixture data. Publication and permissions require explicit development Snowflake
+fixture data. Snowflake behavior requires explicit development Snowflake
 acceptance; local smoke checks do not prove an end-to-end business pipeline.
 
 ```sh
@@ -88,28 +87,17 @@ acceptance; local smoke checks do not prove an end-to-end business pipeline.
 Run `local up` again after source or dependency changes to rebuild the installed
 packages.
 
-See [deployment and state](deploy/compose/README.md) for environment configuration
-and the current publication limitations.
+See [deployment and state](deploy/compose/README.md) for environment
+configuration.
 
 ## Configure for your business
 
-Business rules live in two places, so no brand detail is written into SQL:
-
-- **dbt project vars** in
-  [`packages/transformations/dbt/dbt_project.yml`](packages/transformations/dbt/dbt_project.yml):
-  the home and separately reported shipping markets, employee email domains,
-  and the order tag and discount-code patterns behind the channel and
-  characteristic flags (specialty, bulk, gifting, broadcast and others). Edit
-  the `vars` block, or override values for one run with `dbt --vars`.
-- **Environment variables** in your Compose env file
-  (`ANALYTICS_ENV_FILE`; `local` defaults to `deploy/compose/.env.local` when it
-  exists, otherwise `deploy/compose/.env.local.example`):
-  `ANALYTICS_REPORTING_TIME_ZONE` sets the calendar zone for order dates in
-  dbt and Cube (default `America/Los_Angeles`). Source connectors read their
-  own settings files; see the [ingestion README](packages/ingestion/README.md).
-
-Changing a classification rule changes published flag values on the next
-build, so review the mart descriptions and downstream reports with it.
+Business settings come from environment variables in your Compose env file
+(`ANALYTICS_ENV_FILE`; `local` defaults to `deploy/compose/.env.local` when it
+exists, otherwise `deploy/compose/.env.local.example`).
+`ANALYTICS_REPORTING_TIME_ZONE` sets the calendar zone for order dates in dbt
+and Cube (default `America/Los_Angeles`). Source connectors read their own
+settings files; see the [ingestion README](packages/ingestion/README.md).
 
 ## Worktrunk worktrees
 

@@ -3,14 +3,14 @@ import json
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 import dagster as dg
 import pytest
 
 from analytics_transformations.defs import dbt_docs as module
-from analytics_transformations.mart_contracts import mapping, sequence, text
+from analytics_transformations.manifest_values import mapping, sequence, text
+from tests.shopify_order_fixtures import GOOD_LINES, GOOD_ORDERS, write_raw
 
 # Docs and lineage cover the whole real dbt project (ADR 0026). dbt reports no
 # executed nodes for docs, so the suite cannot check this declaration.
@@ -54,33 +54,27 @@ def _lineage(page: Path) -> set[tuple[str, str, str, str]]:
 def test_build_writes_docs_and_column_lineage_pages(tmp_path: Path) -> None:
     site = tmp_path / "docs"
     site.mkdir()
-    pages = module.build_docs(_env(tmp_path), site)
+    # Raw tables are loaded, but no model is built yet.
+    write_raw(tmp_path / "warehouse.duckdb", GOOD_ORDERS, GOOD_LINES)
+    pages = module.build_docs(_env(tmp_path, SHOPIFY_ORDERS_DATASET="raw"), site)
     assert pages == (site / "index.html", site / "lineage" / "index.html")
     html = pages[0].read_text()
     # The static page embeds the manifest, so documented models are inside it.
-    assert "fct_orders" in html
     assert "stg_shopify_orders__orders" in html
     assert sorted(path.name for path in site.iterdir()) == ["index.html", "lineage"]
     assert [path.name for path in (site / "lineage").iterdir()] == ["index.html"]
     for page in pages:
         assert page.stat().st_mode & 0o777 == 0o644
-    # The warehouse is empty, as staging and intermediate relations are in
-    # deployments, yet column lineage still traces through them.
+    # Column lineage still traces into the declared, unbuilt models.
     # Both pages are built with usage tracking off.
     assert '"send_anonymous_usage_stats":false' in html.replace(" ", "")
     assert "window.colibriTelemetry = false" in pages[1].read_text()
     traced = _lineage(pages[1])
     assert (
+        "source.analytics.shopify_orders.orders",
+        "source_name",
         "model.analytics.stg_shopify_orders__orders",
         "source_name",
-        "model.analytics.int_shopify_orders__classifications",
-        "is_retail",
-    ) in traced
-    assert (
-        "model.analytics.int_shopify_orders__classifications",
-        "is_retail",
-        "model.analytics.fct_orders",
-        "is_retail",
     ) in traced
 
 
@@ -178,13 +172,12 @@ def test_failed_lineage_keeps_both_previous_pages(
     ]
 
 
-def test_namespace_follows_the_published_marts_schema() -> None:
-    env = {"ANALYTICS_ENVIRONMENT": "development"}
-    assert module.docs_namespace(env) == "development"
-    marts = {**env, "ANALYTICS_MARTS_SCHEMA": "Development_Marts"}
-    assert module.docs_namespace(marts) == "development"
-    with pytest.raises(ValueError, match="_marts"):
-        _ = module.docs_namespace({**env, "ANALYTICS_MARTS_SCHEMA": "development"})
+def test_namespace_is_the_environment() -> None:
+    assert module.docs_namespace({"ANALYTICS_ENVIRONMENT": "development"}) == (
+        "development"
+    )
+    with pytest.raises(ValueError, match="ANALYTICS_ENVIRONMENT"):
+        _ = module.docs_namespace({"ANALYTICS_ENVIRONMENT": "staging"})
 
 
 def test_sensor_requests_one_build_per_release_image() -> None:
@@ -198,95 +191,3 @@ def test_sensor_requests_one_build_per_release_image() -> None:
 def test_sensor_starts_stopped() -> None:
     sensor = module.defs.resolve_sensor_def(module.SENSOR_NAME)
     assert sensor.default_status == dg.DefaultSensorStatus.STOPPED
-
-
-def test_docs_describe_each_groups_published_destination(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    observed: dict[str, object] = {}
-    lineage = module.lineage_catalog
-
-    def capture(manifest: object, catalog: object) -> dict[str, object]:
-        observed.update(mapping(mapping(manifest)["nodes"]))
-        return lineage(manifest, catalog)
-
-    monkeypatch.setattr(module, "lineage_catalog", capture)
-    site = tmp_path / "docs"
-    site.mkdir()
-    module.build_docs(
-        _env(
-            tmp_path,
-            ANALYTICS_MARTS_SCHEMA="local_orders_marts",
-            ANALYTICS_CUSTOMERS_MARTS_SCHEMA="local_customers_marts",
-            ANALYTICS_INVENTORY_MARTS_SCHEMA="local_inventory_marts",
-            SHOPIFY_CUSTOMERS_ENABLED="true",
-            GOODDAY_INVENTORY_ENABLED="true",
-        ),
-        site,
-    )
-    for model, schema in {
-        "fct_orders": "local_orders_marts",
-        "dim_order_contacts": "local_orders_marts",
-        "dim_customers": "local_customers_marts",
-        "dim_customer_details": "local_customers_marts",
-        "fct_inventory__current": "local_inventory_marts",
-    }.items():
-        assert mapping(observed[f"model.analytics.{model}"])["schema"] == schema
-
-
-@pytest.mark.parametrize("documentation", [True, False])
-@pytest.mark.parametrize("independent", [True, False])
-def test_snowflake_docs_route_without_changing_candidate_builds(
-    tmp_path: Path, documentation: bool, independent: bool
-) -> None:
-    target = tmp_path / "target"
-    subprocess.run(
-        [
-            str(Path(sys.executable).with_name("dbt")),
-            "parse",
-            "--project-dir",
-            str(DBT),
-            "--profiles-dir",
-            str(DBT),
-            "--target-path",
-            str(target),
-            "--no-partial-parse",
-            "--vars",
-            json.dumps({"documentation_publications": documentation}),
-        ],
-        env=_env(
-            tmp_path,
-            DBT_TARGET="snowflake-development",
-            DBT_NAMESPACE="candidate",
-            SNOWFLAKE_ACCOUNT="fixture",
-            SNOWFLAKE_USER="fixture",
-            SNOWFLAKE_DATABASE="fixture",
-            ANALYTICS_MARTS_SCHEMA="dev_orders_marts",
-            ANALYTICS_CUSTOMERS_MARTS_SCHEMA="dev_customers_marts"
-            if independent
-            else "",
-            ANALYTICS_INVENTORY_MARTS_SCHEMA="dev_inventory_marts"
-            if independent
-            else "",
-            SHOPIFY_CUSTOMERS_ENABLED="true",
-            GOODDAY_INVENTORY_ENABLED="true",
-        ),
-        check=True,
-        timeout=60,
-    )
-    nodes = mapping(mapping(module.read_json(target / "manifest.json"))["nodes"])
-    for model, schema in {
-        "fct_orders": "dev_orders_marts",
-        "dim_order_contacts": "dev_orders_marts",
-        "dim_customers": "dev_customers_marts",
-        "dim_customer_details": "dev_customers_marts",
-        "fct_inventory__current": "dev_inventory_marts",
-    }.items():
-        expected = "candidate_marts"
-        if documentation:
-            expected = (
-                schema
-                if independent or schema == "dev_orders_marts"
-                else "candidate_marts"
-            )
-        assert mapping(nodes[f"model.analytics.{model}"])["schema"] == expected

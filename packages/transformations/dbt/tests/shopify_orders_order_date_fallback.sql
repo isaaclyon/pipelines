@@ -1,5 +1,5 @@
 -- Orders whose order_date falls back to created_at because Shopify has no
--- processing time. A visible count; publication continues.
+-- processing time. A visible count; the build continues.
 {{ config(severity='warn') }}
 
 select

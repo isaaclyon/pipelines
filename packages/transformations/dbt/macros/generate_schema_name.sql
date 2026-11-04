@@ -18,18 +18,5 @@
     {% else %}
         {{ return(target.schema) }}
     {% endif %}
-    {% if suffix == 'marts' and var('documentation_publications', false) %}
-        {% set settings = {
-            'orders': 'ANALYTICS_MARTS_SCHEMA',
-            'customers': 'ANALYTICS_CUSTOMERS_MARTS_SCHEMA',
-            'inventory': 'ANALYTICS_INVENTORY_MARTS_SCHEMA'
-        } %}
-        {% set group = node.config.meta.get('publication_group', 'orders') %}
-        {% set schema = (env_var(settings[group], '') or namespace ~ '_marts') | lower %}
-        {% if not modules.re.fullmatch('[a-z][a-z0-9]*(?:_[a-z0-9]+)*_marts', schema) or schema | length > 96 %}
-            {{ exceptions.raise_compiler_error('Documentation requires a valid publication schema ending in _marts') }}
-        {% endif %}
-        {{ return(schema) }}
-    {% endif %}
     {{ namespace }}_{{ suffix }}
 {% endmacro %}

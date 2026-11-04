@@ -31,3 +31,8 @@
 {% macro default__local_date(utc_column, time_zone) %}
     {{ exceptions.raise_compiler_error('local_date has no implementation for ' ~ adapter.type()) }}
 {% endmacro %}
+
+{#- Reporting dates use one zone, shared with Cube through the same variable. -#}
+{% macro reporting_time_zone() %}
+    {{- return(env_var('ANALYTICS_REPORTING_TIME_ZONE', 'America/Los_Angeles')) -}}
+{% endmacro %}

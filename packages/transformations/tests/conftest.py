@@ -111,8 +111,8 @@ def _full_manifest(
         _parsed.append(pickle.dumps(manifest))
         return manifest
     manifest = cast(Manifest, pickle.loads(_reused))
-    # Artifacts name the invocation that wrote them, and publication rejects a
-    # manifest whose invocation differs from its run results.
+    # Artifacts name the invocation that wrote them; keep a reused manifest's
+    # invocation consistent with the run results written beside it.
     manifest.metadata = dataclasses.replace(
         manifest.metadata,
         generated_at=datetime.now(UTC).replace(tzinfo=None),

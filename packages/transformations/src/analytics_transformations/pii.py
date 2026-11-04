@@ -9,17 +9,16 @@ import sys
 from pathlib import Path
 
 from analytics_transformations.layer_dependencies import root_project
-from analytics_transformations.mart_contracts import mapping, read_json, sequence, text
+from analytics_transformations.manifest_values import mapping, read_json, sequence, text
 
 
 def check_pii(data: object) -> None:
-    """Reject missing/non-boolean classifications and exposed restricted fields."""
+    """Reject missing or non-boolean PII classifications."""
     manifest = mapping(data)
     project = root_project(data)
     resources = {
         **mapping(manifest.get("nodes", {})),
         **mapping(manifest.get("sources", {})),
-        **mapping(manifest.get("exposures", {})),
     }
     entries = list(resources.items())
     for key, values in mapping(manifest.get("disabled", {})).items():
@@ -52,12 +51,6 @@ def check_pii(data: object) -> None:
                     f"{key}: add {', '.join(sorted(extra))} to source_fields.json "
                     "reviewed source inventory"
                 )
-    models = {
-        text(node["name"]): node
-        for _, raw in entries
-        if (node := mapping(raw)).get("resource_type") == "model"
-        and node.get("package_name") == project
-    }
     for key, value in entries:
         node = mapping(value)
         if node.get("package_name") != project:
@@ -73,43 +66,6 @@ def check_pii(data: object) -> None:
                 meta = mapping(config.get("meta", {}))
                 if type(meta.get("pii")) is not bool:
                     raise ValueError(f"{key}.{name}: declare boolean config.meta.pii")
-        elif kind == "exposure":
-            meta = mapping(mapping(node.get("config", {})).get("meta", {}))
-            fields = mapping(meta.get("cube_fields", {}))
-            if not fields:
-                continue
-            classifications = mapping(meta.get("cube_pii", {}))
-            if fields.keys() != classifications.keys():
-                raise ValueError(f"{key}: declare cube_pii for every Cube field")
-            for name, pii in classifications.items():
-                if type(pii) is not bool:
-                    raise ValueError(f"{name}: declare boolean PII status")
-                if pii:
-                    raise ValueError(
-                        f"{name}: restricted PII cannot be exposed in Cube"
-                    )
-            direct = mapping(meta.get("cube_direct_columns", {}))
-            if fields.keys() != direct.keys():
-                raise ValueError(
-                    f"{key}: declare cube_direct_columns for every Cube field"
-                )
-            # Direct aliases name the same field, not a derived classification.
-            # Aggregates and expressions keep their independent author decision.
-            for name, reference in direct.items():
-                if reference is None:
-                    continue
-                model, _, column = text(reference).partition(".")
-                declared = mapping(mapping(models.get(model, {})).get("columns", {}))
-                field = mapping(declared.get(column, {}))
-                config = mapping(field.get("config", {}))
-                source_meta = mapping(config.get("meta", {}))
-                if (
-                    name not in classifications
-                    or source_meta.get("pii") is not classifications[name]
-                ):
-                    raise ValueError(
-                        f"{name}: direct column classification differs from {reference}"
-                    )
 
 
 def source_inventory(data: object) -> dict[str, list[str]]:

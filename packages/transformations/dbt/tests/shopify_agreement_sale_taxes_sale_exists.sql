@@ -1,7 +1,7 @@
-{{ config(meta={'dagster': {'ref': {'name': 'fct_orders'}}}) }}
+{{ config(meta={'dagster': {'ref': {'name': 'stg_shopify_orders__orders'}}}) }}
 
--- depends_on: {{ ref('fct_orders') }}
--- Validate this raw child even when the optional tax-detail view is not selected.
+-- depends_on: {{ ref('stg_shopify_orders__orders') }}
+-- Validate the raw child, which keeps rows the staging view would not join.
 {{ config(tags=['shopify_commercial_cross_model']) }}
 select
     taxes.shop_id,

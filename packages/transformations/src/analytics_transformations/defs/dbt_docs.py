@@ -19,36 +19,30 @@ from pathlib import Path
 
 import dagster as dg
 
-from analytics_transformations.mart_contracts import mapping, read_json, text
+from analytics_transformations.manifest_values import mapping, read_json, text
 
 JOB_NAME = "dbt_docs"
 SENSOR_NAME = "dbt_docs_release_sensor"
 ENVIRONMENTS = frozenset({"local", "ci", "development", "production"})
-MARTS_SUFFIX = "_marts"
 DOCS_DIR = Path("/var/lib/analytics/docs")
 TIMEOUT_SECONDS = 600
 
 
 def docs_namespace(env: Mapping[str, str]) -> str:
-    """The default namespace for documentation; marts use their group settings.
-
-    Remote deployments name the schema Cube reads; local and CI use the
-    ``<environment>_marts`` default that Cube uses there.
-    """
+    """Document the environment's namespace: its models build in
+    ``<environment>_staging`` and ``<environment>_marts``."""
     environment = env.get("ANALYTICS_ENVIRONMENT", "")
-    schema = (env.get("ANALYTICS_MARTS_SCHEMA") or environment + MARTS_SUFFIX).lower()
-    if not schema.endswith(MARTS_SUFFIX) or len(schema) == len(MARTS_SUFFIX):
-        raise ValueError("ANALYTICS_MARTS_SCHEMA must name a <namespace>_marts schema")
-    return schema.removesuffix(MARTS_SUFFIX)
+    if environment not in ENVIRONMENTS:
+        raise ValueError("Select an environment with ANALYTICS_ENVIRONMENT")
+    return environment
 
 
 def lineage_catalog(manifest: object, catalog: object) -> dict[str, object]:
     """Add declared columns for models the warehouse catalog lacks.
 
-    Staging and intermediate relations exist only inside publication
-    candidates, so the catalog has no columns for them and dbt-colibri cannot
-    trace through them. Their declarations match their actual outputs:
-    publication rejects any candidate whose columns or types differ.
+    The catalog has no columns for a model that has not been built in the
+    documented namespace, and dbt-colibri cannot trace through it. Declared
+    columns stand in; the package tests compare them with built outputs.
     """
     catalog = mapping(catalog)
     nodes = mapping(catalog["nodes"])
@@ -108,8 +102,7 @@ def _stage(page: Path, directory: Path) -> Path:
 
 def build_docs(env: Mapping[str, str], site: Path) -> tuple[Path, Path]:
     """Generate the docs and lineage pages and replace both in ``site``."""
-    if env.get("ANALYTICS_ENVIRONMENT", "") not in ENVIRONMENTS:
-        raise ValueError("Select an environment with ANALYTICS_ENVIRONMENT")
+    namespace = docs_namespace(env)
     project = env.get("DBT_PROJECT_DIR", "dbt")
     bin_dir = Path(sys.executable).parent
     with tempfile.TemporaryDirectory() as directory:
@@ -120,8 +113,6 @@ def build_docs(env: Mapping[str, str], site: Path) -> tuple[Path, Path]:
                 "docs",
                 "generate",
                 "--static",
-                "--vars",
-                '{"documentation_publications": true}',
                 "--project-dir",
                 project,
                 "--profiles-dir",
@@ -131,7 +122,7 @@ def build_docs(env: Mapping[str, str], site: Path) -> tuple[Path, Path]:
                 "--no-partial-parse",
             ],
             # Opting out also stops the docs page from loading dbt's tracker.
-            {**env, "DBT_NAMESPACE": docs_namespace(env), "DO_NOT_TRACK": "1"},
+            {**env, "DBT_NAMESPACE": namespace, "DO_NOT_TRACK": "1"},
             "dbt docs generate failed",
         )
         catalog = lineage_catalog(

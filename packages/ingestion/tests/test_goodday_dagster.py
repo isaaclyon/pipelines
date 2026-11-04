@@ -17,7 +17,6 @@ def test_goodday_job_has_no_schedule_and_exclusive_writer_tag(tmp_path: Path) ->
     definitions = build_definitions(env)
     job = definitions.resolve_job_def("goodday_inventory_capture")
     assert job.tags["analytics/exclusive-resource"] == "goodday-inventory"
-    assert job.tags["analytics/publication-input"] == "development-inventory"
     assert definitions.schedules is None
 
 

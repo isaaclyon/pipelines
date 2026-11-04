@@ -58,7 +58,7 @@ validation_schedule = dg.ScheduleDefinition(
 )
 
 # Expand first: existing environments have no customer raw tables. Activation
-# follows initial extraction and grants, rather than breaking order publication.
+# follows initial extraction and grants, rather than breaking order checks.
 defs = (
     dg.Definitions(
         asset_checks=[customer_profile_freshness, customer_sweep_freshness],

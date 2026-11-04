@@ -8,10 +8,6 @@ Shared meanings for platform requirements and analytical data contracts.
 A published business-facing dataset with documented meaning, row grain, and keys.
 A mart may retain detailed records or contain aggregates.
 
-**Publication group**:
-The smallest set of marts whose outputs must share one validated version for a
-business answer to be consistent. Unrelated groups can refresh independently.
-
 **Row grain**:
 What one row represents in a dataset, including the distinctions needed to tell
 two legitimate records apart.
@@ -23,8 +19,8 @@ without promising consumers that it will stay stable.
 _Avoid_: Model contract
 
 **Mart contract**:
-The published, compatibility-checked interface of a mart: its relation, columns,
-types, row grain, keys, and required checks. Consumers may depend on it.
+The published interface of a mart: its relation, columns, types, row grain,
+keys, and required checks. Consumers may depend on it.
 _Avoid_: Model contract, contract (unqualified)
 
 **Source identity**:

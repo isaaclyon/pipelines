@@ -24,16 +24,6 @@ class RoutingTests(unittest.TestCase):
                 (["transformations"], True),
             ),
             (["packages/metrics/cube.js"], (["metrics"], True)),
-            # Metrics checks that this generated file matches the Cube model.
-            (
-                ["packages/transformations/dbt/models/exposures/_cube__exposures.yml"],
-                (["transformations", "metrics"], True),
-            ),
-            # The Cube model reads its column metadata from this snapshot.
-            (
-                ["packages/transformations/dbt/customer-mart-contracts.json"],
-                (["transformations", "metrics"], True),
-            ),
             (["packages/ingestion/uv.lock"], (["ingestion"], True)),
             (
                 [
@@ -86,7 +76,6 @@ class RoutingTests(unittest.TestCase):
             ([f"{dbt}/dbt_project.yml"], "all"),
             ([f"{dbt}/profiles.yml"], "all"),
             ([f"{dbt}/packages.yml"], "all"),
-            ([f"{dbt}/mart-contracts.json"], "all"),
             (["packages/transformations/tests/fixtures/rows.csv"], "all"),
             (
                 [

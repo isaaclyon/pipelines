@@ -1,9 +1,9 @@
 {% docs __overview__ %}
 # Analytics Platform dbt project
 
-This site documents the Shopify sources, the staging and intermediate models
-built from them, and the marts that Cube reads. Each model page lists its
-columns, tests and SQL.
+This site documents the raw sources and the staging models built from them.
+Each model page lists its columns, tests and SQL. Marts, the tables that Cube
+reads, are added as each business question needs them.
 
 ## Lineage
 
@@ -12,8 +12,5 @@ columns, tests and SQL.
   and the models that use it.
 - **Column lineage:** add `lineage/` to this site's address, for example
   `https://<site>/lineage/`. That page traces each column from the raw
-  Shopify tables to the marts.
-
-Staging and intermediate relations exist only while a release is published,
-so their column types come from their declarations rather than the warehouse.
+  tables through the models.
 {% enddocs %}

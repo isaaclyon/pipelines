@@ -897,25 +897,25 @@ models:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for profile: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: names_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for names: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: email_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for email: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: phone_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for phone: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: whatsapp_consent_access_status
     config:
       meta: {pii: false}
@@ -926,46 +926,46 @@ models:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for addresses: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: summaries_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for summaries: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: statistics_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for statistics: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: tags_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for tags: available, access_denied, unsupported, or
-      excluded. Missing evidence remains unknown in marts.'
+      excluded. Missing evidence remains unknown downstream.'
   - name: metafields_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for metafields: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: tax_id_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for tax id: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: company_contacts_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for company contacts: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: external_identities_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for external identities: available, access_denied,
-      unsupported, or excluded. Missing evidence remains unknown in marts.'
+      unsupported, or excluded. Missing evidence remains unknown downstream.'

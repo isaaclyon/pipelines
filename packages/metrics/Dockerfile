@@ -7,8 +7,6 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /cube/conf anal
 COPY --chown=analytics:analytics packages/metrics/cube.js packages/metrics/package.json ./
 COPY --chown=analytics:analytics packages/metrics/model ./model
 COPY --chown=analytics:analytics packages/metrics/*.cjs ./
-# dbt owns published column metadata (ADR 0014); mart-columns.cjs reads it.
-COPY --chown=analytics:analytics packages/transformations/dbt/customer-mart-contracts.json ./mart-contracts.json
 USER analytics
 
 FROM base AS check-dependencies
@@ -17,11 +15,9 @@ COPY --chown=node:node packages/metrics/package.json packages/metrics/package-lo
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 FROM check-dependencies AS checks
-COPY --from=runtime --chown=node:node /cube/conf/cube.js /cube/conf/*.cjs /cube/conf/mart-contracts.json ./
+COPY --from=runtime --chown=node:node /cube/conf/cube.js /cube/conf/*.cjs ./
 COPY --from=runtime --chown=node:node /cube/conf/model ./model
 USER node
 COPY --chown=node:node packages/metrics/tsconfig.json ./
 COPY --chown=node:node packages/metrics/tests ./tests
-# Generated from this package's model; tests/exposures.test.cjs keeps it current.
-COPY --chown=node:node packages/transformations/dbt/models/exposures/_cube__exposures.yml ./dbt-exposures.yml
 ENTRYPOINT ["npm", "run", "check"]

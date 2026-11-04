@@ -76,10 +76,6 @@ renamed as (
         shipping_address_zip,
         shipping_address_country,
         shipping_address_country_code,
-        {{ reporting_market('shipping_address_country_code') }}
-            as reporting_market,
-        {{ reporting_market('shipping_address_country_code') }}
-        = '{{ var('home_reporting_market') }}' as is_home_reporting_market,
         shipping_address_phone,
         {{ utc_timestamp('_observed_at') }} as source_observed_at,
         _query_version as source_query_version,
