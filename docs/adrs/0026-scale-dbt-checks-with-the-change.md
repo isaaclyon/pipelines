@@ -30,6 +30,10 @@ The cost of dbt checks follows the change, not the project.
   run. SQL lint covers the changed model files, or every model when the
   macros change. Any other dbt-affecting change, and every dbt-affecting merge
   to main, runs every check.
+- Amended 2026-11-04: GitHub no longer runs these checks. A local
+  `scripts/platform ci check --base <base>` asks the change router for the
+  selection; without a base, `ci check` and `ci verify` run every check. The
+  full run before a dbt-affecting merge to main is a local step.
 - A test that executes models of the real dbt project declares the nodes it
   exercises with a dbt selector. The suite fails a test that executes nodes
   outside its declaration, so change selection cannot silently skip it.
@@ -45,8 +49,9 @@ The cost of dbt checks follows the change, not the project.
 ## Consequences
 
 - A typical pull request's dbt check time depends on how much it changes.
-- Change selection can miss an effect dbt does not track. The full run after a
-  dbt-affecting merge catches it before Release deploys.
+- Change selection can miss an effect dbt does not track. The full local run
+  before a dbt-affecting merge catches it before Release deploys, if someone
+  runs it.
 - Test modules carry a dbt selector, and model logic moves from Python fixtures
   to dbt unit tests.
 - Routing rules decide which changes can affect dbt; their tests must cover

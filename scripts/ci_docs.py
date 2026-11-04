@@ -96,14 +96,19 @@ def select_dbt_checks(names: list[str]) -> str:
     return max((dbt_checks(name) for name in names), key=DBT_CHECK_ORDER.index)
 
 
-def changed_paths(base: str, head: str) -> list[str]:
-    # No rename detection: both sides must qualify before skipping runtime checks.
-    result = subprocess.run(
-        ["git", "diff", "--no-renames", "--name-only", "-z", base, head],
-        check=True,
-        capture_output=True,
-    )
+def git_paths(*args: str) -> list[str]:
+    result = subprocess.run(["git", *args], check=True, capture_output=True)
     return [name.decode() for name in result.stdout.split(b"\0") if name]
+
+
+def changed_paths(base: str, head: str | None = None) -> list[str]:
+    """Paths that differ from base: in head, or in the working tree."""
+    # No rename detection: both sides must qualify before skipping runtime checks.
+    if head is not None:
+        return git_paths("diff", "--no-renames", "--name-only", "-z", base, head)
+    return git_paths("diff", "--no-renames", "--name-only", "-z", base) + git_paths(
+        "ls-files", "--others", "--exclude-standard", "-z"
+    )
 
 
 def check_docs(names: list[str]) -> None:
@@ -125,8 +130,10 @@ def check_docs(names: list[str]) -> None:
             continue
         path = path.resolve()
         contents = re.sub(r"```.*?```", "", path.read_text(), flags=re.DOTALL)
-        # Local inline and reference links; external URLs and heading anchors
-        # are intentionally excluded from this deterministic, offline check.
+        contents = re.sub(r"`[^`\n]*`", "", contents)
+        # Local inline and reference links outside code; external URLs and
+        # heading anchors are intentionally excluded from this deterministic,
+        # offline check.
         links = list(re.finditer(r"\]\(<?([^\s)>]+)", contents))
         links += list(
             re.finditer(r"^\s*\[[^\]]+\]:\s*<?([^\s>]+)", contents, re.MULTILINE)
@@ -141,12 +148,19 @@ def check_docs(names: list[str]) -> None:
 
 
 def main() -> None:
-    base, head = sys.argv[1:]
-    try:
-        names = changed_paths(base, head)
-    except (subprocess.CalledProcessError, UnicodeError):
-        names = []
-    check_docs(names)
+    """Route BASE HEAD, BASE and the working tree, or (no base) everything."""
+    arguments = sys.argv[1:]
+    if len(arguments) > 2:
+        print("Usage: ci_docs.py [BASE [HEAD]]", file=sys.stderr)
+        sys.exit(2)
+    names: list[str] = []
+    if arguments:
+        try:
+            names = changed_paths(*arguments)
+        except (subprocess.CalledProcessError, UnicodeError):
+            pass
+    # An unknown change runs every check, including every Markdown link.
+    check_docs(names or git_paths("ls-files", "-z", "*.md"))
     print(
         f"docs_only={str(bool(names) and all(is_doc(name) for name in names)).lower()}"
     )
