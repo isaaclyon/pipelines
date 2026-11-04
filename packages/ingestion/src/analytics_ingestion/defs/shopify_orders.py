@@ -8,11 +8,18 @@ resource, so they never write at once.
 """
 
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 
 import dagster as dg
 
+from analytics_ingestion.shopify.dagster import (
+    REJECT_CHECK,
+    ScheduleSpec,
+    bound,
+    reject_check,
+)
+from analytics_ingestion.shopify.dagster import build_schedules as source_schedules
 from analytics_ingestion.shopify.errors import ConfigurationError
 from analytics_ingestion.shopify.reconcile import ReconcileReport, reconcile
 from analytics_ingestion.shopify.settings import settings_from_env
@@ -25,16 +32,7 @@ from analytics_ingestion.shopify.source import (
 
 JOB_NAME = "shopify_orders_dlt_load"
 OP_NAME = "raw__shopify__shopify_orders_raw"
-ACTIVE = [
-    dg.DagsterRunStatus.QUEUED,
-    dg.DagsterRunStatus.NOT_STARTED,
-    dg.DagsterRunStatus.STARTING,
-    dg.DagsterRunStatus.STARTED,
-    dg.DagsterRunStatus.CANCELING,
-]
 ASSET_KEY = dg.AssetKey(["raw", "shopify", "shopify_orders_raw"])
-REJECT_CHECK = "open_rejects"
-REJECT_GRACE = timedelta(hours=24)
 RECONCILE_JOB_NAME = "shopify_orders_reconcile_counts"
 STATUS_KEY = dg.AssetKey(["raw", "shopify", "shopify_order_source_status"])
 COUNTS_CHECK = "counts_match"
@@ -43,9 +41,20 @@ EXCLUSIVE = {
     "analytics/publication-input": "development-marts",
     "dagster/retry_on_asset_or_op_failure": "false",
 }
-REFRESH_PRIORITY = {"dagster/priority": "10"}
-BACKGROUND_PRIORITY = {"dagster/priority": "-5"}
-LOOKBACK = timedelta(hours=26)
+SCHEDULES = ScheduleSpec(
+    source="orders",
+    job=JOB_NAME,
+    op=OP_NAME,
+    reconcile_job=RECONCILE_JOB_NAME,
+    seed_variable="SHOPIFY_ORDERS_SEED",
+    refresh_cron_variable="SHOPIFY_REFRESH_CRON",
+    refresh_cron="*/5 * * * *",
+    # Reread orders Shopify indexed after the refresh lag, cursor untouched.
+    nightly_kind="lookback",
+    nightly_cron="15 0 * * *",
+    nightly_window=timedelta(hours=26),
+    reconcile_cron="0 7 * * 0",
+)
 
 
 class ShopifyOrdersDltConfig(dg.Config):
@@ -86,23 +95,6 @@ def shopify_orders_raw(  # pyright: ignore[reportUnknownParameterType]
     return dg.MaterializeResult(
         metadata=dict(report.metadata()),
         check_results=[reject_check(report, datetime.now(UTC))],
-    )
-
-
-def reject_check(report: RunReport, now: datetime) -> dg.AssetCheckResult:
-    """Warn while any reject is open; fail once one has been open a day."""
-    oldest = report.oldest_open_reject
-    if oldest is None:
-        return dg.AssetCheckResult(check_name=REJECT_CHECK, passed=True)
-    overdue = now - oldest > REJECT_GRACE
-    return dg.AssetCheckResult(
-        check_name=REJECT_CHECK,
-        passed=False,
-        severity=dg.AssetCheckSeverity.ERROR if overdue else dg.AssetCheckSeverity.WARN,
-        metadata={
-            "open_rejects": report.open_rejects,
-            "oldest_hours": round((now - oldest).total_seconds() / 3600, 1),
-        },
     )
 
 
@@ -147,17 +139,8 @@ def _run(run_id: str, config: ShopifyOrdersDltConfig) -> OrdersRun:
     if kind is None:
         raise ValueError(f"kind must be one of {', '.join(kinds)}")
     return OrdersRun(
-        run_id, kind, _bound(config.start), _bound(config.end), config.workers
+        run_id, kind, bound(config.start), bound(config.end), config.workers
     )
-
-
-def _bound(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value)
-    if parsed.tzinfo is None:
-        raise ValueError("Run config bounds must include a UTC offset")
-    if parsed.microsecond:
-        raise ValueError("Run config bounds must use whole seconds")
-    return parsed
 
 
 # define_asset_job exposes an untyped third-party return type.
@@ -180,96 +163,17 @@ RECONCILE_JOB = dg.define_asset_job(  # pyright: ignore[reportUnknownMemberType,
 def build_schedules(env: Mapping[str, str]) -> list[dg.ScheduleDefinition]:
     """Refresh, nightly lookback and weekly reconcile, or none before cutover.
 
-    ``SHOPIFY_ORDERS_SEED`` is the first refresh's start; later refreshes resume
-    from the dlt cursor. Four readers by default keep a refresh inside its tick
-    at about four times the 2026-08-18 peak hour. The schedules start stopped.
+    Four readers by default keep a refresh inside its tick at about four times
+    the 2026-08-18 peak hour.
     """
-    seed = env.get("SHOPIFY_ORDERS_SEED")
-    if not seed:
+    if not env.get(SCHEDULES.seed_variable):
         return []
-    try:
-        _bound(seed)
-    except ValueError as error:
-        raise ConfigurationError(
-            f"SHOPIFY_ORDERS_SEED must be an ISO instant: {error}"
-        ) from None
     workers = env.get("SHOPIFY_ORDERS_REFRESH_WORKERS") or "4"
     if not workers.isdigit() or int(workers) < 1:
         raise ConfigurationError(
             "SHOPIFY_ORDERS_REFRESH_WORKERS must be a whole number of at least 1"
         )
-
-    def load(kind: str, start: datetime | None, end: datetime) -> dg.RunRequest:
-        config = {
-            "kind": kind,
-            "start": seed if start is None else start.isoformat(),
-            "end": end.isoformat(),
-            "workers": int(workers),
-        }
-        return dg.RunRequest(
-            run_key=f"{JOB_NAME}:{kind}:{end.isoformat()}",
-            run_config={"ops": {OP_NAME: {"config": config}}},
-            tags=REFRESH_PRIORITY if kind == "refresh" else BACKGROUND_PRIORITY,
-        )
-
-    def refresh(
-        context: dg.ScheduleEvaluationContext,
-    ) -> Iterator[dg.RunRequest | dg.SkipReason]:
-        # Skip rather than queue: the next refresh resumes from the cursor.
-        if context.instance.get_run_records(
-            filters=dg.RunsFilter(job_name=JOB_NAME, statuses=ACTIVE), limit=1
-        ):
-            yield dg.SkipReason("A dlt orders run is queued or running")
-            return
-        yield load("refresh", None, _tick(context))
-
-    def lookback(context: dg.ScheduleEvaluationContext) -> dg.RunRequest:
-        end = _tick(context)
-        return load("lookback", end - LOOKBACK, end)
-
-    def reconcile_counts(context: dg.ScheduleEvaluationContext) -> dg.RunRequest:
-        return dg.RunRequest(
-            run_key=f"{RECONCILE_JOB_NAME}:{_tick(context).isoformat()}",
-            tags=BACKGROUND_PRIORITY,
-        )
-
-    try:
-        refresh_schedule = dg.ScheduleDefinition(
-            name="shopify_orders_dlt_refresh_schedule",
-            job_name=JOB_NAME,
-            cron_schedule=env.get("SHOPIFY_REFRESH_CRON") or "*/5 * * * *",
-            execution_timezone=env.get("SHOPIFY_REFRESH_TIMEZONE") or "UTC",
-            execution_fn=refresh,
-            default_status=dg.DefaultScheduleStatus.STOPPED,
-        )
-    except dg.DagsterInvalidDefinitionError as error:
-        raise ConfigurationError(f"Invalid refresh schedule: {error}") from None
-    # Nightly runs follow the reporting calendar used by dbt and Cube.
-    reporting_zone = env.get("ANALYTICS_REPORTING_TIME_ZONE") or "America/Los_Angeles"
-    return [
-        refresh_schedule,
-        dg.ScheduleDefinition(
-            name="shopify_orders_dlt_lookback_schedule",
-            job_name=JOB_NAME,
-            cron_schedule="15 0 * * *",
-            execution_timezone=reporting_zone,
-            execution_fn=lookback,
-            default_status=dg.DefaultScheduleStatus.STOPPED,
-        ),
-        dg.ScheduleDefinition(
-            name=f"{RECONCILE_JOB_NAME}_schedule",
-            job_name=RECONCILE_JOB_NAME,
-            cron_schedule="0 7 * * 0",
-            execution_timezone=reporting_zone,
-            execution_fn=reconcile_counts,
-            default_status=dg.DefaultScheduleStatus.STOPPED,
-        ),
-    ]
-
-
-def _tick(context: dg.ScheduleEvaluationContext) -> datetime:
-    tick = context.scheduled_execution_time or datetime.now(UTC)
-    return tick.astimezone(UTC).replace(microsecond=0)
+    return source_schedules(env, SCHEDULES, {"workers": int(workers)})
 
 
 defs = dg.Definitions(
