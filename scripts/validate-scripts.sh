@@ -12,3 +12,4 @@ sh scripts/test-verify.sh
 sh scripts/test-worktree-setup.sh
 sh scripts/test-container-entrypoint.sh
 python3 scripts/test_run_context.py
+python3 scripts/test_source_mounts.py

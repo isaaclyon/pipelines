@@ -100,28 +100,7 @@ PY
         running_containers=$(docker ps -q)
         for container in $running_containers; do
             mounts=$(docker inspect --format '{{json .Mounts}}' "$container")
-            python3 - "$source" "$container" "$mounts" <<'PY'
-import json
-import pathlib
-import sys
-
-source = pathlib.Path(sys.argv[1])
-for mount in json.loads(sys.argv[3]):
-    mounted = mount.get("Source", "")
-    if not mounted or not pathlib.Path(mounted).is_absolute():
-        continue
-    parent = pathlib.Path(mounted).resolve()
-    overlaps = source == parent or parent in source.parents
-    if not overlaps and mount.get("Type") == "bind":
-        # Filesystem identity also catches case aliases and macOS firmlinks.
-        # An uninspectable bind mount cannot establish quiescence.
-        try:
-            overlaps = any(parent.samefile(item) for item in (source, *source.parents))
-        except OSError as error:
-            raise SystemExit("Cannot inspect running container mount " + sys.argv[2]) from error
-    if overlaps:
-        raise SystemExit("Source is mounted by a running container " + sys.argv[2])
-PY
+            python3 "$repo_root/scripts/source_mounts.py" "$source" "$container" "$mounts"
         done
         docker run --rm --network none --user "$(id -u):$(id -g)" \
             -e ANALYTICS_ENVIRONMENT=local -e LOCAL_SOURCE_STOPPED=true --entrypoint node \
