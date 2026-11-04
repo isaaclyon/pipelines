@@ -14,7 +14,7 @@ from analytics_ingestion.goodday.bigquery import (
     read_inventory,
 )
 from analytics_ingestion.goodday.source import capture_inventory
-from analytics_ingestion.kit.capture import CaptureResult, recover
+from analytics_ingestion.kit.capture import CaptureResult
 from analytics_ingestion.kit.runtime import (
     Target,
     mapping,
@@ -22,6 +22,7 @@ from analytics_ingestion.kit.runtime import (
     target,
     text,
 )
+from analytics_ingestion.kit.writes import open_writes
 
 SOURCE = "goodday"
 DATASET = "raw_goodday"
@@ -64,12 +65,12 @@ def load_inventory(env: Mapping[str, str]) -> CaptureResult:
     settings = settings_from_env(env)
     pipeline = settings.target.pipeline(settings.pipeline_name, DATASET)
     # Recovery does not issue another billable source query.
-    recover(pipeline)
+    writes = open_writes(pipeline)
     engine = engine_from_info(settings.source, settings.service_account)
     try:
         snapshot = read_inventory(
             engine, settings.source.schema, settings.source.relation
         )
-        return capture_inventory(pipeline, snapshot)
+        return capture_inventory(writes, snapshot)
     finally:
         engine.dispose()

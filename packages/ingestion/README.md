@@ -27,9 +27,9 @@ defines the tables and columns.
 | --- | --- |
 | `queries`, `client` | Pinned 2026-10 queries; GraphQL client with a request/time/byte budget |
 | `model` | Source rows to raw tables with exact decimals and ancestor IDs |
-| `source` | Paged reads, follow-up completion and rejects |
+| `source` | The orders reader: paged reads in parallel slices, follow-up completion and rejects |
 | `pipeline` | Column hints, write settings and the dlt pipeline shared with the customer source |
-| `load_cycle` | The run steps both sources share: recovery, reject re-reads, the window load, evidence, reject closure and payload-file deletion |
+| `load_cycle` | What both sources share: the Shopify connection, run report and dlt resources, and the run steps (reject re-reads, the window load, evidence and reject closure) written through `kit.writes` |
 | `dagster` | Run bounds, the `open_rejects` check and the three schedules both sources share |
 | `reconcile` | Monthly count comparison and confirmed-deletion marks |
 | `extract` | Shop identity, order counts and cursor paging shared by the two above |
@@ -95,10 +95,14 @@ has been open for 24 hours.
 
 Orders and customers run the same cycle, defined once in `load_cycle`: finish
 a package a crashed run left, re-read open rejects on refresh, load the window,
-then append evidence. Orders hold contact email, phone and addresses, so, as for
-customers, dlt deletes the job files of each loaded package. The next run also
-removes job files that earlier loaded packages left. Failed and pending packages keep
-their files, so recovery still works.
+then append evidence. Each source supplies a reader, its table declarations and
+its evidence rows, and maps its run types onto three read modes: `refresh`
+(the cursor), `bounded` (an explicit window on one date field) and `sweep`
+(everything before the end). The cycle builds the dlt resources, so the record
+and reject tables, run metadata columns and Dagster run metadata are written
+the same way for both. `tests/test_shopify_raw_output.py` compares what both
+sources write with a committed snapshot. Orders hold contact email, phone and addresses; the shared
+[write policy](#write-policy) removes the job files of each loaded package.
 
 Launch a window by hand with the `shopify_orders_dlt_load` job:
 
@@ -165,7 +169,9 @@ Shopify's count minus the raw orders it still returns is the gap a `reextract`
 must fill. The `counts_match` check fails while any gap or unconfirmed absence
 remains. A deletion and a gap in the same month cancel in the counts, so
 neither is found until one of them changes. It takes no run config, so it can
-also be launched by hand.
+also be launched by hand. It refuses to start while the orders pipeline has a
+pending package, or a loaded package with failed jobs, because dlt would load
+that package in place of the new marks. The next load run finishes the package.
 
 ### Recovery
 
@@ -199,7 +205,7 @@ reports coverage and access evidence.
 | `customer_model` | Table and column declarations |
 | `customer_queries` | Pinned 2026-10 selections per field group and the query version |
 | `customer_parse` | Source customer to root row and child lists; nulls for unselected groups |
-| `customer_source` | Probes, paged reads, child completion, rejects, evidence |
+| `customer_source` | The customer reader: probes, paged reads, child completion, rejects; evidence rows |
 | `customer_reconcile` | Deletion confirmation after a full sweep, personal-data purge |
 | `customer_settings` | Customer dataset and credential selection |
 | `defs/shopify_customers.py` | Asset, reconcile asset, two jobs, three schedules (stopped by default) |
@@ -305,9 +311,9 @@ second to avoid truncation or duplicate output. A second with 25,000 customers
 cannot be split safely and fails the run. A cursor that does
 not advance, a missing `hasNextPage` or a request, byte or time limit fails the
 run, and dlt discards the extract, so a failed run loads nothing and keeps the
-cursor. Completed dlt job files are deleted after loading. The next load or
-reconcile also removes legacy completed job files in this pipeline. Failed and
-pending packages remain recoverable; reconciliation fails until recovery finishes.
+cursor. The shared [write policy](#write-policy) deletes completed dlt job files
+after loading. Failed and pending packages remain recoverable; reconciliation
+fails until a load run finishes them.
 A package left by a killed run loads first on the next run. These steps are
 the `load_cycle` that orders also run. A customer
 that breaks the field contract goes to `shopify_customer_rejects` with an error
@@ -528,13 +534,14 @@ Follow [ADR 0017](../../docs/adrs/0017-ingest-data-with-dlt.md)'s order: a
 verified dlt connector, then dlt's declarative REST API source, then custom code.
 The shared kit in `analytics_ingestion.kit` supplies everything else. GoodDay,
 Google Sheets and Impact Radius use all of it. Shopify orders, Shopify customers
-and Loop Returns use its target and recovery, and keep their own credential
+and Loop Returns use its target and write policy, and keep their own credential
 files and on/off settings. A new source named `<source>` needs:
 
 - A source module that reads its settings with `kit.runtime.read_settings`,
   picks its destination with `kit.runtime.target`, and runs a dlt pipeline from
-  `Target.pipeline`. Snapshot sources can use `kit.capture.capture`, which
-  appends rows plus one evidence row per capture, and `kit.capture.recover`.
+  `Target.pipeline`, and writes only through `kit.writes.open_writes` (see
+  [Write policy](#write-policy)). Snapshot sources can use `kit.capture.capture`,
+  which appends rows plus one evidence row per capture.
 - A `defs/<source>.py` that calls `kit.dagster.manual_capture`. It builds one
   asset under `raw/<source>/`, one manual job with no schedule, the
   `analytics/exclusive-resource` tag, no automatic retry, and a run time limit.
@@ -555,6 +562,23 @@ Activation checks that the settings file, and remotely the Snowflake key, is
 readable. It makes no network calls. A listed source with a missing file stops
 the code location from loading. Only the local stack mounts the settings folder
 today; remote kit sources need their own secret delivery first.
+
+### Write policy
+
+Every source load and reconciliation writes through `kit.writes.open_writes`,
+and then through the `Writes.run` it returns, never through dlt's
+`pipeline.run`. One module therefore decides three things for every pipeline:
+
+- Loader settings. A pipeline must run with `raise_on_failed_jobs=true` and
+  `auto_abort_on_terminal_error=false`, so a failed job leaves its package
+  pending and retryable instead of counted as loaded.
+- Pending packages. dlt's `run` loads a pending package and skips the data it
+  was given. A load finishes the package first (`pending="finish"`, the
+  default). A reconciliation refuses to start (`pending="refuse"`), and also
+  refuses a loaded package with failed jobs, so its marks load in the run that
+  decided them. `Writes.run` refuses to write while a package is pending.
+- Payload files. A loaded package keeps no job files, because several sources
+  hold personal data. Failed and pending packages keep theirs for recovery.
 
 ## Impact Radius actions
 `impact_radius.source.load_actions(env)` reads the Impact v14 `Actions` list
@@ -690,7 +714,7 @@ and loading. Recovery reuses the original capture identity and does not query
 BigQuery again. A fresh extraction has a fresh capture ID; repeated observations
 are history, not duplicate updates. A failed read emits no complete capture. A failed destination job keeps a recoverable package and does
 not become eligible through the successful-load filter. Preserve the state
-volume and use `kit.capture.recover(pipeline)` for recovery alone. Do not drop
+volume and use `kit.writes.open_writes(pipeline)` for recovery alone. Do not drop
 pending packages merely to make a new run proceed. The source rejects dlt loader
 configuration with `raise_on_failed_jobs=false` or
 `auto_abort_on_terminal_error=true` before recovery or extraction. Those settings
@@ -853,9 +877,9 @@ including zero-row captures, rather than inferring membership from the latest ro
 Business validation still follows; successful raw loading does not validate keys.
 
 `capture_sheet` first recovers pending packages, then reads a **new** capture.
-For recovery alone, use `kit.capture.recover(pipeline)`: this is the shared
-kit recovery function GoodDay also uses, which operates on native dlt packages
-and rejects unsafe loader settings. Recovery preserves the captured identity and
+For recovery alone, use `kit.writes.open_writes(pipeline)`: this is the shared
+[write policy](#write-policy) every source uses, which operates on native dlt
+packages and rejects unsafe loader settings. Recovery preserves the captured identity and
 observation time without rereading Sheets, including failures in either rows or
 evidence loading. Do not discard pending packages or state to clear failures.
 Callers must serialize access and keep pipeline/state/destination identities

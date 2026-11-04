@@ -215,6 +215,78 @@ class RoutingTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(".agent/", result.stderr)
 
+    def test_working_tree_and_full_routing(self) -> None:
+        script = Path(__file__).with_name("ci_docs.py").resolve()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def git(*args: str) -> str:
+                return subprocess.run(
+                    ["git", "-c", "user.email=ci@example.invalid"]
+                    + ["-c", "user.name=CI test", "-c", "commit.gpgsign=false"]
+                    + list(args),
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+
+            def route(*args: str) -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    [sys.executable, str(script), *args],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                )
+
+            model = root / "packages/transformations/dbt/models/orders.sql"
+            model.parent.mkdir(parents=True)
+            model.write_text("select 1\n")
+            # A link shown as inline code is an example, not a link.
+            (root / "README.md").write_text("Write `[old](path)` to link.\n")
+            git("init")
+            git("add", ".")
+            git("commit", "-m", "initial")
+            base = git("rev-parse", "HEAD")
+
+            # With only a base, uncommitted and untracked files are routed.
+            model.write_text("select 2\n")
+            result = route(base)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('packages=["transformations"]', result.stdout)
+            self.assertIn("dbt_checks=changed", result.stdout)
+            git("checkout", "--", ".")
+            (root / "packages/ingestion/src").mkdir(parents=True)
+            (root / "packages/ingestion/src/source.py").write_text("pass\n")
+            result = route(base)
+            self.assertIn('packages=["ingestion"]', result.stdout)
+            self.assertIn("dbt_checks=none", result.stdout)
+            (root / "packages/ingestion/src/source.py").unlink()
+
+            # An unchanged broken link fails only the full check.
+            (root / "docs").mkdir()
+            (root / "docs/old.md").write_text("[broken](missing.md)\n")
+            git("add", ".")
+            git("commit", "-m", "broken link")
+            head = git("rev-parse", "HEAD")
+            model.write_text("select 3\n")
+            self.assertEqual(route(head).returncode, 0)
+            git("checkout", "--", ".")
+            result = route()
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("docs/old.md", result.stderr)
+            (root / "docs/old.md").write_text("Fixed\n")
+            git("commit", "-am", "fix link")
+
+            # Without a base, every check runs.
+            result = route()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(
+                'packages=["ingestion", "transformations", "metrics"]', result.stdout
+            )
+            self.assertIn("dbt_checks=all", result.stdout)
+            self.assertEqual(route("a", "b", "c").returncode, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

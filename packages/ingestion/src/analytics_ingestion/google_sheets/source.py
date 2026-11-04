@@ -11,7 +11,8 @@ from dlt.pipeline.pipeline import Pipeline
 
 from analytics_ingestion.google_sheets.client import Clock, Read, read_capture
 from analytics_ingestion.google_sheets.spec import SheetSpec
-from analytics_ingestion.kit.capture import Table, capture, recover
+from analytics_ingestion.kit.capture import Table, capture
+from analytics_ingestion.kit.writes import open_writes
 
 
 def columns(spec: SheetSpec) -> TTableSchemaColumns:
@@ -82,16 +83,16 @@ def capture_sheet(
 ) -> str:
     """Recover pending loads, then read one new observation; callers serialize access.
 
-    For recovery without a fresh observation use recover(pipeline), which also
+    For recovery without a fresh observation use open_writes(pipeline), which also
     enforces safe dlt loader configuration. No source I/O or partial rows reach
     dlt until the entire response validates. Blank and duplicate values are retained
     for transformation-owned business checks. Tables are ``<table>_rows`` and
     ``<table>_captures``.
     """
-    recover(pipeline)
+    writes = open_writes(pipeline)
     observed = read_capture(read, spec, clock=clock)
     return capture(
-        pipeline,
+        writes,
         resource=f"{spec.table}_capture",
         rows_table=Table(
             f"{spec.table}_rows",

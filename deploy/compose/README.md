@@ -106,8 +106,13 @@ collected, so one failure cannot hide another. Output is grouped by package.
 Focused checks still run only the selected package.
 
 GitHub runs only a secret scan (`.github/workflows/secret-scan.yml`); every
-other check runs locally. `scripts/ci_docs.py BASE HEAD` reports which checks a
-commit range needs:
+other check runs locally. `./scripts/platform ci check --base origin/main`
+asks the change router (`scripts/ci_docs.py`) which checks the working tree
+needs compared with that commit, including uncommitted and untracked files.
+It checks links in the changed documentation and runs only the selected
+package checks. When the router also selects integration, it says to run
+`./scripts/platform ci verify`. Naming a package still runs that package, using
+the router's dbt selection:
 
 | Changed paths | Required lanes |
 | --- | --- |
@@ -118,7 +123,7 @@ commit range needs:
 
 Within the transformations check, tests that execute the real dbt project run
 only when the change can affect them ([ADR 0026](../../docs/adrs/0026-scale-dbt-checks-with-the-change.md)).
-The router chooses `DBT_CHECKS` for that check:
+The router chooses the dbt tests for that check:
 
 | Changed paths | dbt project tests |
 | --- | --- |
@@ -127,10 +132,11 @@ The router chooses `DBT_CHECKS` for that check:
 | Other dbt project or package files, dependencies, the check image, or check scripts | All |
 | Missing history | All |
 
-To run only the changed dbt tests, extract the base commit's
-`packages/transformations` and run
-`DBT_CHECKS=changed DBT_BASE_PROJECT=<base checkout of packages/transformations> ./scripts/platform ci check transformations`.
-The default is all.
+For changed dbt tests, the check extracts the base commit's
+`packages/transformations` into a temporary folder and compares with it.
+Without `--base`, `ci check` and `ci verify` run every package and every dbt
+test and check every Markdown link. Run that full check before merging a
+dbt-affecting change to `main`; nothing else runs it (ADR 0026).
 
 Mixed changes take the union of required lanes; renames consider both paths.
 
@@ -165,7 +171,9 @@ supplementary group to launch runs as non-root users.
 
 Run relevant checks locally and fix failures before pushing; GitHub does not run
 them. For package changes, start with
-`./scripts/platform ci check ingestion` (or `transformations` / `metrics`).
+`./scripts/platform ci check --base origin/main`, which runs the checks the
+change needs, or name a package: `./scripts/platform ci check ingestion`
+(or `transformations` / `metrics`).
 For container, dependency, deployment, or orchestration changes, run the full
 flow from the repository root:
 
@@ -203,13 +211,15 @@ unavailable Git history run the full platform checks. Mixed changes select the
 union of lanes described above. Both sides
 of renames participate in routing.
 
-Link checks inspect changed Markdown files, resolve instruction symlinks to their
+Link checks inspect changed Markdown files (every tracked Markdown file when
+there is no base), resolve instruction symlinks to their
 canonical files, and validate local inline and reference targets. External URLs,
-heading anchors, and fenced code examples are excluded. This is an offline path
+heading anchors, and fenced and inline code examples are excluded. This is an offline path
 check, not a complete Markdown renderer or external link crawler.
 
 Run the routing regression tests with `python3 scripts/test_ci_docs.py` and check
-a commit range with `python3 scripts/ci_docs.py BASE HEAD`. These lightweight
+a commit range with `python3 scripts/ci_docs.py BASE HEAD` (or `BASE` alone
+for the working tree). These lightweight
 Git-based checks use the host's Python standard library and Git; package checks
 continue to run in their isolated containers.
 

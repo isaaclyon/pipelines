@@ -113,3 +113,25 @@ def test_reconcile_needs_a_complete_refresh(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigurationError, match="refresh"):
         check(tmp_path, shop)
+
+
+def test_reconcile_refuses_a_pending_order_package(tmp_path: Path) -> None:
+    """dlt's run would load the leftover package and drop this run's marks."""
+    import dlt
+
+    from analytics_ingestion.shopify.source import build_pipeline
+
+    shop = loaded(tmp_path)
+    del shop.orders[DELETED]
+    pipeline = build_pipeline(isolated(tmp_path))
+    pipeline.extract(dlt.resource([{"note": "left over"}], name="left_over"))
+
+    with pytest.raises(ValueError, match="pending"):
+        check(tmp_path, shop)
+
+    assert pipeline.has_pending_data
+    assert rows(
+        tmp_path,
+        "select count(*) from information_schema.tables"
+        " where table_name = 'order_source_status'",
+    ) == [(0,)]

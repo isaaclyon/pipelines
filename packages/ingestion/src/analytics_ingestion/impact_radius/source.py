@@ -22,9 +22,9 @@ from dlt.sources.helpers.rest_client.paginators import PageNumberPaginator
 from dlt.sources.rest_api import rest_api_source
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
-from analytics_ingestion.kit.capture import recover
 from analytics_ingestion.kit.dagster import Metadata
 from analytics_ingestion.kit.runtime import read_settings, target, text
+from analytics_ingestion.kit.writes import open_writes
 
 SOURCE = "impact_radius"
 DATASET = "raw_impact_radius"
@@ -118,15 +118,14 @@ def load_actions(
         # Live runs keep dlt's default session, which retries and times out.
         config["client"]["session"] = session
     pipeline = destination.pipeline("impact_radius_local", DATASET)
-    recover(pipeline)
+    writes = open_writes(pipeline)
     source = rest_api_source(config)
     source.resources["actions"].apply_hints(
         additional_table_hints={
             "description": "Impact actions from recent windows, merged on Id."
         }
     )
-    info = pipeline.run(source)
-    info.raise_on_failed_jobs()
+    info = writes.run(source)
     trace = pipeline.last_trace
     normalized = trace.last_normalize_info if trace else None
     counts = normalized.row_counts if normalized else {}

@@ -5,14 +5,12 @@ The customer tests cover the same cycle through the customer source.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-from analytics_ingestion.shopify.load_cycle import DELETE_COMPLETED_JOBS_ENV
 from analytics_ingestion.shopify.reconcile import reconcile
 from analytics_ingestion.shopify.source import build_pipeline
 from tests.shopify_fakes import FakeShop, at, money, order
-from tests.test_customer_package_retention import holders
+from tests.test_kit_writes import holders
 from tests.test_shopify_source import isolated, run
 
 EMAIL = "ada@example.invalid"
@@ -29,7 +27,6 @@ def test_loaded_order_package_keeps_no_payload_files(tmp_path: Path) -> None:
 
     working = Path(build_pipeline(isolated(tmp_path)).working_dir)
     assert holders(working, EMAIL.encode()) == []
-    assert DELETE_COMPLETED_JOBS_ENV not in os.environ
 
 
 def test_reject_of_an_order_confirmed_deleted_is_closed(tmp_path: Path) -> None:

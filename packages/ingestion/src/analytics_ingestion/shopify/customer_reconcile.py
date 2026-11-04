@@ -32,6 +32,7 @@ import dlt
 from dlt.common.destination.exceptions import DestinationUndefinedEntity
 from dlt.pipeline.pipeline import Pipeline
 
+from analytics_ingestion.kit.writes import open_writes
 from analytics_ingestion.shopify.client import (
     Budget,
     ExecutionLimits,
@@ -57,7 +58,7 @@ from analytics_ingestion.shopify.customer_source import (
 from analytics_ingestion.shopify.errors import ConfigurationError, SourceError
 from analytics_ingestion.shopify.extract import shop_identity
 from analytics_ingestion.shopify.jsonvalue import as_list, as_object
-from analytics_ingestion.shopify.load_cycle import open_rejects, purge_completed_jobs
+from analytics_ingestion.shopify.load_cycle import open_rejects
 from analytics_ingestion.shopify.pipeline import (
     MERGE,
     SCHEMA_CONTRACT,
@@ -107,18 +108,7 @@ def reconcile_customers(
     )
     shop_id = shop_identity(client, REQUIRED_SCOPES)
     pipeline = build_pipeline(settings)
-    if pipeline.has_pending_data:
-        raise ConfigurationError(
-            "Reconciliation requires recovery of pending customer packages"
-        )
-    if any(
-        pipeline.list_failed_jobs_in_package(load_id)
-        for load_id in pipeline.list_completed_load_packages()
-    ):
-        raise ConfigurationError(
-            "Reconciliation requires recovery of failed customer packages"
-        )
-    purge_completed_jobs(pipeline)
+    writes = open_writes(pipeline, pending="refuse")
     report = CustomerReconcileReport(run_id)
     open_ids = sorted(open_rejects(pipeline, shop_id, REJECTS))
     sweeps = _sql(
@@ -200,7 +190,7 @@ def reconcile_customers(
         *(_row(shop_id, cid, "available", BACK, run_id, now) for cid in reappeared),
     ]
     if rows:
-        pipeline.run(
+        _ = writes.run(
             dlt.resource(
                 rows,
                 name=STATUS_TABLE,

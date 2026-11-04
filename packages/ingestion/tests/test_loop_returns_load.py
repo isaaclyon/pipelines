@@ -432,15 +432,14 @@ def test_retry_after_publication_finishes_ack_without_reextracting(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from dlt.pipeline.pipeline import Pipeline
-
+    from analytics_ingestion.kit.writes import Writes
     from analytics_ingestion.loop_returns import source
     from analytics_ingestion.loop_returns.checkpoint import Checkpoint
 
     real_stage = source.stage_window
 
     def interrupt_ack(
-        pipe: Pipeline,
+        writes: Writes,
         rows: list[dict[str, object]],
         checkpoint: Checkpoint,
         *,
@@ -448,7 +447,7 @@ def test_retry_after_publication_finishes_ack_without_reextracting(
     ) -> None:
         if checkpoint.published:
             raise SourceError("interrupted before publication acknowledgement")
-        real_stage(pipe, rows, checkpoint, first=first)
+        real_stage(writes, rows, checkpoint, first=first)
 
     with monkeypatch.context() as patch:
         patch.setattr(source, "stage_window", interrupt_ack)

@@ -15,7 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
-from analytics_ingestion.kit.capture import recover
+from analytics_ingestion.kit.writes import open_writes
 from analytics_ingestion.loop_returns.checkpoint import Checkpoint, restore
 from analytics_ingestion.loop_returns.client import (
     HttpGet,
@@ -164,7 +164,7 @@ def _load_snapshot(
             "Loop candidate scope changed; unfinished work was not modified"
         )
     recovering_candidate = candidate.has_pending_data
-    recover(candidate)
+    candidate_writes = open_writes(candidate)
     candidate.sync_destination()
     saved = restore(candidate)
     if (
@@ -177,7 +177,7 @@ def _load_snapshot(
         and (not saved.published or candidate.has_pending_data or pipe.has_pending_data)
     ):
         raise GuardError("Restored Loop candidate scope does not match this request")
-    recover(pipe)
+    snapshot_writes = open_writes(pipe)
     if (
         saved is not None
         and saved.scope == scope
@@ -186,7 +186,7 @@ def _load_snapshot(
     ):
         result = published_result(pipe, saved)
         if result is not None:
-            stage_window(candidate, [], replace(saved, published=True))
+            stage_window(candidate_writes, [], replace(saved, published=True))
             removed, completed_at = result
             return LoadReport(
                 saved.snapshot_id,
@@ -262,7 +262,7 @@ def _load_snapshot(
             requests=client.stats.requests,
             splits=client.stats.splits,
         )
-        stage_window(candidate, rows, next_checkpoint, first=saved.windows == 0)
+        stage_window(candidate_writes, rows, next_checkpoint, first=saved.windows == 0)
         if candidate_count(candidate, settings.shop_id) != next_checkpoint.rows:
             raise GuardError("Loop candidate has conflicting copies across windows")
         saved = next_checkpoint
@@ -285,8 +285,8 @@ def _load_snapshot(
         "completed_at": completed_at,
     }
     notify("publishing", saved)
-    run_snapshot(pipe, candidate_rows(candidate), evidence)
-    stage_window(candidate, [], replace(saved, published=True))
+    run_snapshot(snapshot_writes, candidate_rows(candidate), evidence)
+    stage_window(candidate_writes, [], replace(saved, published=True))
     notify("published", saved)
     return LoadReport(
         saved.snapshot_id,

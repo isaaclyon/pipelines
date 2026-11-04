@@ -20,8 +20,8 @@ Run kinds:
 Field groups Shopify denies are probed once per run and left out of the query;
 ``customer_field_access`` records the result so a denied group is never read
 as a source NULL. Log and error text never contains customer values.
-``load_cycle`` owns the steps around the read: recovery, reject re-reads,
-reject closure, evidence and payload-file deletion.
+``load_cycle`` owns the steps around the read and the dlt resources: reject
+re-reads, reject closure and evidence; ``kit.writes`` deletes payload files.
 """
 
 from __future__ import annotations
@@ -30,18 +30,14 @@ import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Literal
+from typing import ClassVar, Literal
 
 import dlt
-from dlt.common.typing import TTableNames
-from dlt.extract.hints import TResourceNestedHints
 from dlt.extract.resource import DltResource
 from dlt.pipeline.pipeline import Pipeline
 
 from analytics_ingestion.shopify.client import (
-    Budget,
     ExecutionLimits,
-    RequestStats,
     ShopifyClient,
     Transport,
 )
@@ -62,7 +58,7 @@ from analytics_ingestion.shopify.customer_model import (
     ApprovedMetafields,
     metafield_is_collected,
 )
-from analytics_ingestion.shopify.customer_parse import ParsedCustomer, parse_customer
+from analytics_ingestion.shopify.customer_parse import parse_customer
 from analytics_ingestion.shopify.customer_queries import (
     ALL_RECORDED_GROUPS,
     CUSTOMER_PAGE_SIZE,
@@ -82,7 +78,7 @@ from analytics_ingestion.shopify.errors import (
     QueryRejected,
     SourceError,
 )
-from analytics_ingestion.shopify.extract import next_cursor, shop_identity
+from analytics_ingestion.shopify.extract import next_cursor
 from analytics_ingestion.shopify.jsonvalue import (
     DECIMAL_PRECISION,
     DECIMAL_SCALE,
@@ -96,13 +92,19 @@ from analytics_ingestion.shopify.jsonvalue import (
 )
 from analytics_ingestion.shopify.load_cycle import (
     CycleReport,
-    Recorded,
+    MetaValue,
+    Page,
+    RawTables,
+    ReadMode,
+    Reject,
     RejectLedger,
+    Run,
+    Tally,
+    Window,
+    connect,
     run_load_cycle,
 )
 from analytics_ingestion.shopify.pipeline import (
-    LAG_SECONDS,
-    MERGE,
     SCHEMA_CONTRACT,
     Column,
     Row,
@@ -116,7 +118,6 @@ EXTRACTION_REVISION = 1
 REQUIRED_SCOPES = frozenset({"read_customers"})
 # Shopify cannot page past about 25,000 nodes of one connection.
 MAX_WINDOW_CUSTOMERS = 25_000
-EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 READER_LIMITS = ExecutionLimits(
     max_requests=200_000, max_source_bytes=2 * 1024**3, max_active_seconds=4 * 3600
 )
@@ -131,6 +132,21 @@ REJECTS = RejectLedger(
     "confirmed_unavailable",
     "checked_at",
 )
+CUSTOMER_TABLES = RawTables(
+    REJECTS,
+    CUSTOMER_COLUMNS,
+    NESTED_TABLES,
+    REJECT_COLUMNS,
+    CUSTOMER_QUERY_VERSION,
+    EXTRACTION_REVISION,
+)
+# How each run type reads; see ``load_cycle``.
+READ_MODES: dict[CustomerKind, ReadMode] = {
+    "refresh": "refresh",
+    "lookback": "bounded",
+    "reextract": "bounded",
+    "sweep": "sweep",
+}
 
 
 @dataclass(frozen=True)
@@ -143,23 +159,19 @@ class CustomersRun:
     start: datetime
     end: datetime
 
-    @property
-    def window_start(self) -> datetime:
-        return EPOCH if self.kind == "sweep" else self.start
 
-
-Page = list[tuple[ParsedCustomer, datetime]]
+# (namespace, key, type) -> [customers, collected]
+Inventory = dict[tuple[str, str, str], list[int]]
 
 
 @dataclass
 class Observed:
-    rejects: list[tuple[str, datetime, str]] = field(default_factory=list)
+    rejects: list[Reject] = field(default_factory=list)
     customers: int = 0
     pages: int = 0
     moved: int = 0
     outside_window: int = 0
-    # (namespace, key, type) -> [customers, collected]
-    inventory: dict[tuple[str, str, str], list[int]] = field(default_factory=dict)
+    inventory: Inventory = field(default_factory=dict)
 
 
 def probe_groups(client: ShopifyClient, collect_tax_id: bool) -> dict[str, str]:
@@ -186,7 +198,9 @@ def _updated(node: JsonObject) -> datetime:
 
 
 class CustomerReader:
-    """Reads customers page by page with complete children. One per client."""
+    """Reads customers page by page with complete children. One per client.
+    A window read stores its metafield inventory in ``inventory``; a read by
+    ID does not."""
 
     def __init__(
         self,
@@ -195,21 +209,18 @@ class CustomerReader:
         groups: frozenset[str],
         window_cap: int = MAX_WINDOW_CUSTOMERS,
         approved_metafields: ApprovedMetafields = frozenset(),
+        inventory: Inventory | None = None,
     ) -> None:
         self.approved_metafields = approved_metafields
+        self.inventory = inventory
         self.window_cap = window_cap
         self.client = client
         self.shop_id = shop_id
         self.groups = groups
         self.observed = Observed()
 
-    def read(
-        self,
-        start: datetime | None,
-        end: datetime,
-        accept: Callable[[JsonObject], bool],
-    ) -> Iterator[Page]:
-        """Customers updated in ``[start, end)`` (``start`` None means all time).
+    def read(self, window: Window) -> Iterator[Page]:
+        """Customers updated in the window (a ``start`` of None means all time).
 
         Shopify stops a connection near 25,000 nodes, sometimes without an
         error. Each read is therefore capped at ``window_cap`` roots sorted by
@@ -218,6 +229,12 @@ class CustomerReader:
         every customer is read once and no read relies on a truncated cursor.
         If one second holds a whole cap of customers the window cannot be
         split and the run fails."""
+        start, end = window.start, window.end
+
+        def accept(node: JsonObject) -> bool:
+            updated = _updated(node)
+            return (window.start is None or window.start <= updated) and updated < end
+
         while True:
             roots, capped = self._fetch(start, end)
             floor = None
@@ -240,8 +257,10 @@ class CustomerReader:
                     kept[offset : offset + CUSTOMER_PAGE_SIZE], datetime.now(UTC)
                 )
             if floor is None:
-                return
+                break
             start = floor
+        if self.inventory is not None:
+            self.inventory.update(self.observed.inventory)
 
     def _fetch(
         self, start: datetime | None, end: datetime
@@ -292,6 +311,16 @@ class CustomerReader:
             self.observed.pages += 1
             yield self._complete(found, datetime.now(UTC))
 
+    def tally(self) -> Tally:
+        observed = self.observed
+        return Tally(
+            records=observed.customers,
+            pages=observed.pages,
+            moved=observed.moved,
+            outside_window=observed.outside_window,
+            rejects=observed.rejects,
+        )
+
     def _complete(self, roots: Sequence[JsonObject], observed_at: datetime) -> Page:
         complete: Page = []
         for root in roots:
@@ -334,12 +363,12 @@ class CustomerReader:
             except ContractError as error:
                 updated = parse_instant(required_str(root, "updatedAt"), "updatedAt")
                 self.observed.rejects.append(
-                    (customer_id, updated, f"contract: {error}")
+                    Reject(customer_id, updated, f"contract: {error}")
                 )
                 continue
             self.observed.customers += 1
             self._inventory(metafields)
-            complete.append((parsed, observed_at))
+            complete.append((parsed.content, observed_at))
         return complete
 
     def _inventory(self, metafields: Sequence[JsonObject]) -> None:
@@ -403,166 +432,25 @@ class CustomerReader:
 
 @dataclass
 class RunReport(CycleReport):
-    """Throughput and outcome evidence; counts and costs only, no payloads."""
+    """The customers run report: the shared counts plus field access and the
+    metafield inventory."""
 
-    run_id: str
-    kind: CustomerKind
-    customers: int = 0
-    moved: int = 0
-    outside_window: int = 0
-    pages: int = 0
-    extract_seconds: float = 0.0
+    RECORDS_KEY: ClassVar[str] = "customers"
+
     access: dict[str, str] = field(default_factory=dict)
-    inventory: dict[tuple[str, str, str], list[int]] = field(default_factory=dict)
-    stats: list[RequestStats] = field(default_factory=list)
+    inventory: Inventory = field(default_factory=dict)
 
-    def metadata(self) -> Mapping[str, str | int | float | None]:
-        floors = [s.min_available for s in self.stats if s.min_available is not None]
+    @property
+    def customers(self) -> int:
+        return self.records
+
+    def extra_metadata(self) -> Mapping[str, MetaValue]:
         denied = sorted(g for g, s in self.access.items() if s == "access_denied")
         unsupported = sorted(g for g, s in self.access.items() if s == "unsupported")
         return {
-            "kind": self.kind,
-            "window_start": _iso(self.window_start),
-            "window_end": _iso(self.window_end),
-            "customers": self.customers,
-            "rejects": self.rejects,
-            "rereads": self.rereads,
-            "open_rejects": self.open_rejects,
-            "moved": self.moved,
-            "outside_window": self.outside_window,
-            "pages": self.pages,
-            "requests": sum(sum(s.requests.values()) for s in self.stats),
-            "throttled": sum(s.throttled for s in self.stats),
-            "requested_cost": sum(s.requested_cost for s in self.stats),
-            "actual_cost": sum(s.actual_cost for s in self.stats),
-            "min_available": min(floors) if floors else None,
-            "extract_seconds": round(self.extract_seconds, 3),
             "access_denied_groups": ",".join(denied),
             "unsupported_groups": ",".join(unsupported),
-            "load_ids": ",".join(self.load_ids),
         }
-
-
-def _iso(value: datetime | None) -> str | None:
-    return None if value is None else value.isoformat()
-
-
-def customers_resource(
-    run: CustomersRun,
-    shop_id: str,
-    read: Callable[
-        [datetime | None, datetime, Callable[[JsonObject], bool], Observed],
-        Iterator[Page],
-    ],
-    report: RunReport,
-    recorded: Mapping[str, datetime] | None = None,
-    stateless: bool = False,
-    by_id: bool = False,
-) -> DltResource:
-    """Merge resource on (shop_id, customer_id); rejects go to an append table.
-
-    ``recorded`` maps open rejects to their newest rejected version so a
-    customer that fails again at that version is not appended twice. A
-    ``stateless`` resource has no cursor (used for reject re-reads)."""
-    recorded = recorded or {}
-    cursor: dlt.sources.incremental[datetime] | None
-    if stateless or run.kind == "sweep":
-        cursor = None
-    elif run.kind == "refresh":
-        cursor = dlt.sources.incremental[datetime](
-            "updated_at", initial_value=run.start, lag=LAG_SECONDS
-        )
-    else:
-        cursor = dlt.sources.incremental[datetime](
-            "updated_at",
-            initial_value=run.start,
-            end_value=run.end,
-            on_cursor_value_missing="include",
-        )
-
-    def rows(
-        window: dlt.sources.incremental[datetime] | None = cursor,
-    ) -> Iterator[object]:
-        start = (window.start_value if window else None) or run.window_start
-        report.window_start, report.window_end = start, run.end
-        if start >= run.end:
-            return
-        began = time.monotonic()
-        report.observed_started_at = datetime.now(UTC)
-        observed = Observed()
-
-        def accept(node: JsonObject) -> bool:
-            updated = parse_instant(required_str(node, "updatedAt"), "updatedAt")
-            return (run.kind == "sweep" or start <= updated) and updated < run.end
-
-        for page in read(
-            None if by_id or run.kind == "sweep" else start, run.end, accept, observed
-        ):
-            if page:
-                yield [
-                    {
-                        **customer.content,
-                        "_batch_id": run.run_id,
-                        "_observed_at": observed_at,
-                        "_extraction_kind": run.kind,
-                        "_query_version": CUSTOMER_QUERY_VERSION,
-                        "_extraction_revision": EXTRACTION_REVISION,
-                        "_api_version": API_VERSION,
-                    }
-                    for customer, observed_at in page
-                ]
-        report.observed_finished_at = datetime.now(UTC)
-        report.extract_seconds = time.monotonic() - began
-        report.pages, report.moved = observed.pages, observed.moved
-        report.outside_window = observed.outside_window
-        report.customers = observed.customers
-        report.inventory = observed.inventory
-        if not observed.customers:
-            yield dlt.mark.materialize_table_schema()
-        fresh = [
-            item
-            for item in observed.rejects
-            if item[0] not in recorded or recorded[item[0]] < item[1]
-        ]
-        report.rejects += len(fresh)
-        rejected_at = datetime.now(UTC)
-        for customer_id, updated_at, error in fresh:
-            yield dlt.mark.with_table_name(
-                {
-                    "shop_id": shop_id,
-                    "customer_id": customer_id,
-                    "updated_at": updated_at,
-                    "run_id": run.run_id,
-                    "error": error,
-                    "rejected_at": rejected_at,
-                },
-                REJECTS_TABLE,
-            )
-
-    columns = column_hints(CUSTOMER_COLUMNS)
-    columns["updated_at"]["dedup_sort"] = "desc"
-    nested: dict[TTableNames, TResourceNestedHints] = {
-        path: {"columns": column_hints(cols)} for path, cols in NESTED_TABLES.items()
-    }
-    resource = dlt.resource(
-        rows,
-        name=ROOT_TABLE,
-        write_disposition=MERGE,
-        primary_key=("shop_id", "customer_id"),
-        columns=columns,
-        nested_hints=nested,
-        schema_contract=SCHEMA_CONTRACT,
-    )
-    for cols in ({}, column_hints(REJECT_COLUMNS)):
-        resource.apply_hints(
-            table_name=REJECTS_TABLE,
-            write_disposition="append",
-            columns=cols,
-            primary_key=[],
-            nested_hints={},
-            create_table_variant=True,
-        )
-    return resource
 
 
 def build_pipeline(settings: Settings) -> Pipeline:
@@ -580,57 +468,19 @@ def load_customers(
     approved_metafields: ApprovedMetafields = frozenset(),
 ) -> RunReport:
     """Read and load one run; source failures surface as ShopifyIngestionError."""
+    connection = connect(
+        settings,
+        REQUIRED_SCOPES,
+        limits=limits or READER_LIMITS,
+        transport=transport,
+        sleeper=sleeper,
+    )
+    shop_id = connection.shop_id
     report = RunReport(run.run_id, run.kind)
-
-    def client() -> ShopifyClient:
-        made = ShopifyClient(
-            settings.credentials.shop_domain,
-            settings.credentials.access_token,
-            Budget(limits or READER_LIMITS, sleeper=sleeper),
-            transport,
-        )
-        report.stats.append(made.stats)
-        return made
-
-    probe = client()
-    shop_id = shop_identity(probe, REQUIRED_SCOPES)
-    report.access = probe_groups(probe, collect_tax_id)
+    report.access = probe_groups(connection.client(), collect_tax_id)
     groups = frozenset(
         g for g, status in report.access.items() if status == "available"
     )
-
-    def read(
-        start: datetime | None,
-        end: datetime,
-        accept: Callable[[JsonObject], bool],
-        observed: Observed,
-    ) -> Iterator[Page]:
-        reader = CustomerReader(
-            client(), shop_id, groups, approved_metafields=approved_metafields
-        )
-        yield from reader.read(start, end, accept)
-        _absorb(observed, reader.observed)
-
-    def reread(ids: Sequence[str], recorded: Recorded) -> tuple[DltResource, RunReport]:
-        def read_ids(
-            start: datetime | None,
-            end: datetime,
-            accept: Callable[[JsonObject], bool],
-            observed: Observed,
-        ) -> Iterator[Page]:
-            del start, end, accept
-            reader = CustomerReader(
-                client(), shop_id, groups, approved_metafields=approved_metafields
-            )
-            yield from reader.read_ids(ids)
-            _absorb(observed, reader.observed)
-
-        again = RunReport(run.run_id, run.kind)
-        resource = customers_resource(
-            run, shop_id, read_ids, again, recorded, stateless=True, by_id=True
-        )
-        return resource, again
-
     pipeline = build_pipeline(settings)
 
     def evidence() -> list[DltResource]:
@@ -643,13 +493,18 @@ def load_customers(
 
     run_load_cycle(
         pipeline,
-        shop_id,
-        REJECTS,
-        run.kind,
+        connection,
+        Run(
+            run.run_id, run.kind, READ_MODES[run.kind], "updated_at", run.start, run.end
+        ),
+        CUSTOMER_TABLES,
         report,
-        reread=reread,
-        window=lambda recorded: customers_resource(
-            run, shop_id, read, report, recorded
+        reader=lambda: CustomerReader(
+            connection.client(),
+            shop_id,
+            groups,
+            approved_metafields=approved_metafields,
+            inventory=report.inventory,
         ),
         evidence=evidence,
     )
@@ -695,17 +550,6 @@ def ensure_child_tables(pipeline: Pipeline, settings: Settings) -> None:
                 f"create table if not exists {name} "
                 f"({', '.join([*declared, *dlt_columns])})"
             )
-
-
-def _absorb(into: Observed, other: Observed) -> None:
-    into.rejects.extend(other.rejects)
-    into.customers += other.customers
-    into.pages += other.pages
-    into.moved += other.moved
-    into.outside_window += other.outside_window
-    for key, (count, collected) in other.inventory.items():
-        entry = into.inventory.setdefault(key, [0, collected])
-        entry[0] += count
 
 
 def _append(name: str, rows: list[Row], columns: Sequence[Column]) -> DltResource:

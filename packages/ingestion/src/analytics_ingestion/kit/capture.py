@@ -2,7 +2,7 @@
 
 Rows and their evidence share one load package. Consumers must join evidence and
 rows to successful ``_dlt_loads`` entries; visibility alone is not completion.
-A failed load keeps its package, and the next run loads it before reading again.
+A failed load keeps its package; ``kit.writes`` loads it before the next read.
 """
 
 from collections.abc import Iterable, Iterator
@@ -10,12 +10,9 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 import dlt
-from dlt.common.configuration import resolve_configuration
-from dlt.common.configuration.resolve import inject_section
-from dlt.common.configuration.specs import ConfigSectionContext
 from dlt.common.schema.typing import TTableSchemaColumns
-from dlt.load.configuration import LoaderConfiguration
-from dlt.pipeline.pipeline import Pipeline
+
+from analytics_ingestion.kit.writes import Writes
 
 
 @dataclass(frozen=True)
@@ -32,27 +29,8 @@ class CaptureResult:
     load_ids: tuple[str, ...]
 
 
-def recover(pipeline: Pipeline) -> None:
-    """Finish durable packages before reading the source again."""
-    # Resolve the same loader configuration as dlt. In 1.31.0 the loader's
-    # environment configuration can override even an explicit load() argument.
-    with inject_section(
-        ConfigSectionContext(pipeline_name=pipeline.pipeline_name, sections=("load",))
-    ):
-        config = resolve_configuration(LoaderConfiguration(), accept_partial=True)
-    if not config.raise_on_failed_jobs or config.auto_abort_on_terminal_error:
-        raise ValueError(
-            "Capture requires dlt raise_on_failed_jobs=true and "
-            "auto_abort_on_terminal_error=false for safe completion and recovery"
-        )
-    if pipeline.has_pending_data:
-        pipeline.normalize()
-        info = pipeline.load(raise_on_failed_jobs=True)
-        info.raise_on_failed_jobs()
-
-
 def capture(
-    pipeline: Pipeline,
+    writes: Writes,
     *,
     resource: str,
     rows_table: Table,
@@ -64,8 +42,8 @@ def capture(
 ) -> CaptureResult:
     """Append one capture; ``_capture_id`` and ``row_count`` are added here.
 
-    Callers recover first and serialize this pipeline. The rows table is created
-    even when the first capture is empty, so empty means complete and empty.
+    The rows table is created even when the first capture is empty, so empty
+    means complete and empty.
     """
     capture_id = uuid4().hex
     count = 0
@@ -108,6 +86,5 @@ def capture(
             create_table_variant=True,
         )
 
-    info = pipeline.run(data())
-    info.raise_on_failed_jobs()
+    info = writes.run(data())
     return CaptureResult(capture_id, count, tuple(info.loads_ids))

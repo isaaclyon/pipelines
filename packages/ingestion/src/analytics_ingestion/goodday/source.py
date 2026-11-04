@@ -10,9 +10,9 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from dlt.common.schema.typing import TTableSchemaColumns
-from dlt.pipeline.pipeline import Pipeline
 
-from analytics_ingestion.kit.capture import CaptureResult, Table, capture, recover
+from analytics_ingestion.kit.capture import CaptureResult, Table, capture
+from analytics_ingestion.kit.writes import Writes
 
 TABLE = "inventory_by_item"
 CAPTURES = "inventory_captures"
@@ -76,13 +76,12 @@ class InventorySnapshot(Protocol):
     def rows(self) -> Iterator[dict[str, object]]: ...
 
 
-def capture_inventory(pipeline: Pipeline, snapshot: InventorySnapshot) -> CaptureResult:
+def capture_inventory(writes: Writes, snapshot: InventorySnapshot) -> CaptureResult:
     """Retain a new observation; pending-package retries keep their original ID.
 
     Callers serialize this pipeline. An interrupted extract is not published;
     dlt retains normalized load packages for recovery, not source checkpoints.
     """
-    recover(pipeline)
     if not snapshot.source_relation:
         raise ValueError("GoodDay source relation is missing")
     if snapshot.observed_at.utcoffset() is None:
@@ -97,7 +96,7 @@ def capture_inventory(pipeline: Pipeline, snapshot: InventorySnapshot) -> Captur
             yield {**row, "_row_number": number}
 
     return capture(
-        pipeline,
+        writes,
         resource="inventory_capture",
         rows_table=Table(TABLE, TABLE_DESCRIPTION, {**snapshot.columns, **METADATA}),
         rows=rows(),

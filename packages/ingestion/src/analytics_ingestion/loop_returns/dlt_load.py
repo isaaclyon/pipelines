@@ -21,6 +21,7 @@ from dlt.extract.resource import DltResource
 from dlt.pipeline.exceptions import PipelineStepFailed
 from dlt.pipeline.pipeline import Pipeline
 
+from analytics_ingestion.kit.writes import Writes
 from analytics_ingestion.loop_returns.checkpoint import SOURCE, Checkpoint
 from analytics_ingestion.loop_returns.contract import (
     DECIMAL_PRECISION,
@@ -107,14 +108,13 @@ def loop_source(
 
 
 def run_snapshot(
-    pipe: Pipeline,
+    writes: Writes,
     rows: Iterable[dict[str, object]],
     evidence: dict[str, object],
 ) -> None:
     """Load one snapshot, raising the package error behind a failed dlt step."""
     try:
-        info = pipe.run(loop_source(rows, evidence))
-        info.raise_on_failed_jobs()
+        _ = writes.run(loop_source(rows, evidence))
     except PipelineStepFailed as error:
         cause: BaseException | None = error
         while cause is not None and not isinstance(cause, LoopIngestionError):
@@ -146,14 +146,13 @@ def candidate_window(
 
 
 def stage_window(
-    pipe: Pipeline,
+    writes: Writes,
     rows: list[dict[str, object]],
     checkpoint: Checkpoint,
     *,
     first: bool = False,
 ) -> None:
-    info = pipe.run(candidate_window(rows, checkpoint, first))
-    info.raise_on_failed_jobs()
+    _ = writes.run(candidate_window(rows, checkpoint, first))
 
 
 def published_result(

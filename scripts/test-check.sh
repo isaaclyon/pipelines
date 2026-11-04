@@ -4,8 +4,21 @@ set -eu
 check_source=$(pwd)/scripts/platform.d/check.sh
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
-mkdir -p "$fixture/scripts" "$fixture/bin"
-printf '#!/bin/sh\nexit 0\n' > "$fixture/scripts/check-versions.sh"
+# The checked repository; traces and stubs stay outside it, so they are not changes.
+repo="$fixture/repo"
+mkdir -p "$repo/scripts" "$repo/packages/transformations/dbt/models" "$fixture/bin"
+printf '#!/bin/sh\nexit 0\n' > "$repo/scripts/check-versions.sh"
+cp scripts/ci_docs.py "$repo/scripts/"
+printf 'select 1\n' > "$repo/packages/transformations/dbt/models/orders.sql"
+printf '# Guide\n' > "$repo/README.md"
+git_fixture() {
+    git -C "$repo" -c user.email=ci@example.invalid -c user.name='CI test' \
+        -c commit.gpgsign=false "$@" >/dev/null
+}
+git_fixture init
+git_fixture add .
+git_fixture commit -m base
+base=$(git -C "$repo" rev-parse HEAD)
 cat > "$fixture/bin/docker" <<'SH'
 #!/bin/sh
 test "$1 $2" = 'image inspect'
@@ -17,7 +30,7 @@ export CHECK_TRACE="$fixture/trace"
 export CHECK_STATE="$fixture/state"
 
 run_check() (
-    cd "$fixture"
+    cd "$repo"
     # Invoked indirectly by the sourced command, including in child processes.
     # shellcheck disable=SC2317,SC2329
     compose() {
@@ -30,7 +43,14 @@ run_check() (
                 ;;
             build) test "${BUILD_FAILURE:-0}" = 0 ;;
             run)
-                for service do :; done
+                for service do
+                    case "$service" in
+                        *:/base:ro)
+                            printf '%s\n' "${service%:/base:ro}" > "$CHECK_STATE/base-path"
+                            cp -R "${service%:/base:ro}" "$CHECK_STATE/base"
+                            ;;
+                    esac
+                done
                 touch "$CHECK_STATE/$service.started"
                 if [ "${EXPECT_PARALLEL:-0}" = 1 ]; then
                     case "$service" in
@@ -62,7 +82,7 @@ run_check() (
 
 reset_fixture() {
     # macOS sh can retain assignments made before shell-function calls.
-    unset EXPECT_PARALLEL FAIL_SERVICES MISSING_IMAGE BUILD_FAILURE DBT_CHECKS DBT_BASE_PROJECT
+    unset EXPECT_PARALLEL FAIL_SERVICES MISSING_IMAGE BUILD_FAILURE
     rm -rf "$CHECK_STATE"
     mkdir "$CHECK_STATE"
     : > "$CHECK_TRACE"
@@ -104,32 +124,60 @@ if grep -q ' run ' "$CHECK_TRACE"; then exit 1; fi
 reset_fixture
 run_check metrics --no-cache
 grep -q 'build metrics-check --no-cache' "$CHECK_TRACE"
-# Only the dbt package check receives the dbt selection (ADR 0026).
+# Without a base, every package and every dbt test runs (ADR 0026), and only
+# the dbt package check receives the dbt selection.
 reset_fixture
 run_check --no-build
 grep -q 'run --rm --no-deps --pull never -T -e DBT_CHECKS=all transformations-check' "$CHECK_TRACE"
 grep -q 'run --rm --no-deps --pull never -T ingestion-check' "$CHECK_TRACE"
 
+# A dbt model change checks the changed dbt tests against the extracted base.
 reset_fixture
-mkdir -p "$fixture/base/dbt"
-DBT_CHECKS=changed DBT_BASE_PROJECT="$fixture/base" run_check transformations --no-build
-grep -q -- "-e DBT_CHECKS=changed -e DBT_BASE_PROJECT=/base -v $(cd "$fixture/base" && pwd):/base:ro transformations-check" "$CHECK_TRACE"
+printf 'select 2\n' > "$repo/packages/transformations/dbt/models/orders.sql"
+run_check --base "$base" --no-build
+test "$(find "$CHECK_STATE" -name '*.started' | wc -l)" -eq 1
+grep -q -- '-e DBT_CHECKS=changed -e DBT_BASE_PROJECT=/base -v .*:/base:ro transformations-check' "$CHECK_TRACE"
+grep -qx 'select 1' "$CHECK_STATE/base/dbt/models/orders.sql"
+test ! -e "$(cat "$CHECK_STATE/base-path")"
+git_fixture checkout -- .
 
-# Non-dbt packages do not need the base checkout set only for transformations.
-for package in ingestion metrics; do
-    reset_fixture
-    DBT_CHECKS=changed run_check "$package" --no-build
-    test -f "$CHECK_STATE/$package-check.finished"
-    if grep -q -- '-e DBT_CHECKS' "$CHECK_TRACE"; then exit 1; fi
-done
+# The router chooses packages unless one is named.
+mkdir -p "$repo/packages/ingestion/src"
+printf 'pass\n' > "$repo/packages/ingestion/src/source.py"
+reset_fixture
+run_check --base "$base" --no-build
+test -f "$CHECK_STATE/ingestion-check.finished"
+test "$(find "$CHECK_STATE" -name '*.started' | wc -l)" -eq 1
+reset_fixture
+run_check transformations --base "$base" --no-build
+grep -q -- '-T -e DBT_CHECKS=none transformations-check' "$CHECK_TRACE"
+rm -r "$repo/packages/ingestion"
 
-for selection in changed:missing unknown:; do
+# A documentation-only change builds and runs no package, but checks its links.
+printf '# Guide\n\nSee [setup](docs/setup.md).\n' > "$repo/README.md"
+reset_fixture
+if run_check --base "$base" 2>/dev/null; then
+    echo 'Broken documentation link unexpectedly passed' >&2
+    exit 1
+fi
+test ! -s "$CHECK_TRACE"
+mkdir "$repo/docs"
+printf '# Setup\n' > "$repo/docs/setup.md"
+reset_fixture
+run_check --base "$base"
+test ! -s "$CHECK_TRACE"
+git_fixture checkout -- .
+rm -r "$repo/docs"
+
+for arguments in --base 'unknown --base'; do
     reset_fixture
-    if DBT_CHECKS=${selection%%:*} DBT_BASE_PROJECT="$fixture/${selection#*:}" run_check transformations --no-build 2>/dev/null; then
-        echo "Invalid dbt selection unexpectedly passed: $selection" >&2
+    # Word splitting is intended: each case is an argument list.
+    # shellcheck disable=SC2086
+    if run_check $arguments 2>/dev/null; then
+        echo "Invalid arguments unexpectedly passed: $arguments" >&2
         exit 1
     fi
-    if grep -q ' run ' "$CHECK_TRACE"; then exit 1; fi
+    test ! -s "$CHECK_TRACE"
 done
 
-echo 'Package checks preserve failures, run at most two at once, require prebuilt images, and pass the dbt selection'
+echo 'Package checks preserve failures, run at most two at once, require prebuilt images, and follow the change router'

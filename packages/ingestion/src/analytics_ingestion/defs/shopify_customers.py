@@ -169,7 +169,7 @@ def shopify_customer_source_status(  # pyright: ignore[reportUnknownParameterTyp
 ) -> dg.MaterializeResult:  # pyright: ignore[reportMissingTypeArgument]
     try:
         report = shopify_customers.reconcile(context.run.run_id, config.max_candidates)
-    except ConfigurationError as error:
+    except (ValueError, ConfigurationError) as error:
         raise dg.Failure(str(error), allow_retries=False) from None
     return dg.MaterializeResult(
         metadata=dict(report.metadata()),
