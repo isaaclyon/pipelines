@@ -8,9 +8,10 @@ import pytest
 
 from analytics_ingestion.shopify.client import HttpResponse
 from analytics_ingestion.shopify.customer_reconcile import reconcile_customers
-from analytics_ingestion.shopify.customer_source import build_pipeline, open_rejects
+from analytics_ingestion.shopify.customer_source import REJECTS, build_pipeline
 from analytics_ingestion.shopify.errors import SourceError
 from analytics_ingestion.shopify.jsonvalue import JsonObject, load_object
+from analytics_ingestion.shopify.load_cycle import open_rejects
 from tests.customer_fakes import FakeCustomerShop, customer, customer_settings
 from tests.test_customer_source import END, query, run
 
@@ -42,9 +43,9 @@ def test_persistent_reject_does_not_block_an_unrelated_deletion(tmp_path: Path) 
         "select customer_id, status from "
         "shopify_customers_raw.customer_source_status order by customer_id",
     ) == [(rejected, "unknown"), (deleted, "confirmed_unavailable")]
-    assert list(open_rejects(build_pipeline(settings), "gid://shopify/Shop/1")) == [
-        rejected
-    ]
+    assert list(
+        open_rejects(build_pipeline(settings), "gid://shopify/Shop/1", REJECTS)
+    ) == [rejected]
 
 
 def rejected_then_absent(tmp_path: Path) -> tuple[FakeCustomerShop, JsonObject]:
@@ -105,9 +106,9 @@ def test_rejected_candidate_still_needs_two_safe_absence_reads(
         "select count(*) from shopify_customers_raw.customers "
         "where customer_id = 'gid://shopify/Customer/2'",
     ) == [(1,)]
-    assert list(open_rejects(build_pipeline(settings), "gid://shopify/Shop/1")) == [
-        "gid://shopify/Customer/2"
-    ]
+    assert list(
+        open_rejects(build_pipeline(settings), "gid://shopify/Shop/1", REJECTS)
+    ) == ["gid://shopify/Customer/2"]
 
 
 def test_never_loaded_rejects_count_toward_the_deletion_limit(tmp_path: Path) -> None:
@@ -135,7 +136,9 @@ def test_never_loaded_rejects_count_toward_the_deletion_limit(tmp_path: Path) ->
     assert (
         len(
             open_rejects(
-                build_pipeline(customer_settings(tmp_path)), "gid://shopify/Shop/1"
+                build_pipeline(customer_settings(tmp_path)),
+                "gid://shopify/Shop/1",
+                REJECTS,
             )
         )
         == 2
@@ -151,9 +154,9 @@ def test_a_later_rejection_reopens_a_confirmed_absence(tmp_path: Path) -> None:
         ).confirmed
         == 1
     )
-    assert open_rejects(build_pipeline(settings), "gid://shopify/Shop/1") == {}
+    assert open_rejects(build_pipeline(settings), "gid://shopify/Shop/1", REJECTS) == {}
     shop.add(saved)
     run(tmp_path, shop, "sweep", "new-reject", end=END.replace(hour=4))
-    assert list(open_rejects(build_pipeline(settings), "gid://shopify/Shop/1")) == [
-        "gid://shopify/Customer/2"
-    ]
+    assert list(
+        open_rejects(build_pipeline(settings), "gid://shopify/Shop/1", REJECTS)
+    ) == ["gid://shopify/Customer/2"]

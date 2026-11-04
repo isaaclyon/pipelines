@@ -8,7 +8,8 @@ from analytics_ingestion.shopify.customer_reconcile import (
     CustomerReconcileReport,
     reconcile_customers,
 )
-from analytics_ingestion.shopify.customer_source import build_pipeline, open_rejects
+from analytics_ingestion.shopify.customer_source import REJECTS, build_pipeline
+from analytics_ingestion.shopify.load_cycle import open_rejects
 from tests.customer_fakes import (
     FakeCustomerShop,
     address,
@@ -31,7 +32,7 @@ def _reconcile(
 
 def _open(tmp_path: Path) -> dict[str, object]:
     pipeline = build_pipeline(customer_settings(tmp_path))
-    return dict(open_rejects(pipeline, "gid://shopify/Shop/1"))
+    return dict(open_rejects(pipeline, "gid://shopify/Shop/1", REJECTS))
 
 
 def _sweep(tmp_path: Path, shop: FakeCustomerShop, name: str, hour: int) -> None:
