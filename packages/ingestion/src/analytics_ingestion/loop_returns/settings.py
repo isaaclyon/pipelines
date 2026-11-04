@@ -1,7 +1,8 @@
 """Explicit runtime configuration, parsed before any API call or write.
 
-Production writes to Snowflake only when every Snowflake value is set. No
-value falls back to a production target.
+The destination is the shared kit target: local loads DuckDB; development and
+production write Snowflake only when every Snowflake value is set. No value
+falls back to a production target.
 """
 
 from __future__ import annotations
@@ -12,41 +13,16 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, cast
+from typing import cast
 
+from analytics_ingestion.kit.runtime import Target, target
 from analytics_ingestion.loop_returns.errors import ConfigurationError
 
-Environment = Literal["local", "ci", "development", "production"]
-ENVIRONMENTS: tuple[Environment, ...] = ("local", "ci", "development", "production")
 DEFAULT_DATASET = "LOOP_RETURN_HEADERS_RAW"
-DEFAULT_STATE_ROOT = Path("/var/lib/analytics/ingestion")
 DEFAULT_HISTORY_START = "2024-06-01T00:00:00+00:00"
 DEFAULT_MAX_REMOVED_ROWS = 0
 _SHOP_ID = re.compile(r"gid://shopify/Shop/[0-9]+")
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-
-
-@dataclass(frozen=True)
-class DuckDbTarget:
-    path: Path
-
-    @property
-    def key(self) -> str:
-        return "duckdb"
-
-
-@dataclass(frozen=True)
-class SnowflakeTarget:
-    account: str
-    user: str
-    role: str
-    database: str
-    warehouse: str
-    private_key_path: Path
-
-    @property
-    def key(self) -> str:
-        return f"snowflake-{self.database.lower()}"
 
 
 @dataclass(frozen=True)
@@ -56,19 +32,16 @@ class LoopCredentials:
 
 @dataclass(frozen=True)
 class LoopSettings:
-    environment: Environment
     api_key: str = field(repr=False)
     shop_id: str
-    state_root: Path
     dataset: str
     history_start: datetime
     max_removed_rows: int
-    destination: DuckDbTarget | SnowflakeTarget
+    target: Target
 
     @property
-    def target_root(self) -> Path:
-        """Working state isolated by environment."""
-        return self.state_root / "loop_returns" / self.environment
+    def environment(self) -> str:
+        return self.target.environment
 
 
 def read_credentials(path: Path) -> LoopCredentials:
@@ -124,10 +97,10 @@ def _max_removed(text: str) -> int:
 
 def settings_from_env(env: Mapping[str, str]) -> LoopSettings:
     """Fail on missing or inconsistent configuration; never fall back to production."""
-    environment = env.get("ANALYTICS_ENVIRONMENT", "")
-    if environment not in ENVIRONMENTS:
-        raise ConfigurationError("ANALYTICS_ENVIRONMENT must select a known target")
-    selected: Environment = environment  # pyright: ignore[reportAssignmentType]
+    try:
+        selected = target(env, "loop_returns")
+    except ValueError as error:
+        raise ConfigurationError(str(error)) from None
     credentials = read_credentials(
         Path(_required(env, "LOOP_RETURNS_CREDENTIALS_PATH"))
     )
@@ -136,44 +109,18 @@ def settings_from_env(env: Mapping[str, str]) -> LoopSettings:
         raise ConfigurationError(
             "LOOP_RETURNS_SHOPIFY_SHOP_ID must be a Shopify Shop gid"
         )
-    state_root = Path(env.get("LOOP_RETURNS_STATE_ROOT", str(DEFAULT_STATE_ROOT)))
-    if not state_root.is_absolute():
-        raise ConfigurationError("LOOP_RETURNS_STATE_ROOT must be absolute")
     dataset = env.get("LOOP_RETURNS_DATASET", DEFAULT_DATASET)
     if not _IDENTIFIER.fullmatch(dataset):
         raise ConfigurationError("LOOP_RETURNS_DATASET must be an identifier")
-    history = _history_start(
-        env.get("LOOP_RETURNS_HISTORY_START", DEFAULT_HISTORY_START)
-    )
-    max_removed = _max_removed(
-        env.get("LOOP_RETURNS_MAX_REMOVED_ROWS", str(DEFAULT_MAX_REMOVED_ROWS))
-    )
-    destination: DuckDbTarget | SnowflakeTarget
-    root = state_root / "loop_returns" / selected
-    if selected in ("local", "ci"):
-        destination = DuckDbTarget(root / "raw_loop_returns.duckdb")
-    else:
-        account = _required(env, "SNOWFLAKE_ACCOUNT")
-        user = _required(env, "SNOWFLAKE_USER")
-        role = _required(env, "SNOWFLAKE_ROLE")
-        database = _required(env, "SNOWFLAKE_DATABASE")
-        if not _IDENTIFIER.fullmatch(database):
-            raise ConfigurationError("SNOWFLAKE_DATABASE must be an identifier")
-        destination = SnowflakeTarget(
-            account=account,
-            user=user,
-            role=role,
-            database=database,
-            warehouse=_required(env, "SNOWFLAKE_WAREHOUSE"),
-            private_key_path=Path(_required(env, "SNOWFLAKE_PRIVATE_KEY_PATH")),
-        )
     return LoopSettings(
-        environment=selected,
         api_key=credentials.api_key,
         shop_id=shop_id,
-        state_root=state_root,
         dataset=dataset,
-        history_start=history,
-        max_removed_rows=max_removed,
-        destination=destination,
+        history_start=_history_start(
+            env.get("LOOP_RETURNS_HISTORY_START", DEFAULT_HISTORY_START)
+        ),
+        max_removed_rows=_max_removed(
+            env.get("LOOP_RETURNS_MAX_REMOVED_ROWS", str(DEFAULT_MAX_REMOVED_ROWS))
+        ),
+        target=selected,
     )

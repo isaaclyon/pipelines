@@ -39,6 +39,7 @@ from dlt.extract.hints import TResourceNestedHints
 from dlt.extract.resource import DltResource
 from dlt.pipeline.pipeline import Pipeline
 
+from analytics_ingestion.kit.capture import recover
 from analytics_ingestion.shopify.client import (
     Budget,
     ExecutionLimits,
@@ -106,7 +107,7 @@ from analytics_ingestion.shopify.pipeline import (
     source_failures,
 )
 from analytics_ingestion.shopify.queries import API_VERSION, format_instant
-from analytics_ingestion.shopify.settings import DuckDbTarget, Settings
+from analytics_ingestion.shopify.settings import Settings
 
 EXTRACTION_REVISION = 1
 REQUIRED_SCOPES = frozenset({"read_customers"})
@@ -647,9 +648,7 @@ def load_customers(
         with source_failures():
             # dlt loads a package left by a crashed run and then exits without
             # extracting, so finish it first and keep this run's window.
-            if pipeline.has_pending_data:
-                pipeline.normalize()
-                pipeline.load()
+            recover(pipeline)
             known = open_rejects(pipeline, shop_id) if run.kind == "refresh" else {}
             if known:
                 ids, again = sorted(known), RunReport(run.run_id, run.kind)
@@ -726,11 +725,7 @@ def ensure_child_tables(pipeline: Pipeline, settings: Settings) -> None:
     query a store with no addresses, metafields or company contacts. dlt
     creates a nested table only when a row first needs it; a later load finds
     the table, with the same columns dlt would have created, and fills it."""
-    types = (
-        _DUCKDB_TYPES
-        if isinstance(settings.destination, DuckDbTarget)
-        else _SNOWFLAKE_TYPES
-    )
+    types = _DUCKDB_TYPES if settings.target.snowflake is None else _SNOWFLAKE_TYPES
     with pipeline.sql_client() as client:
         for path, columns in NESTED_TABLES.items():
             name = client.make_qualified_table_name(f"{ROOT_TABLE}__{'__'.join(path)}")

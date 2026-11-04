@@ -27,7 +27,7 @@ pytestmark = pytest.mark.dbt(
 
 ROOT = Path(__file__).parents[1]
 GOODDAY_FILE = Path("goodday/local/goodday.duckdb")
-SHOPIFY_FILE = Path("shopify_orders/local/raw_shopify_orders.duckdb")
+SHOPIFY_FILE = Path("shopify_orders/local/shopify_orders.duckdb")
 
 
 def _dbt(*arguments: str, env: dict[str, str]) -> subprocess.CompletedProcess[str]:

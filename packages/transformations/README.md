@@ -516,7 +516,7 @@ With `DBT_RAW_ROOT` set on the DuckDB target, a source that names a
 
 | Source | Database | File under `DBT_RAW_ROOT` |
 | --- | --- | --- |
-| `shopify_orders` | `raw_shopify_orders` | `shopify_orders/local/raw_shopify_orders.duckdb` |
+| `shopify_orders` | `raw_shopify_orders` | `shopify_orders/local/shopify_orders.duckdb` |
 | `goodday` | `raw_goodday` | `goodday/local/goodday.duckdb` |
 
 File names differ from the raw schema names on purpose: a DuckDB file's

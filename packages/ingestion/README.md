@@ -45,22 +45,24 @@ Configuration is explicit; nothing falls back to production.
 
 | Variable | Meaning |
 | --- | --- |
-| `ANALYTICS_ENVIRONMENT` | `local`/`ci` load to DuckDB under the state root; `development`/`production` load to Snowflake |
+| `ANALYTICS_ENVIRONMENT` | `local` loads DuckDB under the state root; `development`/`production` load Snowflake; `ci` is refused |
 | `SHOPIFY_CREDENTIALS_PATH` | JSON file with `shop_domain` (`<shop>.myshopify.com`) and `access_token` |
-| `SHOPIFY_STATE_ROOT` | Durable state root (default `/var/lib/analytics/ingestion`) |
+| `ANALYTICS_INGESTION_STATE_ROOT` | Durable state root shared by every source (default `/var/lib/analytics/ingestion`) |
 | `SHOPIFY_ORDERS_DATASET` | Raw schema (default `SHOPIFY_ORDERS_RAW`) |
 | `SHOPIFY_ORDERS_SEED` | The first refresh's start (ISO instant with offset). Later refreshes resume from the dlt cursor. Unset means no schedules |
 | `SHOPIFY_REFRESH_CRON`, `SHOPIFY_REFRESH_TIMEZONE` | Refresh cron and IANA timezone (default `*/5 * * * *` in UTC). An invalid value stops the code location from loading |
 | `SHOPIFY_ORDERS_REFRESH_WORKERS` | Concurrent readers per refresh (default 4, at least 1). Four keep a refresh inside its tick at about four times the 2026-08-18 peak hour |
 | `SNOWFLAKE_*` | Account, user, role, database, warehouse and key path for Snowflake targets |
 
-dlt keeps its pipeline working directory under
-`<state root>/shopify_orders/<environment>/<shop>/<destination>-<dataset>/dlt_source/`
-and its cursor state in the destination. Keep the state volume: a load package
+The destination, state folder and crash recovery come from the shared kit
+target (see [Adding a source](#adding-a-source)). dlt keeps the
+`shopify_orders_dlt_<environment>_<shop>` working directory under
+`<state root>/shopify_orders/<environment>/` and its cursor state in the
+destination. Keep the state volume: a load package
 left by a killed run waits there until the next run loads it. Remote Compose
 mounts the credential file from `SHOPIFY_CREDENTIALS_HOST_PATH`. Local Compose
 does the same for the developer's own credential, and writes
-`<state root>/shopify_orders/local/raw_shopify_orders.duckdb`, the file local dbt
+`<state root>/shopify_orders/local/shopify_orders.duckdb`, the file local dbt
 attaches; see [live local loads](../../deploy/compose/README.md#live-local-loads-adr-0029).
 An empty credential file fails the run before any read.
 
@@ -198,14 +200,12 @@ reports coverage and access evidence.
 | `SHOPIFY_CUSTOMERS_SEED` | First refresh start (ISO instant with offset). Unset means no schedules |
 | `SHOPIFY_CUSTOMERS_REFRESH_CRON` | Refresh cron (default `*/15 * * * *`, timezone `SHOPIFY_REFRESH_TIMEZONE`) |
 
-The destination is the orders destination: local and `ci` use the same DuckDB
-file as orders, so publication reads both datasets in one database; development
-and production use the same Snowflake database. The pipeline is
-`shopify_customers_dlt_<environment>_<shop>` with its working state in
-`<state root>/shopify_orders/<environment>/<shop>/<destination>-<dataset>/dlt_source/`.
-The customer jobs carry `analytics/exclusive-resource=shopify-customers`.
-DuckDB allows one writer per file, so do not run an orders and a customer job
-at the same time against a local file.
+Customers are their own kit source, `shopify_customers`. Local runs load
+`<state root>/shopify_customers/local/shopify_customers.duckdb`, which local dbt
+does not attach yet; development and production use the same Snowflake database
+as orders. The pipeline is `shopify_customers_dlt_<environment>_<shop>` with its
+working state in `<state root>/shopify_customers/<environment>/`. The customer
+jobs carry `analytics/exclusive-resource=shopify-customers`.
 
 ### Raw tables
 
@@ -412,7 +412,8 @@ untagged runs before relying on this isolation.
 ### Recovery, progress and limits
 
 The candidate uses `<LOOP_RETURNS_DATASET>_candidate` in the same destination and
-`dlt_candidate` under the existing durable state root. It contains only the
+its own `loop_returns_dlt_<environment>_<shop>_candidate` pipeline in the kit
+state folder, `<state root>/loop_returns/<environment>/`. It contains only the
 same parsed header columns, never raw customer payloads. No dbt source or Cube
 model reads the candidate. Completed window rows and their native dlt checkpoint
 survive a killed step; pending packages finish before destination synchronization
@@ -460,7 +461,7 @@ Leave this option false on ordinary interruption retries to preserve progress.
 UTC day, supplied as `ops.loop_returns_recovery_trial.config.day` (`YYYY-MM-DD`).
 It refuses production and future days. It uses
 `<LOOP_RETURNS_DATASET>_trial_YYYYMMDD` plus that dataset's `_candidate` schema and
-separate `loop_recovery_trial/YYYYMMDD` working state. It never materializes the
+separate `loop_recovery_trial/YYYYMMDD` working state inside the Loop state folder. It never materializes the
 maintained Loop asset or changes its dataset, and has no schedule. It retains the
 same exclusive/input-lock tags and five-minute worker limit as the normal job.
 
@@ -475,11 +476,12 @@ reporting freshness.
 
 Required configuration:
 
-- `ANALYTICS_ENVIRONMENT`: explicit `local`, `ci`, `development`, or `production`.
+- `ANALYTICS_ENVIRONMENT`: explicit `local`, `development`, or `production`; `ci`
+  is refused. Local runs load `<state root>/loop_returns/local/loop_returns.duckdb`.
 - `LOOP_RETURNS_CREDENTIALS_PATH`: JSON file with `api_key`; never commit it.
 - `LOOP_RETURNS_SHOPIFY_SHOP_ID`: Shopify Shop GID for this source.
-- `LOOP_RETURNS_STATE_ROOT`: absolute durable state path; defaults to
-  `/var/lib/analytics/ingestion`.
+- `ANALYTICS_INGESTION_STATE_ROOT`: absolute durable state root shared by every
+  source; defaults to `/var/lib/analytics/ingestion`.
 - `LOOP_RETURNS_DATASET`: separate header dataset; default as above.
 - `LOOP_RETURNS_HISTORY_START`: offset-aware whole-second timestamp; default
   `2024-06-01T00:00:00+00:00`.
@@ -511,8 +513,9 @@ schedule a snapshot.
 Follow [ADR 0017](../../docs/adrs/0017-ingest-data-with-dlt.md)'s order: a
 verified dlt connector, then dlt's declarative REST API source, then custom code.
 The shared kit in `analytics_ingestion.kit` supplies everything else. GoodDay,
-Google Sheets and Impact Radius use it; Shopify and Loop Returns keep their own
-setup. A new source named `<source>` needs:
+Google Sheets and Impact Radius use all of it. Shopify orders, Shopify customers
+and Loop Returns use its target and recovery, and keep their own credential
+files and on/off settings. A new source named `<source>` needs:
 
 - A source module that reads its settings with `kit.runtime.read_settings`,
   picks its destination with `kit.runtime.target`, and runs a dlt pipeline from

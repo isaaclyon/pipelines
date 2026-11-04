@@ -6,7 +6,7 @@ sources:
   # The loader lowercases its schema on DuckDB; dbt relation lookups match case.
   schema: '{{ env_var(''SHOPIFY_ORDERS_DATASET'', ''SHOPIFY_ORDERS_RAW'') | lower if target.type == ''duckdb'' and env_var(''DBT_RAW_ROOT'', '''') else env_var(''SHOPIFY_ORDERS_DATASET'', ''SHOPIFY_ORDERS_RAW'') }}'
   config:
-    meta: {raw_file: shopify_orders/local/raw_shopify_orders.duckdb}
+    meta: {raw_file: shopify_orders/local/shopify_orders.duckdb}
   tables:
   - name: ingestion_batches
     description: 'One row per successful ingestion run, written after its orders load. A complete refresh''s

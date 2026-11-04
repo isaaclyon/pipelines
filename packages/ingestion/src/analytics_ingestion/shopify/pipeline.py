@@ -12,8 +12,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Literal
 
-import dlt
-from dlt.common.destination.reference import TDestinationReferenceArg
 from dlt.common.schema.typing import (
     TColumnSchema,
     TSchemaContract,
@@ -25,7 +23,7 @@ from dlt.pipeline.pipeline import Pipeline
 
 from analytics_ingestion.shopify.errors import ShopifyIngestionError
 from analytics_ingestion.shopify.jsonvalue import DECIMAL_PRECISION, DECIMAL_SCALE
-from analytics_ingestion.shopify.settings import DuckDbTarget, Settings
+from analytics_ingestion.shopify.settings import Settings
 
 ColumnType = Literal["text", "timestamp", "bool", "bigint", "decimal"]
 Row = dict[str, object]
@@ -67,32 +65,11 @@ def column_hints(columns: Sequence[Column]) -> TTableSchemaColumns:
 
 def pipeline(settings: Settings, name: str) -> Pipeline:
     """The ``name`` pipeline for the configured shop; its state lives in the
-    destination."""
-    root = settings.target_root / "dlt_source"
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    destination, keyed by this pipeline name."""
     handle = settings.shop_handle.replace("-", "_")
-    return dlt.pipeline(
-        pipeline_name=f"shopify_{name}_dlt_{settings.environment}_{handle}",
-        pipelines_dir=str(root),
-        destination=_destination(settings),
-        dataset_name=settings.dataset.lower(),
-    )
-
-
-def _destination(settings: Settings) -> TDestinationReferenceArg:
-    target = settings.destination
-    if isinstance(target, DuckDbTarget):
-        target.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        return dlt.destinations.duckdb(str(target.path))
-    return dlt.destinations.snowflake(
-        credentials={
-            "database": target.database,
-            "username": target.user,
-            "host": target.account,
-            "warehouse": target.warehouse,
-            "role": target.role,
-            "private_key_path": str(target.private_key_path),
-        }
+    return settings.target.pipeline(
+        f"shopify_{name}_dlt_{settings.environment}_{handle}",
+        settings.dataset.lower(),
     )
 
 

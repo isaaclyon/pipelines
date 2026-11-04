@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from analytics_ingestion.kit.runtime import Target
 from analytics_ingestion.shopify.client import HttpResponse
 from analytics_ingestion.shopify.jsonvalue import (
     JsonObject,
@@ -25,7 +26,6 @@ from analytics_ingestion.shopify.queries import (
     REFUND_CHILD_PAGE,
 )
 from analytics_ingestion.shopify.settings import (
-    DuckDbTarget,
     Settings,
     ShopifyCredentials,
 )
@@ -425,12 +425,11 @@ def _ids(variables: JsonObject) -> list[object]:
 
 
 def settings(root: Path) -> Settings:
+    """Local settings that load ``root / "shopify_orders.duckdb"``."""
     return Settings(
-        environment="local",
         credentials=ShopifyCredentials(DOMAIN, "fixture-token-not-a-secret"),
-        state_root=root,
         dataset="shopify_orders_raw",
-        destination=DuckDbTarget(root / "raw.duckdb"),
+        target=Target("shopify_orders", "local", root, None),
     )
 
 

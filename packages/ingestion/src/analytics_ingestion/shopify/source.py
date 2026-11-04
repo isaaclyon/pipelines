@@ -34,6 +34,7 @@ from dlt.extract.hints import TResourceNestedHints
 from dlt.extract.resource import DltResource
 from dlt.pipeline.pipeline import Pipeline
 
+from analytics_ingestion.kit.capture import recover
 from analytics_ingestion.shopify.client import (
     Budget,
     ExecutionLimits,
@@ -654,9 +655,7 @@ def load_orders(
     with source_failures():
         # dlt's run loads a package left by a crashed run and exits without
         # extracting, so finish it first and keep this run's window.
-        if pipeline.has_pending_data:
-            pipeline.normalize()
-            pipeline.load()
+        recover(pipeline)
         known = open_rejects(pipeline, shop_id) if run.kind == "refresh" else {}
         if known:
             # Rejects are older than the cursor, so they load on their own.

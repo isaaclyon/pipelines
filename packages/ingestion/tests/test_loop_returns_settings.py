@@ -3,18 +3,23 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
+from analytics_ingestion.kit.runtime import Target
+from analytics_ingestion.loop_returns.dlt_load import pipeline
 from analytics_ingestion.loop_returns.errors import ConfigurationError
 from analytics_ingestion.loop_returns.settings import (
     DEFAULT_DATASET,
     DEFAULT_HISTORY_START,
-    DuckDbTarget,
-    SnowflakeTarget,
+    LoopSettings,
     read_credentials,
     settings_from_env,
+)
+from analytics_ingestion.loop_returns.source import (
+    _scope,  # pyright: ignore[reportPrivateUsage]
 )
 from tests.loop_returns_fakes import API_KEY, SHOP_ID
 
@@ -32,7 +37,7 @@ def env(tmp_path: Path, **changes: str) -> dict[str, str]:
         "ANALYTICS_ENVIRONMENT": "local",
         "LOOP_RETURNS_CREDENTIALS_PATH": str(credentials(tmp_path)),
         "LOOP_RETURNS_SHOPIFY_SHOP_ID": SHOP_ID,
-        "LOOP_RETURNS_STATE_ROOT": str(tmp_path / "state"),
+        "ANALYTICS_INGESTION_STATE_ROOT": str(tmp_path / "state"),
     }
     values.update(changes)
     return values
@@ -47,9 +52,9 @@ def test_local_defaults_are_explicit_and_scoped_to_the_shop(tmp_path: Path) -> N
     assert settings.dataset == DEFAULT_DATASET == "LOOP_RETURN_HEADERS_RAW"
     assert settings.history_start.isoformat() == DEFAULT_HISTORY_START
     assert settings.max_removed_rows == 0
-    assert isinstance(settings.destination, DuckDbTarget)
-    assert settings.destination.path == (
-        tmp_path / "state" / "loop_returns" / "local" / "raw_loop_returns.duckdb"
+    assert settings.target.snowflake is None
+    assert settings.target.duckdb_path == (
+        tmp_path / "state" / "loop_returns" / "local" / "loop_returns.duckdb"
     )
 
 
@@ -112,7 +117,7 @@ def test_removal_limit_must_be_a_non_negative_integer(tmp_path: Path) -> None:
 def test_production_requires_every_snowflake_value(tmp_path: Path) -> None:
     values = env(tmp_path, ANALYTICS_ENVIRONMENT="production")
 
-    with pytest.raises(ConfigurationError, match="SNOWFLAKE_ACCOUNT"):
+    with pytest.raises(ConfigurationError, match="SNOWFLAKE_"):
         _ = settings_from_env(values)
 
 
@@ -132,11 +137,51 @@ def test_production_target_is_the_configured_snowflake_database(tmp_path: Path) 
 
     settings = settings_from_env(values)
 
-    assert isinstance(settings.destination, SnowflakeTarget)
-    assert settings.destination.database == "ANALYTICS"
-    assert settings.destination.key == "snowflake-analytics"
+    assert settings.target.snowflake is not None
+    assert settings.target.snowflake["database"] == "ANALYTICS"
+    assert settings.target.identity == ("acct", "ANALYTICS")
 
 
-def test_unknown_environment_is_rejected(tmp_path: Path) -> None:
+@pytest.mark.parametrize("environment", ["ci", "staging"])
+def test_ci_and_unknown_environments_are_rejected(
+    tmp_path: Path, environment: str
+) -> None:
     with pytest.raises(ConfigurationError, match="ANALYTICS_ENVIRONMENT"):
-        _ = settings_from_env(env(tmp_path, ANALYTICS_ENVIRONMENT="staging"))
+        _ = settings_from_env(env(tmp_path, ANALYTICS_ENVIRONMENT=environment))
+
+
+def test_pipeline_names_keep_their_destination_state(tmp_path: Path) -> None:
+    """dlt restores snapshot state from the destination by pipeline name."""
+    settings = settings_from_env(env(tmp_path))
+    assert pipeline(settings).pipeline_name == "loop_returns_dlt_local_1"
+    assert (
+        pipeline(settings, candidate=True).pipeline_name
+        == "loop_returns_dlt_local_1_candidate"
+    )
+
+
+def test_snowflake_scope_is_unchanged_so_checkpoints_resume() -> None:
+    """An unfinished remote snapshot resumes only while its scope matches."""
+    settings = LoopSettings(
+        api_key="k" * 20,
+        shop_id="gid://shopify/Shop/1",
+        dataset="LOOP_RETURN_HEADERS_RAW",
+        history_start=datetime.fromisoformat("2024-06-01T00:00:00+00:00"),
+        max_removed_rows=0,
+        target=Target(
+            "loop_returns",
+            "production",
+            Path("/state/loop_returns/production"),
+            {
+                "host": "acct",
+                "username": "loader",
+                "role": "LOADER",
+                "database": "ANALYTICS",
+                "warehouse": "WH",
+                "private_key_path": "/k.p8",
+            },
+        ),
+    )
+    assert _scope(settings, 6, None) == (
+        "b3b3f646774f36c26484161cd307855db91c6780600eaf4d7ec3d8d5f96618ba"
+    )

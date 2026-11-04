@@ -293,13 +293,28 @@ sharing.
 
 | Source | Credentials | Job | Raw file under the state volume |
 | --- | --- | --- | --- |
-| Shopify orders | `SHOPIFY_CREDENTIALS_HOST_PATH` | `shopify_orders_dlt_load` | `shopify_orders/local/raw_shopify_orders.duckdb` |
+| Shopify orders | `SHOPIFY_CREDENTIALS_HOST_PATH` | `shopify_orders_dlt_load` | `shopify_orders/local/shopify_orders.duckdb` |
 | GoodDay inventory | `goodday.json` | `goodday_inventory_capture` | `goodday/local/goodday.duckdb` |
 | Google Sheets | `google_sheets.json` | `google_sheets_capture` | `google_sheets/local/google_sheets.duckdb` |
 | Impact Radius actions | `impact_radius.json` | `impact_radius_actions_load` | `impact_radius/local/impact_radius.duckdb` |
 
 Adding another kit source needs no change to these Compose files: list it in
 `ANALYTICS_SOURCES` and add its settings file.
+
+Shopify orders used to write `shopify_orders/local/raw_shopify_orders.duckdb`.
+Local dbt no longer reads that file. To keep its data, move it once while the
+stack is stopped, or load a recent window again. Shopify customers now write
+`shopify_customers/local/shopify_customers.duckdb` instead of sharing the orders
+file, and Loop Returns writes `loop_returns/local/loop_returns.duckdb`.
+Orders keep their saved progress in the moved file; a reloaded window starts
+from the window you give it.
+
+```sh
+ANALYTICS_ENV_FILE=deploy/compose/.env.local ./scripts/platform local compose \
+  run --rm --no-deps --entrypoint mv ingestion \
+  /var/lib/analytics/ingestion/shopify_orders/local/raw_shopify_orders.duckdb \
+  /var/lib/analytics/ingestion/shopify_orders/local/shopify_orders.duckdb
+```
 
 Shopify orders read only the window you give the run, selected by each order's
 last update. One run stops after an hour, so size the window to your store's

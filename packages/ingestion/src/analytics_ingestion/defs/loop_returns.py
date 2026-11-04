@@ -68,7 +68,10 @@ def trial_settings(settings: LoopSettings, day: str) -> tuple[LoopSettings, date
         settings,
         history_start=start,
         dataset=f"{settings.dataset}_trial_{suffix}",
-        state_root=settings.state_root / "loop_recovery_trial" / suffix,
+        target=replace(
+            settings.target,
+            root=settings.target.root / "loop_recovery_trial" / suffix,
+        ),
     ), end
 
 
