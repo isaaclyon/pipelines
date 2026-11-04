@@ -27,9 +27,9 @@ defines the tables and columns.
 | --- | --- |
 | `queries`, `client` | Pinned 2026-10 queries; GraphQL client with a request/time/byte budget |
 | `model` | Source rows to raw tables with exact decimals and ancestor IDs |
-| `source` | Paged reads, follow-up completion and rejects |
+| `source` | The orders reader: paged reads in parallel slices, follow-up completion and rejects |
 | `pipeline` | Column hints, write settings and the dlt pipeline shared with the customer source |
-| `load_cycle` | The run steps both sources share: reject re-reads, the window load, evidence and reject closure, written through `kit.writes` |
+| `load_cycle` | What both sources share: the Shopify connection, run report and dlt resources, and the run steps (reject re-reads, the window load, evidence and reject closure) written through `kit.writes` |
 | `dagster` | Run bounds, the `open_rejects` check and the three schedules both sources share |
 | `reconcile` | Monthly count comparison and confirmed-deletion marks |
 | `extract` | Shop identity, order counts and cursor paging shared by the two above |
@@ -95,7 +95,13 @@ has been open for 24 hours.
 
 Orders and customers run the same cycle, defined once in `load_cycle`: finish
 a package a crashed run left, re-read open rejects on refresh, load the window,
-then append evidence. Orders hold contact email, phone and addresses; the shared
+then append evidence. Each source supplies a reader, its table declarations and
+its evidence rows, and maps its run types onto three read modes: `refresh`
+(the cursor), `bounded` (an explicit window on one date field) and `sweep`
+(everything before the end). The cycle builds the dlt resources, so the record
+and reject tables, run metadata columns and Dagster run metadata are written
+the same way for both. `tests/test_shopify_raw_output.py` compares what both
+sources write with a committed snapshot. Orders hold contact email, phone and addresses; the shared
 [write policy](#write-policy) removes the job files of each loaded package.
 
 Launch a window by hand with the `shopify_orders_dlt_load` job:
@@ -199,7 +205,7 @@ reports coverage and access evidence.
 | `customer_model` | Table and column declarations |
 | `customer_queries` | Pinned 2026-10 selections per field group and the query version |
 | `customer_parse` | Source customer to root row and child lists; nulls for unselected groups |
-| `customer_source` | Probes, paged reads, child completion, rejects, evidence |
+| `customer_source` | The customer reader: probes, paged reads, child completion, rejects; evidence rows |
 | `customer_reconcile` | Deletion confirmation after a full sweep, personal-data purge |
 | `customer_settings` | Customer dataset and credential selection |
 | `defs/shopify_customers.py` | Asset, reconcile asset, two jobs, three schedules (stopped by default) |

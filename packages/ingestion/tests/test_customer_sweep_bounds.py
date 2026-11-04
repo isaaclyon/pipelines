@@ -15,6 +15,7 @@ from analytics_ingestion.shopify.customer_source import (
 )
 from analytics_ingestion.shopify.errors import SourceError
 from analytics_ingestion.shopify.jsonvalue import JsonObject
+from analytics_ingestion.shopify.load_cycle import Window
 from tests.customer_fakes import customer
 from tests.shopify_fakes import SHOP
 
@@ -80,8 +81,8 @@ def read_all(
         window_cap=MAX_WINDOW_CUSTOMERS if cap is None else cap,
     )
     ids: list[str] = []
-    for page in reader.read(start, END, lambda _node: True):
-        ids.extend(str(parsed.content["customer_id"]) for parsed, _ in page)
+    for page in reader.read(Window("updated_at", start, END)):
+        ids.extend(str(row["customer_id"]) for row, _ in page)
     assert reader.observed.customers == len(ids)
     return ids
 

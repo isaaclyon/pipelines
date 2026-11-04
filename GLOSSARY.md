@@ -31,6 +31,12 @@ _Avoid_: Model contract, contract (unqualified)
 An entity's identity within a named source, including the scope needed to make
 it unique. A Shopify order's source identity includes its shop.
 
+**Reject**:
+A version of a source record that failed parsing at ingestion, recorded
+separately instead of loaded. It stays open until a version at least as new
+loads, or until reconciliation confirms the record deleted at source after it.
+_Avoid_: Exception, error record
+
 **Analytical identity**:
 An identity a mart defines for a business entity. Its relationship to source
 identities is explicit; combining records from multiple sources requires a
