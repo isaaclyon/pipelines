@@ -152,7 +152,7 @@ def _access(value: object) -> str:
 
 def _pii(model_id: str, name: str, column: dict[str, object]) -> bool:
     config = mapping(column.get("config", {}))
-    pii = mapping(config.get("meta", column.get("meta", {}))).get("pii")
+    pii = mapping(config.get("meta", {})).get("pii")
     if not isinstance(pii, bool):
         raise ValueError(f"{model_id}.{name}: declare boolean config.meta.pii")
     return pii
@@ -325,8 +325,7 @@ def read_snapshot(data: object) -> tuple[MartContract, ...]:
                 ),
                 tuple(text(check) for check in sequence(item.get("checks"))),
                 text(item.get("owner")),
-                # Snapshots written before access existed were all analytical.
-                _access(item.get("access", "analytical")),
+                _access(item.get("access")),
             )
         )
     return tuple(result)

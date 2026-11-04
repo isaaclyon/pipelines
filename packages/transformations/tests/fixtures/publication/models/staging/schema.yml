@@ -2,6 +2,11 @@ version: 2
 models:
   - name: stg_fixture__observations
     description: Synthetic fixture observations before publication.
+    config:
+      meta:
+        owner: Analytics Platform
+        grain: One row per synthetic observation
+        no_unique_key_reason: The single synthetic row is keyed in the mart.
     columns:
       - name: observation_id
         config:

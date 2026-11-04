@@ -1,7 +1,7 @@
 """Check model declarations and test blocking declarations in a dbt manifest.
 
-Every staging and intermediate model in the root project declares its purpose,
-owner, row grain, and either a key or the reason it has none. A declared key has
+Every staging and intermediate model in the root project declares its owner,
+row grain, and either a key or the reason it has none. A declared key has
 blocking not-null tests and a blocking uniqueness test, as marts do: ``unique``
 for one column, or a ``unique_combination`` test
 over exactly the key columns. Data tests use native severity: error blocks
@@ -16,11 +16,8 @@ Every root-project exposure is described. An exposure's ``meta.cube_fields``
 references, which must name declared columns of models the exposure depends on.
 """
 
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 
-from analytics_transformations.column_declarations import check_column_declarations
 from analytics_transformations.layer_dependencies import root_project
 from analytics_transformations.mart_contracts import (
     blocking_tests,
@@ -28,11 +25,9 @@ from analytics_transformations.mart_contracts import (
     has_unique_check,
     identifier,
     mapping,
-    read_json,
     sequence,
     text,
 )
-from analytics_transformations.pii import check_pii
 
 DECLARED_LAYERS = ("models/staging/", "models/intermediate/")
 
@@ -49,8 +44,6 @@ class ModelDeclaration:
 def _declaration(
     model_id: str, node: dict[str, object], tests: dict[str, dict[str, object]]
 ) -> ModelDeclaration:
-    if not str(node.get("description", "")).strip():
-        raise ValueError(f"{model_id}: add a model description")
     meta = mapping(mapping(node.get("config")).get("meta", {}))
     try:
         owner = text(meta.get("owner"))
@@ -168,15 +161,3 @@ def check_exposures(data: object) -> None:
                     raise ValueError(f"{field}: {model} is not in depends_on")
                 if column not in mapping(models[model].get("columns")):
                     raise ValueError(f"{field}: {model} has no column {column}")
-
-
-def main() -> None:
-    data = read_json(Path(sys.argv[1]))
-    _ = declarations(data)
-    check_column_declarations(data)
-    check_documentation(data)
-    check_pii(data)
-
-
-if __name__ == "__main__":
-    main()

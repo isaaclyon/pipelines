@@ -70,7 +70,7 @@ def check_pii(data: object) -> None:
             for name, raw in columns.items():
                 column = mapping(raw)
                 config = mapping(column.get("config", {}))
-                meta = mapping(config.get("meta", column.get("meta", {})))
+                meta = mapping(config.get("meta", {}))
                 if type(meta.get("pii")) is not bool:
                     raise ValueError(f"{key}.{name}: declare boolean config.meta.pii")
         elif kind == "exposure":
@@ -102,7 +102,7 @@ def check_pii(data: object) -> None:
                 declared = mapping(mapping(models.get(model, {})).get("columns", {}))
                 field = mapping(declared.get(column, {}))
                 config = mapping(field.get("config", {}))
-                source_meta = mapping(config.get("meta", field.get("meta", {})))
+                source_meta = mapping(config.get("meta", {}))
                 if (
                     name not in classifications
                     or source_meta.get("pii") is not classifications[name]

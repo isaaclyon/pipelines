@@ -43,9 +43,8 @@ if [ -d dbt ]; then
     # opens the local target, so both steps share these settings.
     export DBT_NAMESPACE=check DBT_TARGET=local DUCKDB_PATH=/tmp/check.duckdb
     dbt parse --project-dir dbt --profiles-dir dbt --quiet
-    python -m analytics_transformations.layer_dependencies dbt/target/manifest.json
+    python -m analytics_transformations.manifest_checks dbt/target/manifest.json
     python -m analytics_transformations.mart_contracts dbt/target/manifest.json dbt/mart-contracts.json
-    python -m analytics_transformations.model_declarations dbt/target/manifest.json
     # Pull requests lint only the model SQL that differs from the base, unless
     # the macros that template every model changed (ADR 0026). Configuration
     # changes already select every check.
@@ -61,18 +60,18 @@ if [ -d dbt ]; then
     else
         sqlfluff lint dbt/models
     fi
-    # Customer models are disabled by default; check their declarations and
-    # descriptions too.
+    # Customer models are disabled by default; run every manifest check on
+    # them too.
     SHOPIFY_CUSTOMERS_ENABLED=true dbt parse --project-dir dbt --profiles-dir dbt \
         --quiet --target-path target/customers
-    python -m analytics_transformations.model_declarations \
+    python -m analytics_transformations.manifest_checks \
         dbt/target/customers/manifest.json
     # Local-only governed measures have additional exposure column references.
     for customers in false true; do
         ANALYTICS_ENVIRONMENT=local GOVERNED_ORDER_METRICS_ENABLED=true \
             SHOPIFY_CUSTOMERS_ENABLED=$customers dbt parse --project-dir dbt --profiles-dir dbt \
             --quiet --target-path "target/local-governed-$customers"
-        python -m analytics_transformations.model_declarations \
+        python -m analytics_transformations.manifest_checks \
             "dbt/target/local-governed-$customers/manifest.json"
         python tests/check_local_exposures.py "dbt/target/local-governed-$customers/manifest.json"
     done

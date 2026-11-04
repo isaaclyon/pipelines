@@ -223,6 +223,17 @@ a later stage; the canceled live acceptance work is not resumed.
 
 ## Model checks
 
+`analytics_transformations.manifest_checks` runs every parsed-manifest check
+below as one gate: layer rules, mart contracts, model declarations,
+documentation, column declarations and PII. The package check runs it on the
+default manifest, the customer-enabled manifest and both local governed-metric
+manifests. Publication runs it on the candidate manifest before any build, so
+both apply the same rules and stop at the first failure:
+
+```sh
+DBT_NAMESPACE=check python -m analytics_transformations.manifest_checks dbt/target/manifest.json
+```
+
 ### Model declarations
 
 `analytics_transformations.model_declarations` requires every staging and
@@ -235,15 +246,15 @@ the mart contract check below.
 It also requires a description on every root-project model, source and source
 table, and one `meta.schema_description` per model schema, set beside `+schema`
 in `dbt_project.yml`. Every staging, intermediate and mart output column needs
-a description too. `scripts/check-python.sh` runs the CLI for the default
-manifest and again with `SHOPIFY_CUSTOMERS_ENABLED=true`, so disabled customer
-models stay documented.
+a description too. The package check runs these rules with
+`SHOPIFY_CUSTOMERS_ENABLED=true` as well, so disabled customer models stay
+documented.
 
 Every root-project exposure needs a description. An exposure's
 `meta.cube_fields` maps each Cube field to `<model>.<column>` references; each
 must name a declared column of a model in the exposure's `depends_on`.
 
-The same CLI checks column inventories and supplied correctness metadata
+The manifest gate also checks column inventories and supplied correctness metadata
 (`analytics_transformations.column_declarations`). Published marts require all
 types and their currency, temporal and identity meanings. Internal fields need
 names, descriptions and explicit PII decisions, but ordinary types are optional.
@@ -346,8 +357,8 @@ consumers; never to excuse missing declarations.
     meta: {pii: false}
 ```
 
-`analytics_transformations.pii.check_pii` runs from the model-declarations CLI
-and before candidate builds in the publication runner. It checks enabled and
+`analytics_transformations.pii.check_pii` runs in the manifest gate, in both
+the package check and the publication runner. It checks enabled and
 disabled definitions, rejects empty column inventories, and accepts only actual
 booleans. Removing a classification blocks publication without replacing the
 previous output. The ratchet starts at complete coverage of declared fields:
@@ -376,7 +387,7 @@ warehouse grants and restricted publication behavior remain unchanged.
 
 ### Layer dependency check
 
-The package check runs `analytics_transformations.layer_dependencies` on the
+The manifest gate runs `analytics_transformations.layer_dependencies` on the
 manifest from `dbt parse` and fails on any violation of ADR 0022's direction:
 
 | Resource | Must live in | May read |

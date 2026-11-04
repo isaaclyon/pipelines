@@ -25,6 +25,7 @@ def manifest() -> dict[str, object]:
                     "contract": {"enforced": True},
                     "meta": {
                         "owner": "Analytics Platform",
+                        "schema_description": "Synthetic published tables.",
                         "publication": {
                             "access": "analytical",
                             "grain": "One row per observation",
@@ -198,11 +199,13 @@ def test_access_survives_the_reviewed_snapshot() -> None:
     plan = contracts(data)
     assert restricted(plan) == plan and analytical(plan) == ()
     assert read_snapshot(json.loads(snapshot(plan))) == plan  # pyright: ignore[reportAny]
-    # Snapshots reviewed before access existed meant analytical.
-    legacy = cast(list[dict[str, object]], json.loads(snapshot(contracts(manifest()))))
-    for entry in legacy:
+    unclassified = cast(
+        list[dict[str, object]], json.loads(snapshot(contracts(manifest())))
+    )
+    for entry in unclassified:
         del entry["access"]
-    assert read_snapshot(legacy)[0].access == "analytical"
+    with pytest.raises(ValueError, match="access"):
+        _ = read_snapshot(unclassified)
 
 
 def test_columns_carry_their_reviewed_pii_classification() -> None:
