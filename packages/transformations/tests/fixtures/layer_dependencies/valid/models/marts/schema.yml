@@ -1,0 +1,12 @@
+version: 2
+models:
+  - name: fct_orders
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null:
+              name: CustomGenericTest
+              config:
+                alias: CustomFailureAlias
+                store_failures: true
+                schema: test_failures

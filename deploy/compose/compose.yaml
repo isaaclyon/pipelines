@@ -1,0 +1,205 @@
+x-service: &service
+  restart: on-failure:5
+  networks: [platform]
+  cpus: "1.0"
+  mem_limit: 1g
+  pids_limit: 256
+
+x-python-build: &python-build
+  context: ../..
+  dockerfile: deploy/compose/Dockerfile.python
+  target: runtime
+
+x-python-environment: &python-environment
+  ANALYTICS_ENVIRONMENT: ${ANALYTICS_ENVIRONMENT:?Select an environment}
+  DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:?Set metadata password}
+  DBT_TARGET: ${DBT_TARGET:?Select a dbt target}
+  # Calendar zone for order dates; Cube reads the same value.
+  ANALYTICS_REPORTING_TIME_ZONE: ${ANALYTICS_REPORTING_TIME_ZONE:-America/Los_Angeles}
+  # Local/CI share DuckDB files. Remote topology overrides this capacity.
+  DAGSTER_MAX_CONCURRENT_RUNS: "1"
+
+x-control: &control
+  <<: *service
+  image: analytics-control-plane:local
+  build:
+    <<: *python-build
+    args: {PROJECT_DIR: deploy/dagster}
+  environment:
+    <<: *python-environment
+    ANALYTICS_NETWORK: ${ANALYTICS_PROJECT:?Set project name}_network
+  group_add: ["${DOCKER_SOCKET_GID:-0}"]
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - artifacts:/var/lib/analytics/artifacts
+  depends_on:
+    permissions: {condition: service_completed_successfully}
+    postgres: {condition: service_healthy}
+    ingestion: {condition: service_healthy}
+    transformations: {condition: service_healthy}
+
+services:
+  permissions:
+    image: python:3.12.13-slim-bookworm@sha256:4766d8b510c428e595d74b9cc5bbb2fae8e26316fffb4adc89908d79aacd58a2
+    user: "0:0"
+    command: ["sh", "-c", "chown 10001:10001 /state/artifacts /state/ingestion /state/working /state/docs /state/docs-state"]
+    volumes:
+      - artifacts:/state/artifacts
+      - ingestion-state:/state/ingestion
+      - working:/state/working
+      - docs:/state/docs
+      - docs-state:/state/docs-state
+    network_mode: none
+
+  postgres:
+    <<: *service
+    image: postgres:16.10-alpine@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297
+    environment:
+      POSTGRES_USER: dagster
+      POSTGRES_DB: dagster
+      POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:?Set metadata password}
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dagster -d dagster"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      # Probe every second during start_period only, then use the normal interval.
+      start_period: 5s
+      start_interval: 1s
+
+  ingestion:
+    <<: *service
+    image: ${INGESTION_IMAGE:-analytics-ingestion:local}
+    build:
+      <<: *python-build
+      args: {PROJECT_DIR: packages/ingestion}
+    command: ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4000", "-m", "analytics_ingestion.definitions"]
+    environment:
+      <<: *python-environment
+      DAGSTER_CURRENT_IMAGE: ${INGESTION_IMAGE:-analytics-ingestion:local}
+    volumes:
+      - ingestion-state:/var/lib/analytics/ingestion
+      - artifacts:/var/lib/analytics/artifacts
+    depends_on:
+      permissions: {condition: service_completed_successfully}
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+      start_interval: 1s
+
+  transformations:
+    <<: *service
+    image: ${TRANSFORMATIONS_IMAGE:-analytics-transformations:local}
+    build:
+      <<: *python-build
+      args: {PROJECT_DIR: packages/transformations}
+    command: ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4000", "-m", "analytics_transformations.definitions"]
+    environment:
+      <<: *python-environment
+      DAGSTER_CURRENT_IMAGE: ${TRANSFORMATIONS_IMAGE:-analytics-transformations:local}
+    volumes:
+      - artifacts:/var/lib/analytics/artifacts
+      - working:/var/lib/analytics/working
+      - docs:/var/lib/analytics/docs
+    depends_on:
+      permissions: {condition: service_completed_successfully}
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+      start_interval: 1s
+
+  webserver:
+    <<: *control
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "/opt/dagster/workspace.yaml"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/server_info', timeout=5)"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+      start_interval: 1s
+
+  daemon:
+    <<: *control
+    command: ["dagster-daemon", "run", "-w", "/opt/dagster/workspace.yaml"]
+    healthcheck:
+      test: ["CMD", "dagster-daemon", "liveness-check"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+      start_interval: 1s
+
+
+  cube-api:
+    <<: *service
+    image: analytics-metrics:local
+    build:
+      context: ../..
+      dockerfile: packages/metrics/Dockerfile
+      target: runtime
+    environment:
+      ANALYTICS_ENVIRONMENT: ${ANALYTICS_ENVIRONMENT}
+      ANALYTICS_REPORTING_TIME_ZONE: ${ANALYTICS_REPORTING_TIME_ZONE:-America/Los_Angeles}
+      CUBEJS_DB_TYPE: ${CUBEJS_DB_TYPE:?Select a Cube backend}
+      CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:?Set Cube API secret}
+      CUBEJS_DEV_MODE: "false"
+      CUBEJS_TELEMETRY: "false"
+      # One API instance and no pre-aggregations yet: no Cube Store or refresh
+      # worker until the first pre-aggregation needs them (ADR 0014).
+      CUBEJS_CACHE_AND_QUEUE_DRIVER: memory
+      CUBEJS_REFRESH_WORKER: "false"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/readyz').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+      start_interval: 1s
+
+  # dbt documentation site, started only where COMPOSE_PROFILES
+  # includes `docs`. It serves the docs volume read-only; see Caddyfile.
+  docs:
+    <<: *service
+    profiles: [docs]
+    image: caddy:2.11.7-alpine@sha256:24ec7b05bc532c7bb57f727030c5056e257ff7138b4b50460306819ff79362bd
+    user: "10001:10001"
+    read_only: true
+    mem_limit: 256m
+    environment:
+      # Empty values stop Caddy from loading rather than serving openly.
+      DOCS_SITE_ADDRESS: ${DOCS_SITE_ADDRESS:-}
+      DOCS_PASSWORD_HASH: ${DOCS_PASSWORD_HASH:-}
+      XDG_CONFIG_HOME: /data/config
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - docs:/srv/docs:ro
+      - docs-state:/data
+    depends_on:
+      permissions: {condition: service_completed_successfully}
+
+networks:
+  platform:
+    name: ${ANALYTICS_PROJECT}_network
+
+volumes:
+  postgres:
+  artifacts:
+    name: ${ANALYTICS_PROJECT}_artifacts
+  ingestion-state:
+    name: ${ANALYTICS_PROJECT}_ingestion-state
+  working:
+    name: ${ANALYTICS_PROJECT}_working
+  docs:
+    name: ${ANALYTICS_PROJECT}_docs
+  docs-state:
+    name: ${ANALYTICS_PROJECT}_docs-state

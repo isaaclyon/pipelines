@@ -1,0 +1,8 @@
+layer_fixture:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('LAYER_FIXTURE_DUCKDB') }}"
+      schema: main
+      threads: 1

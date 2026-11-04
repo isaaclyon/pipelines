@@ -1,0 +1,17 @@
+.git
+.agents
+.pi
+.claude
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.dg
+**/dist
+**/node_modules
+**/.env
+**/.env.*
+**/dbt/target
+**/dbt/logs
+**/dbt/.user.yml
+**/*.duckdb*

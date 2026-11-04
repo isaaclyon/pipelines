@@ -1,0 +1,9 @@
+# Secret scanning for commits and CI. Extends the gitleaks default rules.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Documented offline fixture credentials"
+paths = ['''^deploy/compose/\.env\.local\.example$''']
+regexTarget = "line"
+regexes = ['''^DOCS_PASSWORD_HASH=''']

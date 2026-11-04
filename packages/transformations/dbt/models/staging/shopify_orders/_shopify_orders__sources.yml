@@ -1,0 +1,1929 @@
+sources:
+- name: shopify_orders
+  description: Raw Shopify orders loaded by the dlt source in packages/ingestion.
+  # Local only (ADR 0029): read the loader's raw file attached read-only.
+  database: '{{ ''raw_shopify_orders'' if target.type == ''duckdb'' and env_var(''DBT_RAW_ROOT'', '''') else target.database }}'
+  # The loader lowercases its schema on DuckDB; dbt relation lookups match case.
+  schema: '{{ env_var(''SHOPIFY_ORDERS_DATASET'', ''SHOPIFY_ORDERS_RAW'') | lower if target.type == ''duckdb'' and env_var(''DBT_RAW_ROOT'', '''') else env_var(''SHOPIFY_ORDERS_DATASET'', ''SHOPIFY_ORDERS_RAW'') }}'
+  config:
+    meta: {raw_file: shopify_orders/local/raw_shopify_orders.duckdb}
+  tables:
+  - name: ingestion_batches
+    description: 'One row per successful ingestion run, written after its orders load. A complete refresh''s
+      window_end is the instant raw orders are current to.
+
+      '
+    config:
+      loaded_at_field: window_end
+      freshness:
+        warn_after:
+          count: 25
+          period: minute
+        error_after:
+          count: 30
+          period: minute
+        filter: kind = 'refresh' and status = 'complete' and completeness = 'complete'
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: batch_id
+      config:
+        meta: {pii: false}
+      description: Dagster run ID of the ingestion run.
+      data_type: text
+    - name: kind
+      config:
+        meta: {pii: false}
+      description: 'Run kind: refresh, lookback or reextract.'
+      data_type: text
+    - name: window_field
+      config:
+        meta: {pii: false}
+      description: 'Order timestamp the window filters: updated_at, or created_at for reextract.'
+      data_type: text
+    - name: window_start
+      config:
+        meta: {pii: false}
+      description: Inclusive UTC start of the covered window.
+      data_type: timestamp
+    - name: window_end
+      config:
+        meta: {pii: false}
+      description: Exclusive UTC end of the covered window; freshness reads it.
+      data_type: timestamp
+    - name: status
+      config:
+        meta: {pii: false}
+      description: Run status; complete, since only successful runs write rows.
+      data_type: text
+    - name: completeness
+      config:
+        meta: {pii: false}
+      description: Window coverage; complete, since only complete windows are recorded.
+      data_type: text
+    - name: observation_sequence
+      config:
+        meta: {pii: false}
+      description: Ledger-era sequence; null for runs of the dlt source.
+      data_type: bigint
+    - name: observed_started_at
+      config:
+        meta: {pii: false}
+      description: UTC instant extraction started reading the window.
+      data_type: timestamp
+    - name: observed_finished_at
+      config:
+        meta: {pii: false}
+      description: UTC instant extraction finished reading the window.
+      data_type: timestamp
+    - name: completed_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the run recorded this evidence after its load.
+      data_type: timestamp
+    - name: orders_observed
+      config:
+        meta: {pii: false}
+      description: Complete orders the run read and loaded.
+      data_type: bigint
+    - name: orders_applied
+      config:
+        meta: {pii: false}
+      description: Ledger-era applied count; null for runs of the dlt source.
+      data_type: bigint
+    - name: exceptions
+      config:
+        meta: {pii: false}
+      description: Orders the run wrote to shopify_order_rejects.
+      data_type: bigint
+    - name: anomalies
+      config:
+        meta: {pii: false}
+      description: Ledger-era anomaly count; null for runs of the dlt source.
+      data_type: bigint
+    - name: load_ids
+      config:
+        meta: {pii: false}
+      description: Comma-separated dlt load IDs the run committed.
+      data_type: text
+    - name: api_version
+      config:
+        meta: {pii: false}
+      description: Shopify Admin API version the run used.
+      data_type: text
+    - name: query_version
+      config:
+        meta: {pii: false}
+      description: Fingerprint of the GraphQL query documents used.
+      data_type: text
+    - name: extraction_revision
+      config:
+        meta: {pii: false}
+      description: Raw contract revision of the run's parser.
+      data_type: bigint
+  - name: orders
+    description: 'One row per Shopify order, latest observed state. The dlt source merges on (shop_id,
+      order_id). Money columns are DECIMAL(38, 9).
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: name
+      config:
+        meta: {pii: false}
+      description: 'Order name shown in Shopify, such as #1001.'
+      data_type: text
+    - name: created_at
+      config:
+        meta: {pii: false}
+      description: UTC instant Shopify created the order.
+      data_type: timestamp
+    - name: updated_at
+      config:
+        meta: {pii: false}
+      description: UTC instant Shopify last changed the order; the merge keeps the newest.
+      data_type: timestamp
+    - name: processed_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the order was processed; imports can predate creation.
+      data_type: timestamp
+    - name: test
+      config:
+        meta: {pii: false}
+      description: Whether Shopify marks the order as a test order.
+      data_type: bool
+    - name: source_name
+      config:
+        meta: {pii: false}
+      description: Channel or app that created the order, such as web, pos or an app ID.
+      data_type: text
+    - name: cancel_reason
+      config:
+        meta: {pii: false}
+      description: Shopify cancellation reason code; null unless cancelled.
+      data_type: text
+    - name: cancelled_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the order was cancelled; null unless cancelled.
+      data_type: timestamp
+    - name: closed_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the order was closed; null while open.
+      data_type: timestamp
+    - name: customer_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order's customer; null for guest orders.
+      data_type: text
+    - name: display_financial_status
+      config:
+        meta: {pii: false}
+      description: Shopify financial status label, such as PAID or PARTIALLY_REFUNDED.
+      data_type: text
+    - name: display_fulfillment_status
+      config:
+        meta: {pii: false}
+      description: Shopify fulfillment status label, such as FULFILLED or UNFULFILLED.
+      data_type: text
+    - name: currency_code
+      config:
+        meta: {pii: false}
+      description: Shop currency code of the order's shop amounts.
+      data_type: text
+    - name: presentment_currency_code
+      config:
+        meta: {pii: false}
+      description: Currency the customer saw and paid in.
+      data_type: text
+    - name: total_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Original order total including tax and shipping. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_price_shop_amount.
+      data_type: text
+    - name: total_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Original order total including tax and shipping. Amount in the currency the customer
+        saw.
+      data_type: decimal(38, 9)
+    - name: total_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_price_presentment_amount.
+      data_type: text
+    - name: current_total_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Order total after edits, refunds and removals. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: current_total_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of current_total_price_shop_amount.
+      data_type: text
+    - name: current_total_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Order total after edits, refunds and removals. Amount in the currency the customer
+        saw.
+      data_type: decimal(38, 9)
+    - name: current_total_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of current_total_price_presentment_amount.
+      data_type: text
+    - name: subtotal_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Original line subtotal after discounts, before shipping and tax. Amount in the shop
+        currency.
+      data_type: decimal(38, 9)
+    - name: subtotal_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of subtotal_price_shop_amount.
+      data_type: text
+    - name: subtotal_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Original line subtotal after discounts, before shipping and tax. Amount in the currency
+        the customer saw.
+      data_type: decimal(38, 9)
+    - name: subtotal_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of subtotal_price_presentment_amount.
+      data_type: text
+    - name: current_subtotal_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Line subtotal after edits, refunds and removals. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: current_subtotal_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of current_subtotal_price_shop_amount.
+      data_type: text
+    - name: current_subtotal_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Line subtotal after edits, refunds and removals. Amount in the currency the customer
+        saw.
+      data_type: decimal(38, 9)
+    - name: current_subtotal_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of current_subtotal_price_presentment_amount.
+      data_type: text
+    - name: total_discounts_shop_amount
+      config:
+        meta: {pii: false}
+      description: Total discounts applied to the original order; null when absent. Amount in the shop
+        currency.
+      data_type: decimal(38, 9)
+    - name: total_discounts_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_discounts_shop_amount.
+      data_type: text
+    - name: total_discounts_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Total discounts applied to the original order; null when absent. Amount in the currency
+        the customer saw.
+      data_type: decimal(38, 9)
+    - name: total_discounts_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_discounts_presentment_amount.
+      data_type: text
+    - name: current_total_tax_shop_amount
+      config:
+        meta: {pii: false}
+      description: Tax after edits, refunds and removals. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: current_total_tax_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of current_total_tax_shop_amount.
+      data_type: text
+    - name: current_total_tax_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Tax after edits, refunds and removals. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: current_total_tax_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of current_total_tax_presentment_amount.
+      data_type: text
+    - name: total_refunded_shop_amount
+      config:
+        meta: {pii: false}
+      description: Total amount refunded to the customer. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_refunded_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_refunded_shop_amount.
+      data_type: text
+    - name: total_refunded_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Total amount refunded to the customer. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: total_refunded_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_refunded_presentment_amount.
+      data_type: text
+    - name: transactions_count
+      config:
+        meta: {pii: false}
+      description: Shopify's exact count of the order's transactions.
+      data_type: bigint
+    - name: transactions_count_precision
+      config:
+        meta: {pii: false}
+      description: Precision of transactions_count; loaded orders are always EXACT.
+      data_type: text
+    - name: _batch_id
+      config:
+        meta: {pii: false}
+      description: Dagster run ID of the ingestion run that loaded the row.
+      data_type: text
+    - name: _observation_sequence
+      config:
+        meta: {pii: false}
+      description: Ledger-era observation order; null for rows the dlt source loads.
+      data_type: bigint
+    - name: _observed_at
+      config:
+        meta: {pii: false}
+      description: UTC instant ingestion read the order's source page.
+      data_type: timestamp
+    - name: _extraction_kind
+      config:
+        meta: {pii: false}
+      description: 'How the run selected the order: refresh, lookback or reextract.'
+      data_type: text
+    - name: _content_digest
+      config:
+        meta: {pii: false}
+      description: Ledger-era digest of the parsed order; null for rows the dlt source loads.
+      data_type: text
+    - name: _query_version
+      config:
+        meta: {pii: false}
+      description: Fingerprint of the GraphQL query documents that read the order.
+      data_type: text
+    - name: _extraction_revision
+      config:
+        meta: {pii: false}
+      description: Raw contract revision that parsed the order. Columns added by a later revision are
+        null on rows from an earlier one.
+      data_type: bigint
+    - name: _api_version
+      config:
+        meta: {pii: false}
+      description: Shopify Admin API version that served the order.
+      data_type: text
+    - name: email
+      config:
+        meta: {pii: true}
+      description: Contact email on the order. Restricted personal data.
+      data_type: text
+    - name: phone
+      config:
+        meta: {pii: true}
+      description: Contact phone on the order. Restricted personal data.
+      data_type: text
+    - name: taxes_included
+      config:
+        meta: {pii: false}
+      description: Whether line prices include tax.
+      data_type: bool
+    - name: original_total_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Order total at creation, before any edits. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: original_total_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of original_total_price_shop_amount.
+      data_type: text
+    - name: original_total_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Order total at creation, before any edits. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: original_total_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of original_total_price_presentment_amount.
+      data_type: text
+    - name: total_tax_shop_amount
+      config:
+        meta: {pii: false}
+      description: Original total tax on the order. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_tax_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_tax_shop_amount.
+      data_type: text
+    - name: total_tax_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Original total tax on the order. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: total_tax_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_tax_presentment_amount.
+      data_type: text
+    - name: total_shipping_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Original shipping charges after shipping discounts. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_shipping_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_shipping_price_shop_amount.
+      data_type: text
+    - name: total_shipping_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Original shipping charges after shipping discounts. Amount in the currency the customer
+        saw.
+      data_type: decimal(38, 9)
+    - name: total_shipping_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_shipping_price_presentment_amount.
+      data_type: text
+    - name: billing_address_first_name
+      config:
+        meta: {pii: true}
+      description: First name of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_last_name
+      config:
+        meta: {pii: true}
+      description: Last name of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_company
+      config:
+        meta: {pii: true}
+      description: Company name of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_address1
+      config:
+        meta: {pii: true}
+      description: First street line of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_address2
+      config:
+        meta: {pii: true}
+      description: Second street line of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_city
+      config:
+        meta: {pii: false}
+      description: City of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_province
+      config:
+        meta: {pii: false}
+      description: Province or state name of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_province_code
+      config:
+        meta: {pii: false}
+      description: Province or state code of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_zip
+      config:
+        meta: {pii: false}
+      description: Postal code of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_country
+      config:
+        meta: {pii: false}
+      description: Country name of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_country_code
+      config:
+        meta: {pii: false}
+      description: ISO 3166-1 alpha-2 country code of the order's billing address; null without an address.
+      data_type: text
+    - name: billing_address_phone
+      config:
+        meta: {pii: true}
+      description: Phone number of the order's billing address; null without an address.
+      data_type: text
+    - name: shipping_address_first_name
+      config:
+        meta: {pii: true}
+      description: First name of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_last_name
+      config:
+        meta: {pii: true}
+      description: Last name of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_company
+      config:
+        meta: {pii: true}
+      description: Company name of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_address1
+      config:
+        meta: {pii: true}
+      description: First street line of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_address2
+      config:
+        meta: {pii: true}
+      description: Second street line of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_city
+      config:
+        meta: {pii: false}
+      description: City of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_province
+      config:
+        meta: {pii: false}
+      description: Province or state name of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_province_code
+      config:
+        meta: {pii: false}
+      description: Province or state code of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_zip
+      config:
+        meta: {pii: false}
+      description: Postal code of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_country
+      config:
+        meta: {pii: false}
+      description: Country name of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_country_code
+      config:
+        meta: {pii: false}
+      description: ISO 3166-1 alpha-2 country code of the order's shipping address; null without an address.
+      data_type: text
+    - name: shipping_address_phone
+      config:
+        meta: {pii: true}
+      description: Phone number of the order's shipping address; null without an address.
+      data_type: text
+  - name: orders__lines
+    description: 'One row per Shopify order line, replaced with its parent order on each merge.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: line_item_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order line.
+      data_type: text
+    - name: sku
+      config:
+        meta: {pii: false}
+      description: Variant SKU at purchase; null when the variant has none.
+      data_type: text
+    - name: name
+      config:
+        meta: {pii: true}
+      description: Product and variant name at purchase, as Shopify displays the line.
+      data_type: text
+    - name: quantity
+      config:
+        meta: {pii: false}
+      description: Units originally ordered on the line.
+      data_type: bigint
+    - name: current_quantity
+      config:
+        meta: {pii: false}
+      description: Units remaining after edits and removals.
+      data_type: bigint
+    - name: original_unit_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Unit price before discounts. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: original_unit_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of original_unit_price_shop_amount.
+      data_type: text
+    - name: original_unit_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Unit price before discounts. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: original_unit_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of original_unit_price_presentment_amount.
+      data_type: text
+    - name: discounted_total_shop_amount
+      config:
+        meta: {pii: false}
+      description: Line total after line-level discounts, before order-level allocations. Amount in the
+        shop currency.
+      data_type: decimal(38, 9)
+    - name: discounted_total_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of discounted_total_shop_amount.
+      data_type: text
+    - name: discounted_total_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Line total after line-level discounts, before order-level allocations. Amount in the
+        currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: discounted_total_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of discounted_total_presentment_amount.
+      data_type: text
+    - name: product_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the product; null if it was deleted or is custom.
+      data_type: text
+    - name: variant_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the variant; null if it was deleted or is custom.
+      data_type: text
+    - name: unfulfilled_quantity
+      config:
+        meta: {pii: false}
+      description: Units on the line not yet fulfilled.
+      data_type: bigint
+    - name: non_fulfillable_quantity
+      config:
+        meta: {pii: false}
+      description: Units on the line that cannot be fulfilled.
+      data_type: bigint
+    - name: requires_shipping
+      config:
+        meta: {pii: false}
+      description: Whether the line requires shipping.
+      data_type: bool
+    - name: title
+      config:
+        meta: {pii: true}
+      description: Product title at purchase.
+      data_type: text
+    - name: variant_title
+      config:
+        meta: {pii: true}
+      description: Variant title at purchase.
+      data_type: text
+    - name: is_gift_card
+      config:
+        meta: {pii: false}
+      description: Whether the line sells a gift card.
+      data_type: bool
+  - name: orders__transactions
+    description: 'One row per (shop_id, order_id, transaction_id), replaced with its parent order. Includes
+      all transaction kinds and statuses. Money is DECIMAL(38, 9); children have no independent observation
+      timestamp.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: transaction_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order transaction.
+      data_type: text
+    - name: parent_transaction_id
+      config:
+        meta: {pii: false}
+      description: Transaction this one captures, voids or refunds; null for originals.
+      data_type: text
+    - name: created_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the transaction was created.
+      data_type: timestamp
+    - name: processed_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the gateway processed it.
+      data_type: timestamp
+    - name: kind
+      config:
+        meta: {pii: false}
+      description: Transaction kind, such as AUTHORIZATION, CAPTURE, SALE or REFUND.
+      data_type: text
+    - name: status
+      config:
+        meta: {pii: false}
+      description: Transaction status, such as SUCCESS, PENDING or FAILURE.
+      data_type: text
+    - name: gateway
+      config:
+        meta: {pii: false}
+      description: Payment gateway that handled the transaction.
+      data_type: text
+    - name: test
+      config:
+        meta: {pii: false}
+      description: Whether the transaction is a test transaction.
+      data_type: bool
+    - name: error_code
+      config:
+        meta: {pii: false}
+      description: Gateway error code; null for transactions without an error.
+      data_type: text
+    - name: amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Transaction amount. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of amount_shop_amount.
+      data_type: text
+    - name: amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Transaction amount. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of amount_presentment_amount.
+      data_type: text
+  - name: orders__refunds
+    description: 'One row per (shop_id, order_id, refund_id), replaced with its parent order. Money is
+      DECIMAL(38, 9); refund records are not proof of successful refund settlement.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: refund_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the refund.
+      data_type: text
+    - name: created_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the refund was created.
+      data_type: timestamp
+    - name: updated_at
+      config:
+        meta: {pii: false}
+      description: UTC instant Shopify last changed the refund.
+      data_type: timestamp
+    - name: total_refunded_shop_amount
+      config:
+        meta: {pii: false}
+      description: Total amount refunded by this refund. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_refunded_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_refunded_shop_amount.
+      data_type: text
+    - name: total_refunded_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Total amount refunded by this refund. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: total_refunded_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_refunded_presentment_amount.
+      data_type: text
+    - name: note
+      config:
+        meta: {pii: true}
+      description: Staff note on the refund.
+      data_type: text
+    - name: return_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the return the refund settles; null when unrelated.
+      data_type: text
+    - name: processed_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the refund was processed.
+      data_type: timestamp
+  - name: orders__refunds__transactions
+    description: 'One row per (shop_id, order_id, refund_id, transaction_id). Links a refund to an order
+      transaction without repeating transaction amounts.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: refund_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the refund that owns this row.
+      data_type: text
+    - name: transaction_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order transaction.
+      data_type: text
+  - name: orders__tags
+    description: 'One row per (shop_id, order_id, tag) for observations at extraction revision 2 or later,
+      replaced with its parent order. Revision-1 observations never selected tags.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: tag
+      config:
+        meta: {pii: false}
+      description: Order tag as entered in Shopify.
+      data_type: text
+  - name: orders__discount_codes
+    description: 'One row per (shop_id, order_id, code) for observations at extraction revision 2 or later,
+      replaced with its parent order. Revision-1 observations never selected discount codes.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: code
+      config:
+        meta: {pii: false}
+      description: Discount code applied to the order.
+      data_type: text
+  - name: orders__agreements
+    description: 'One row per (shop_id, order_id, agreement_id), replaced with its parent order. Refund
+      and return links depend on the agreement type.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: agreement_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the sales agreement.
+      data_type: text
+    - name: type
+      config:
+        meta: {pii: false}
+      description: Agreement type, such as OrderAgreement, RefundAgreement or ReturnAgreement.
+      data_type: text
+    - name: happened_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the agreement took effect.
+      data_type: timestamp
+    - name: reason
+      config:
+        meta: {pii: false}
+      description: Why the agreement happened, such as ORDER, EDIT_ORDER or REFUND.
+      data_type: text
+    - name: refund_id
+      config:
+        meta: {pii: false}
+      description: Refund behind a refund agreement; null for other types.
+      data_type: text
+    - name: return_id
+      config:
+        meta: {pii: false}
+      description: Return behind a return agreement; null for other types.
+      data_type: text
+  - name: orders__agreements__sales
+    description: 'One row per (shop_id, order_id, agreement_id, sale_id). Money keeps native shop and
+      presentment currencies.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: agreement_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the sales agreement that owns this row.
+      data_type: text
+    - name: sale_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the sale.
+      data_type: text
+    - name: type
+      config:
+        meta: {pii: false}
+      description: Sale type, such as ProductSale, ShippingLineSale or DutySale.
+      data_type: text
+    - name: action_type
+      config:
+        meta: {pii: false}
+      description: 'What the sale records: ORDER, RETURN, UPDATE or UNKNOWN.'
+      data_type: text
+    - name: line_type
+      config:
+        meta: {pii: false}
+      description: Kind of line sold, such as PRODUCT, SHIPPING, DUTY or TIP.
+      data_type: text
+    - name: quantity
+      config:
+        meta: {pii: false}
+      description: Signed units; negative for returns. Null when the sale has no quantity.
+      data_type: bigint
+    - name: line_item_id
+      config:
+        meta: {pii: false}
+      description: Order line of a product, gift card or tip sale; null for other types.
+      data_type: text
+    - name: shipping_line_id
+      config:
+        meta: {pii: false}
+      description: Shipping line of a shipping sale; null for other types.
+      data_type: text
+    - name: duty_id
+      config:
+        meta: {pii: false}
+      description: Duty of a duty sale; null for other types.
+      data_type: text
+    - name: additional_fee_id
+      config:
+        meta: {pii: false}
+      description: Additional fee of an additional-fee sale; null for other types.
+      data_type: text
+    - name: fee_id
+      config:
+        meta: {pii: false}
+      description: Fee of a fee sale, such as a return fee; null otherwise.
+      data_type: text
+    - name: fee_type
+      config:
+        meta: {pii: false}
+      description: Fee type of a fee sale, such as ReturnFee; null otherwise.
+      data_type: text
+    - name: additional_fee_name
+      config:
+        meta: {pii: true}
+      description: Name of the additional fee; null for other types.
+      data_type: text
+    - name: additional_fee_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Additional fee price; null for other types. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: additional_fee_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of additional_fee_price_shop_amount.
+      data_type: text
+    - name: additional_fee_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Additional fee price; null for other types. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: additional_fee_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of additional_fee_price_presentment_amount.
+      data_type: text
+    - name: total_amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Sale total, signed; includes tax and discounts. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_amount_shop_amount.
+      data_type: text
+    - name: total_amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Sale total, signed; includes tax and discounts. Amount in the currency the customer
+        saw.
+      data_type: decimal(38, 9)
+    - name: total_amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_amount_presentment_amount.
+      data_type: text
+    - name: total_tax_amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Tax on the sale, signed. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_tax_amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_tax_amount_shop_amount.
+      data_type: text
+    - name: total_tax_amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Tax on the sale, signed. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: total_tax_amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_tax_amount_presentment_amount.
+      data_type: text
+    - name: total_discount_amount_before_taxes_shop_amount
+      config:
+        meta: {pii: false}
+      description: Discounts on the sale before tax, signed. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_discount_amount_before_taxes_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_discount_amount_before_taxes_shop_amount.
+      data_type: text
+    - name: total_discount_amount_before_taxes_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Discounts on the sale before tax, signed. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: total_discount_amount_before_taxes_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_discount_amount_before_taxes_presentment_amount.
+      data_type: text
+    - name: total_discount_amount_after_taxes_shop_amount
+      config:
+        meta: {pii: false}
+      description: Discounts on the sale after tax, signed. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_discount_amount_after_taxes_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_discount_amount_after_taxes_shop_amount.
+      data_type: text
+    - name: total_discount_amount_after_taxes_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Discounts on the sale after tax, signed. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: total_discount_amount_after_taxes_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_discount_amount_after_taxes_presentment_amount.
+      data_type: text
+  - name: orders__agreements__sales__taxes
+    description: 'One row per (shop_id, order_id, agreement_id, sale_id, sale_tax_id). Carries sale tax
+      amounts and tax-line detail.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: agreement_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the sales agreement that owns this row.
+      data_type: text
+    - name: sale_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the sale that owns this row.
+      data_type: text
+    - name: sale_tax_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the sale tax.
+      data_type: text
+    - name: amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Tax amount charged on the sale, signed. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of amount_shop_amount.
+      data_type: text
+    - name: amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Tax amount charged on the sale, signed. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of amount_presentment_amount.
+      data_type: text
+    - name: position
+      config:
+        meta: {pii: false}
+      description: Zero-based position in the owning source list; not a durable source ID.
+      data_type: bigint
+    - name: title
+      config:
+        meta: {pii: false}
+      description: Tax name, such as a state or VAT tax.
+      data_type: text
+    - name: rate
+      config:
+        meta: {pii: false}
+      description: Tax rate as a fraction, such as 0.06 for 6%.
+      data_type: decimal(38, 9)
+    - name: channel_liable
+      config:
+        meta: {pii: false}
+      description: Whether the sales channel, not the merchant, remits the tax.
+      data_type: bool
+    - name: price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Tax amount. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of price_shop_amount.
+      data_type: text
+    - name: price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Tax amount. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of price_presentment_amount.
+      data_type: text
+  - name: orders__refunds__lines
+    description: 'One row per (shop_id, order_id, refund_id, refund_line_item_id).
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: refund_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the refund that owns this row.
+      data_type: text
+    - name: refund_line_item_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the refund line.
+      data_type: text
+    - name: line_item_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the refunded order line.
+      data_type: text
+    - name: quantity
+      config:
+        meta: {pii: false}
+      description: Units of the order line refunded.
+      data_type: bigint
+    - name: subtotal_shop_amount
+      config:
+        meta: {pii: false}
+      description: Refunded line amount before tax. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: subtotal_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of subtotal_shop_amount.
+      data_type: text
+    - name: subtotal_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Refunded line amount before tax. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: subtotal_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of subtotal_presentment_amount.
+      data_type: text
+    - name: total_tax_shop_amount
+      config:
+        meta: {pii: false}
+      description: Tax refunded on the line. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: total_tax_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of total_tax_shop_amount.
+      data_type: text
+    - name: total_tax_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Tax refunded on the line. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: total_tax_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of total_tax_presentment_amount.
+      data_type: text
+  - name: orders__refunds__adjustments
+    description: 'One row per (shop_id, order_id, refund_id, adjustment_id). Signed amounts keep source
+      meaning.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: refund_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the refund that owns this row.
+      data_type: text
+    - name: adjustment_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order adjustment.
+      data_type: text
+    - name: amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Adjustment amount, signed as Shopify reports it. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of amount_shop_amount.
+      data_type: text
+    - name: amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Adjustment amount, signed as Shopify reports it. Amount in the currency the customer
+        saw.
+      data_type: decimal(38, 9)
+    - name: amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of amount_presentment_amount.
+      data_type: text
+    - name: tax_amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Tax on the adjustment, signed as Shopify reports it. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: tax_amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of tax_amount_shop_amount.
+      data_type: text
+    - name: tax_amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Tax on the adjustment, signed as Shopify reports it. Amount in the currency the customer
+        saw.
+      data_type: decimal(38, 9)
+    - name: tax_amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of tax_amount_presentment_amount.
+      data_type: text
+    - name: reason
+      config:
+        meta: {pii: true}
+      description: Shopify adjustment reason, such as REFUND_DISCREPANCY.
+      data_type: text
+  - name: orders__refunds__shipping_lines
+    description: 'One row per (shop_id, order_id, refund_id, refund_shipping_line_id).
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: refund_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the refund that owns this row.
+      data_type: text
+    - name: refund_shipping_line_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the refunded shipping line.
+      data_type: text
+    - name: subtotal_amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Shipping amount refunded before tax. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: subtotal_amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of subtotal_amount_shop_amount.
+      data_type: text
+    - name: subtotal_amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Shipping amount refunded before tax. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: subtotal_amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of subtotal_amount_presentment_amount.
+      data_type: text
+    - name: tax_amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Tax refunded on shipping. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: tax_amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of tax_amount_shop_amount.
+      data_type: text
+    - name: tax_amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Tax refunded on shipping. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: tax_amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of tax_amount_presentment_amount.
+      data_type: text
+    - name: shipping_line_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the original shipping line.
+      data_type: text
+  - name: orders__refunds__duties
+    description: 'One row per (shop_id, order_id, refund_id, position). Duty amounts stay when the original
+      duty is unavailable.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: refund_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the refund that owns this row.
+      data_type: text
+    - name: duty_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the original duty; null if it is unavailable.
+      data_type: text
+    - name: position
+      config:
+        meta: {pii: false}
+      description: Zero-based position in the owning source list; not a durable source ID.
+      data_type: bigint
+    - name: amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Duty amount refunded. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of amount_shop_amount.
+      data_type: text
+    - name: amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Duty amount refunded. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of amount_presentment_amount.
+      data_type: text
+  - name: orders__discount_applications
+    description: 'One row per (shop_id, order_id, application_index).
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: application_index
+      config:
+        meta: {pii: false}
+      description: Order-scoped index that discount allocations refer to.
+      data_type: bigint
+    - name: type
+      config:
+        meta: {pii: false}
+      description: Discount application type, such as DiscountCodeApplication.
+      data_type: text
+    - name: allocation_method
+      config:
+        meta: {pii: false}
+      description: 'How the value is spread: ACROSS, EACH or ONE.'
+      data_type: text
+    - name: target_selection
+      config:
+        meta: {pii: false}
+      description: 'Which lines qualify: ALL, ENTITLED or EXPLICIT.'
+      data_type: text
+    - name: target_type
+      config:
+        meta: {pii: false}
+      description: 'What the discount targets: LINE_ITEM or SHIPPING_LINE.'
+      data_type: text
+    - name: code
+      config:
+        meta: {pii: false}
+      description: Discount code entered; null for other types.
+      data_type: text
+    - name: title
+      config:
+        meta: {pii: true}
+      description: Discount title; null for discount codes.
+      data_type: text
+    - name: description
+      config:
+        meta: {pii: true}
+      description: Staff description of a manual discount; null for other types.
+      data_type: text
+    - name: value_type
+      config:
+        meta: {pii: false}
+      description: MoneyV2 for a fixed amount, PricingPercentageValue for a percent.
+      data_type: text
+    - name: value_amount
+      config:
+        meta: {pii: false}
+      description: Fixed discount amount; null for percentage discounts.
+      data_type: decimal(38, 9)
+    - name: value_currency
+      config:
+        meta: {pii: false}
+      description: Currency of value_amount; null for percentage discounts.
+      data_type: text
+    - name: value_percentage
+      config:
+        meta: {pii: false}
+      description: Percentage, such as 10 for 10%; null for fixed amounts.
+      data_type: decimal(38, 9)
+  - name: orders__lines__discount_allocations
+    description: 'One row per (shop_id, order_id, line_item_id, position).
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: line_item_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order line that owns this row.
+      data_type: text
+    - name: position
+      config:
+        meta: {pii: false}
+      description: Zero-based position in the owning source list; not a durable source ID.
+      data_type: bigint
+    - name: application_index
+      config:
+        meta: {pii: false}
+      description: Index of the order discount application that produced the allocation.
+      data_type: bigint
+    - name: allocated_amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Discount amount allocated to the owning line. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: allocated_amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of allocated_amount_shop_amount.
+      data_type: text
+    - name: allocated_amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Discount amount allocated to the owning line. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: allocated_amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of allocated_amount_presentment_amount.
+      data_type: text
+  - name: orders__shipping_lines__discount_allocations
+    description: 'One row per (shop_id, order_id, shipping_line_id, position).
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: shipping_line_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shipping line that owns this row.
+      data_type: text
+    - name: position
+      config:
+        meta: {pii: false}
+      description: Zero-based position in the owning source list; not a durable source ID.
+      data_type: bigint
+    - name: application_index
+      config:
+        meta: {pii: false}
+      description: Index of the order discount application that produced the allocation.
+      data_type: bigint
+    - name: allocated_amount_shop_amount
+      config:
+        meta: {pii: false}
+      description: Discount amount allocated to the owning line. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: allocated_amount_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of allocated_amount_shop_amount.
+      data_type: text
+    - name: allocated_amount_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Discount amount allocated to the owning line. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: allocated_amount_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of allocated_amount_presentment_amount.
+      data_type: text
+  - name: orders__lines__tax_lines
+    description: 'One row per (shop_id, order_id, line_item_id, position).
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: line_item_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order line that owns this row.
+      data_type: text
+    - name: position
+      config:
+        meta: {pii: false}
+      description: Zero-based position in the owning source list; not a durable source ID.
+      data_type: bigint
+    - name: title
+      config:
+        meta: {pii: false}
+      description: Tax name, such as a state or VAT tax.
+      data_type: text
+    - name: rate
+      config:
+        meta: {pii: false}
+      description: Tax rate as a fraction, such as 0.06 for 6%.
+      data_type: decimal(38, 9)
+    - name: channel_liable
+      config:
+        meta: {pii: false}
+      description: Whether the sales channel, not the merchant, remits the tax.
+      data_type: bool
+    - name: price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Tax amount. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of price_shop_amount.
+      data_type: text
+    - name: price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Tax amount. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of price_presentment_amount.
+      data_type: text
+  - name: orders__shipping_lines__tax_lines
+    description: 'One row per (shop_id, order_id, shipping_line_id, position).
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: shipping_line_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shipping line that owns this row.
+      data_type: text
+    - name: position
+      config:
+        meta: {pii: false}
+      description: Zero-based position in the owning source list; not a durable source ID.
+      data_type: bigint
+    - name: title
+      config:
+        meta: {pii: false}
+      description: Tax name, such as a state or VAT tax.
+      data_type: text
+    - name: rate
+      config:
+        meta: {pii: false}
+      description: Tax rate as a fraction, such as 0.06 for 6%.
+      data_type: decimal(38, 9)
+    - name: channel_liable
+      config:
+        meta: {pii: false}
+      description: Whether the sales channel, not the merchant, remits the tax.
+      data_type: bool
+    - name: price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Tax amount. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of price_shop_amount.
+      data_type: text
+    - name: price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Tax amount. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of price_presentment_amount.
+      data_type: text
+  - name: orders__shipping_lines
+    description: 'One row per (shop_id, order_id, shipping_line_id). Removed shipping lines are included.
+
+      '
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the order.
+      data_type: text
+    - name: shipping_line_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shipping line.
+      data_type: text
+    - name: title
+      config:
+        meta: {pii: true}
+      description: Shipping method title shown to the customer.
+      data_type: text
+    - name: code
+      config:
+        meta: {pii: false}
+      description: Shipping rate code.
+      data_type: text
+    - name: source
+      config:
+        meta: {pii: false}
+      description: Rate provider, such as shopify or a carrier.
+      data_type: text
+    - name: is_removed
+      config:
+        meta: {pii: false}
+      description: Whether the shipping line was removed after the order was placed.
+      data_type: bool
+    - name: original_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Shipping price before discounts. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: original_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of original_price_shop_amount.
+      data_type: text
+    - name: original_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Shipping price before discounts. Amount in the currency the customer saw.
+      data_type: decimal(38, 9)
+    - name: original_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of original_price_presentment_amount.
+      data_type: text
+    - name: discounted_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Shipping price after discounts at order creation. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: discounted_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of discounted_price_shop_amount.
+      data_type: text
+    - name: discounted_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Shipping price after discounts at order creation. Amount in the currency the customer
+        saw.
+      data_type: decimal(38, 9)
+    - name: discounted_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of discounted_price_presentment_amount.
+      data_type: text
+    - name: current_discounted_price_shop_amount
+      config:
+        meta: {pii: false}
+      description: Shipping price after discounts and later edits. Amount in the shop currency.
+      data_type: decimal(38, 9)
+    - name: current_discounted_price_shop_currency
+      config:
+        meta: {pii: false}
+      description: Shop currency code of current_discounted_price_shop_amount.
+      data_type: text
+    - name: current_discounted_price_presentment_amount
+      config:
+        meta: {pii: false}
+      description: Shipping price after discounts and later edits. Amount in the currency the customer
+        saw.
+      data_type: decimal(38, 9)
+    - name: current_discounted_price_presentment_currency
+      config:
+        meta: {pii: false}
+      description: Presentment currency code of current_discounted_price_presentment_amount.
+      data_type: text

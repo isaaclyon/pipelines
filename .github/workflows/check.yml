@@ -1,0 +1,145 @@
+name: Platform checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      packages: ${{ steps.changes.outputs.packages }}
+      integration: ${{ steps.changes.outputs.integration }}
+      dbt_checks: ${{ steps.changes.outputs.dbt_checks }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Check documentation and classify changes
+        id: changes
+        env:
+          CI_DIFF_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_DIFF_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python3 scripts/ci_docs.py "$CI_DIFF_BASE" "$CI_DIFF_HEAD" >> "$GITHUB_OUTPUT"
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Scan history for secrets
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" -w /repo \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 git --redact --no-banner .
+
+  # Runs beside the package and integration lanes instead of delaying them.
+  scripts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Validate shared scripts
+        env:
+          CI_DIFF_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: sh scripts/validate-scripts.sh
+
+  packages:
+    needs: changes
+    if: needs.changes.outputs.packages != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.changes.outputs.packages) }}
+    env:
+      ANALYTICS_PROJECT: analytics-check-${{ matrix.package }}-${{ github.run_id }}-${{ github.run_attempt }}
+      # Pull requests test changed dbt nodes; main runs every dbt test after any
+      # dbt-affecting change (ADR 0026).
+      DBT_CHECKS: >-
+        ${{ github.event_name == 'push' && needs.changes.outputs.dbt_checks == 'changed'
+        && 'all' || needs.changes.outputs.dbt_checks }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Extract the base dbt project
+        if: matrix.package == 'transformations' && env.DBT_CHECKS == 'changed'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          base="$RUNNER_TEMP/dbt-base"
+          mkdir -p "$base"
+          git archive FETCH_HEAD packages/transformations | tar -x -C "$base"
+          echo "DBT_BASE_PROJECT=$base/packages/transformations" >> "$GITHUB_ENV"
+      - name: Check package in its container
+        run: ./scripts/platform ci check "${{ matrix.package }}"
+      - name: Check synthetic local Cube lifecycle
+        if: matrix.package == 'metrics'
+        run: ./scripts/test-local-cube.sh
+
+  # Pull requests only. On main, Release builds, starts, and smokes the published
+  # images before deploying them, so running the same sequence here doubled the work.
+  integration:
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ANALYTICS_PROJECT: analytics-ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Configure Docker socket access
+        run: |
+          docker_socket_gid=$(stat -c '%g' /var/run/docker.sock)
+          echo "DOCKER_SOCKET_GID=$docker_socket_gid" >> "$GITHUB_ENV"
+      - name: Validate Compose
+        run: ./scripts/platform ci config --quiet
+      - name: Build runtime images together
+        run: >-
+          ./scripts/platform ci compose build
+          ingestion transformations webserver cube-api
+      - name: Start the built images
+        run: ./scripts/platform ci up --no-build
+      - name: Verify code locations, isolated runs, and Cube readers
+        run: ./scripts/platform ci smoke
+      - name: Capture service logs
+        if: always()
+        run: ./scripts/platform ci logs --no-color
+      - name: Stop services
+        if: always()
+        run: ./scripts/platform ci down
+
+  # Preserve the existing required check name and reject failed/skipped required lanes.
+  offline:
+    needs: [changes, scripts, packages, integration]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require all selected lanes
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SCRIPTS_RESULT: ${{ needs.scripts.result }}
+          PACKAGES_SELECTED: ${{ needs.changes.outputs.packages }}
+          PACKAGES_RESULT: ${{ needs.packages.result }}
+          INTEGRATION_SELECTED: ${{ needs.changes.outputs.integration == 'true' }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          test "$SCRIPTS_RESULT" = success
+          if [ "$PACKAGES_SELECTED" != '[]' ]; then test "$PACKAGES_RESULT" = success; fi
+          if [ "$INTEGRATION_SELECTED" = true ]; then test "$INTEGRATION_RESULT" = success; fi

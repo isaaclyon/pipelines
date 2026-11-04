@@ -1,0 +1,278 @@
+version: 2
+models:
+- name: stg_shopify_orders__transactions
+  description: Normalized Shopify transactions; preserves every source row without eligibility decisions.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, transaction_id)
+      key:
+      - shop_id
+      - order_id
+      - transaction_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_transactions_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - transaction_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: transaction_id
+    data_type: varchar
+    description: Shopify order transaction identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: parent_transaction_id
+    data_type: varchar
+    description: Linked parent transaction identity; null when none is recorded.
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: created_at
+    data_type: timestamp
+    description: When Shopify created the transaction, in UTC.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        temporal: {kind: instant, timezone: UTC}
+  - name: processed_at
+    data_type: timestamp
+    description: When Shopify processed the transaction, in UTC; null when absent.
+    config:
+      meta:
+        pii: false
+        temporal: {kind: instant, timezone: UTC}
+  - name: kind
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Transaction kind with surrounding whitespace removed and case normalized; unknown kinds remain visible.
+    data_tests:
+    - not_null
+  - name: status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Transaction status with surrounding whitespace removed and case normalized; unknown statuses remain visible.
+    data_tests:
+    - not_null
+  - name: gateway
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Payment gateway reported by Shopify; not a payment-method classification.
+  - name: is_test
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Whether Shopify marks the transaction as a test; null when absent.
+  - name: error_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify transaction error code; null when absent.
+  - name: shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Currency of this transaction shop-money amount.
+  - name: presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Currency of this transaction presentment-money amount.
+  - name: transaction_shop_amount
+    data_type: decimal(38, 9)
+    description: Native shop-money amount without derived signs, aggregation or business collection classification.
+    config:
+      meta:
+        pii: false
+        currency: {column: shop_currency_code}
+  - name: transaction_presentment_amount
+    data_type: decimal(38, 9)
+    description: Native presentment-money amount; null when absent.
+    config:
+      meta:
+        pii: false
+        currency: {column: presentment_currency_code}
+- name: stg_shopify_orders__refunds
+  description: Normalized Shopify refunds; preserves every source row without eligibility decisions.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, refund_id)
+      key:
+      - shop_id
+      - order_id
+      - refund_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_refunds_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: refund_id
+    data_type: varchar
+    description: Shopify refund identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: return_id
+    data_type: varchar
+    description: Linked Shopify return identity; null when absent.
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: created_at
+    data_type: timestamp
+    description: When Shopify created the refund, in UTC; null when absent.
+    config:
+      meta:
+        pii: false
+        temporal: {kind: instant, timezone: UTC}
+  - name: updated_at
+    data_type: timestamp
+    description: When Shopify last updated the refund, in UTC.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        temporal: {kind: instant, timezone: UTC}
+  - name: processed_at
+    data_type: timestamp
+    description: When Shopify processed the refund, in UTC; null when absent.
+    config:
+      meta:
+        pii: false
+        temporal: {kind: instant, timezone: UTC}
+  - name: shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Currency of this refund shop-money amount.
+  - name: presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Currency of this refund presentment-money amount.
+  - name: total_refunded_shop_amount
+    data_type: decimal(38, 9)
+    description: Shopify refund record total in shop currency; not proof of successful settlement.
+    config:
+      meta:
+        pii: false
+        currency: {column: shop_currency_code}
+  - name: total_refunded_presentment_amount
+    data_type: decimal(38, 9)
+    description: Shopify refund record total in presentment currency; null when absent.
+    config:
+      meta:
+        pii: false
+        currency: {column: presentment_currency_code}
+- name: stg_shopify_orders__refund_transactions
+  description: Normalized Shopify refund transactions; preserves every source row without eligibility decisions.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, refund_id, transaction_id)
+      key:
+      - shop_id
+      - order_id
+      - refund_id
+      - transaction_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_refund_transactions_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        - transaction_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: refund_id
+    data_type: varchar
+    description: Shopify refund identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: transaction_id
+    data_type: varchar
+    description: Linked Shopify order transaction identity; use the order transaction for money.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}

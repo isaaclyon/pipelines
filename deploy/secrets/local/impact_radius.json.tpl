@@ -1,0 +1,1 @@
+{"account_sid": "{{ op://Analytics Platform/impact-radius/IMPACT_RADIUS_ACCOUNT_SID }}", "auth_token": "{{ op://Analytics Platform/impact-radius/IMPACT_RADIUS_API_KEY }}", "campaign_id": "<your Impact program ID>"}

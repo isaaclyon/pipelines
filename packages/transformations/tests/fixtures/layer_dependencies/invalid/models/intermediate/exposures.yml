@@ -1,0 +1,7 @@
+version: 2
+exposures:
+  - name: internal_dashboard
+    type: dashboard
+    owner: {name: Analytics}
+    depends_on:
+      - ref('int_orders__raw')

@@ -1,0 +1,24 @@
+services:
+  webserver:
+    ports: !reset []
+  cube-api:
+    ports: !reset []
+  docs:
+    ports: !reset []
+  # CI stays fixture-only (ADR 0029): no source credentials, raw-file
+  # attachment or ingestion state in dbt.
+  ingestion:
+    environment:
+      SHOPIFY_CREDENTIALS_PATH: ""
+      ANALYTICS_SOURCES: ""
+    volumes: !override
+      - ingestion-state:/var/lib/analytics/ingestion
+      - artifacts:/var/lib/analytics/artifacts
+  transformations:
+    environment:
+      DBT_RAW_ROOT: ""
+      GOODDAY_INVENTORY_ENABLED: "false"
+    volumes: !override
+      - artifacts:/var/lib/analytics/artifacts
+      - working:/var/lib/analytics/working
+      - docs:/var/lib/analytics/docs

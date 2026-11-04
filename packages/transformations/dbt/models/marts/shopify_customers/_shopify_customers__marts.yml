@@ -1,0 +1,1281 @@
+version: 2
+models:
+- name: dim_customers
+  description: Analytical current customer source data. One row per shopify_shop_id,
+    shopify_customer_id. No platform behavioral enrichment.
+  config:
+    meta:
+      publication:
+        access: analytical
+        grain: One row per shopify_shop_id, shopify_customer_id, latest observed state
+        key: &id001
+        - shopify_shop_id
+        - shopify_customer_id
+        checks:
+        - dim_customers_unique_key
+        - shopify_customers_reconcile
+  data_tests:
+  - unique_combination:
+      name: dim_customers_unique_key
+      arguments:
+        columns: *id001
+  columns:
+  - name: shopify_shop_id
+    data_type: varchar
+    description: Shopify shop ID; part of the customer key.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_customer_id
+    data_type: varchar
+    description: Shopify customer ID within the shop; part of the customer key.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: locale
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Customer locale, as reported by Shopify.
+  - name: account_state
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify account state; meaningful for Classic Customer Accounts.
+  - name: product_subscriber_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Product subscriber status, as reported by Shopify.
+  - name: email_marketing_state
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source email marketing state, as reported by Shopify; no
+      platform enrichment.
+  - name: email_marketing_opt_in_level
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source email marketing opt in level, as reported by Shopify;
+      no platform enrichment.
+  - name: shopify_email_marketing_source_location_id
+    data_type: varchar
+    description: Current source shopify email marketing source location id, as reported
+      by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: email_open_tracking_level
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source email open tracking level, as reported by Shopify;
+      no platform enrichment.
+  - name: shopify_lifetime_spent_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Currency of shopify_lifetime_spent_amount, as reported by Shopify.
+  - name: shopify_last_order_id
+    data_type: varchar
+    description: Shopify ID of the customer's most recent order.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shopify_predicted_spend_tier
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Predicted spend tier, as reported by Shopify.
+  - name: shopify_rfm_group
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: RFM (recency, frequency, monetary) group, as reported by Shopify.
+  - name: created_at
+    data_type: timestamp
+    description: When Shopify created the customer.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: updated_at
+    data_type: timestamp
+    description: When Shopify last updated the customer.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: email_marketing_updated_at
+    data_type: timestamp
+    description: Current source email marketing updated at, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: source_observed_at
+    data_type: timestamp
+    description: UTC instant at which ingestion observes this source record.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: is_email_verified
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Shopify email verification flag; admin- or API-created customers can default to true.
+  - name: is_data_sale_opted_out
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when the customer opted out of data sale, as reported by Shopify.
+  - name: is_tax_exempt
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when the customer is tax exempt, as reported by Shopify.
+  - name: shopify_order_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Order count reported by Shopify, without platform eligibility filters;
+      not a governed platform metric.
+  - name: shopify_lifetime_spent_amount
+    data_type: decimal(38, 9)
+    description: Lifetime spending reported by Shopify, in the customer currency, without platform revenue adjustments; not governed lifetime value.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shopify_lifetime_spent_currency_code
+  - name: sms_marketing_state
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source sms marketing state, as reported by Shopify; no platform
+      enrichment.
+  - name: sms_marketing_opt_in_level
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source sms marketing opt in level, as reported by Shopify;
+      no platform enrichment.
+  - name: sms_marketing_collected_from
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source sms marketing collected from, as reported by Shopify;
+      no platform enrichment.
+  - name: sms_marketing_updated_at
+    data_type: timestamp
+    description: Current source sms marketing updated at, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: shopify_sms_marketing_source_location_id
+    data_type: varchar
+    description: Current source shopify sms marketing source location id, as reported
+      by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: whatsapp_marketing_state
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source whatsapp marketing state, as reported by Shopify;
+      no platform enrichment.
+  - name: whatsapp_marketing_opt_in_level
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source whatsapp marketing opt in level, as reported by Shopify;
+      no platform enrichment.
+  - name: whatsapp_marketing_collected_from
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source whatsapp marketing collected from, as reported by
+      Shopify; no platform enrichment.
+  - name: whatsapp_marketing_updated_at
+    data_type: timestamp
+    description: Current source whatsapp marketing updated at, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: shopify_whatsapp_marketing_source_location_id
+    data_type: varchar
+    description: Current source shopify whatsapp marketing source location id, as
+      reported by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: default_address_city
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Default address city, as reported by Shopify; null without a default address.
+  - name: default_address_postal_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Default address postal code, as reported by Shopify; null without a default address.
+  - name: default_address_province_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Default address province or state name, as reported by Shopify; null without a default address.
+  - name: default_address_province_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Default address province or state code, as reported by Shopify; null without a default address.
+  - name: default_address_country_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Default address country name, as reported by Shopify; null without a default address.
+  - name: default_address_country_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Default address ISO country code, as reported by Shopify; null without a default address.
+  - name: default_address_time_zone
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Default address time zone, as reported by Shopify; null without a default address.
+  - name: profile_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source profile access status, as reported by Shopify; no
+      platform enrichment.
+  - name: names_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source names access status, as reported by Shopify; no platform
+      enrichment.
+  - name: email_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source email access status, as reported by Shopify; no platform
+      enrichment.
+  - name: phone_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source phone access status, as reported by Shopify; no platform
+      enrichment.
+  - name: whatsapp_consent_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Access result for WhatsApp consent; missing evidence is unknown.
+  - name: addresses_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source addresses access status, as reported by Shopify; no
+      platform enrichment.
+  - name: summaries_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source summaries access status, as reported by Shopify; no
+      platform enrichment.
+  - name: statistics_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source statistics access status, as reported by Shopify;
+      no platform enrichment.
+  - name: tags_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source tags access status, as reported by Shopify; no platform
+      enrichment.
+  - name: metafields_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source metafields access status, as reported by Shopify;
+      no platform enrichment.
+  - name: tax_id_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source tax id access status, as reported by Shopify; no platform
+      enrichment.
+  - name: company_contacts_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source company contacts access status, as reported by Shopify;
+      no platform enrichment.
+  - name: external_identities_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source external identities access status, as reported by
+      Shopify; no platform enrichment.
+- name: dim_customer_details
+  description: Restricted personal source data. One row per shopify_shop_id, shopify_customer_id.
+    No platform behavioral enrichment.
+  config:
+    meta:
+      publication:
+        access: restricted
+        grain: One row per shopify_shop_id, shopify_customer_id, latest observed state
+        key: &id002
+        - shopify_shop_id
+        - shopify_customer_id
+        checks:
+        - dim_customer_details_unique_key
+        - shopify_customers_reconcile
+  data_tests:
+  - unique_combination:
+      name: dim_customer_details_unique_key
+      arguments:
+        columns: *id002
+  columns:
+  - name: shopify_shop_id
+    data_type: varchar
+    description: Current source shopify shop id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_customer_id
+    data_type: varchar
+    description: Current source shopify customer id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_customer_legacy_id
+    data_type: varchar
+    description: Current source shopify customer legacy id, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: first_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current first name reported by Shopify; restricted personal data.
+  - name: last_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current last name reported by Shopify; restricted personal data.
+  - name: display_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current Shopify display name; may contain a name, email, or phone;
+      restricted personal data.
+  - name: locale
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source locale, as reported by Shopify; no platform enrichment.
+  - name: account_state
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify account state; meaningful for Classic Customer Accounts.
+  - name: product_subscriber_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source product subscriber status, as reported by Shopify;
+      no platform enrichment.
+  - name: customer_note
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Unstructured Shopify customer note; restricted because it can contain
+      personal data.
+  - name: shopify_default_address_id
+    data_type: varchar
+    description: Current source shopify default address id, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: email_address
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current source email address, as reported by Shopify; no platform
+      enrichment.
+  - name: email_marketing_state
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source email marketing state, as reported by Shopify; no
+      platform enrichment.
+  - name: email_marketing_opt_in_level
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source email marketing opt in level, as reported by Shopify;
+      no platform enrichment.
+  - name: shopify_email_marketing_source_location_id
+    data_type: varchar
+    description: Current source shopify email marketing source location id, as reported
+      by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: email_open_tracking_level
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source email open tracking level, as reported by Shopify;
+      no platform enrichment.
+  - name: phone_number
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current source phone number, as reported by Shopify; no platform
+      enrichment.
+  - name: shopify_lifetime_spent_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Currency of the lifetime spending amount reported by Shopify.
+  - name: shopify_last_order_id
+    data_type: varchar
+    description: Current source shopify last order id, as reported by Shopify; no
+      platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shopify_predicted_spend_tier
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source shopify predicted spend tier, as reported by Shopify;
+      no platform enrichment.
+  - name: shopify_rfm_group
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source shopify rfm group, as reported by Shopify; no platform
+      enrichment.
+  - name: shopify_tax_id
+    data_type: varchar
+    description: Current source shopify tax id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: true
+        identity:
+          kind: source
+          source: shopify
+  - name: created_at
+    data_type: timestamp
+    description: Current source created at, as reported by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: updated_at
+    data_type: timestamp
+    description: Current source updated at, as reported by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: email_marketing_updated_at
+    data_type: timestamp
+    description: Current source email marketing updated at, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: source_observed_at
+    data_type: timestamp
+    description: UTC instant at which ingestion observes this source record.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: is_email_verified
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Shopify verification flag; admin/API-created customers can default
+      to true.
+  - name: is_data_sale_opted_out
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Current source is data sale opted out, as reported by Shopify; no
+      platform enrichment.
+  - name: is_tax_exempt
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Current source is tax exempt, as reported by Shopify; no platform
+      enrichment.
+  - name: is_email_format_valid
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Current source is email format valid, as reported by Shopify; no
+      platform enrichment.
+  - name: shopify_order_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Order count reported by Shopify, without platform eligibility filters;
+      not a governed platform metric.
+  - name: shopify_lifetime_spent_amount
+    data_type: decimal(38, 9)
+    description: Lifetime spending reported by Shopify, without platform revenue adjustments;
+      not governed lifetime value.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shopify_lifetime_spent_currency_code
+  - name: sms_marketing_state
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source sms marketing state, as reported by Shopify; no platform
+      enrichment.
+  - name: sms_marketing_opt_in_level
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source sms marketing opt in level, as reported by Shopify;
+      no platform enrichment.
+  - name: sms_marketing_collected_from
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source sms marketing collected from, as reported by Shopify;
+      no platform enrichment.
+  - name: sms_marketing_updated_at
+    data_type: timestamp
+    description: Current source sms marketing updated at, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: shopify_sms_marketing_source_location_id
+    data_type: varchar
+    description: Current source shopify sms marketing source location id, as reported
+      by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: whatsapp_marketing_state
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source whatsapp marketing state, as reported by Shopify;
+      no platform enrichment.
+  - name: whatsapp_marketing_opt_in_level
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source whatsapp marketing opt in level, as reported by Shopify;
+      no platform enrichment.
+  - name: whatsapp_marketing_collected_from
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source whatsapp marketing collected from, as reported by
+      Shopify; no platform enrichment.
+  - name: whatsapp_marketing_updated_at
+    data_type: timestamp
+    description: Current source whatsapp marketing updated at, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: shopify_whatsapp_marketing_source_location_id
+    data_type: varchar
+    description: Current source shopify whatsapp marketing source location id, as
+      reported by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: profile_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source profile access status, as reported by Shopify; no
+      platform enrichment.
+  - name: names_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source names access status, as reported by Shopify; no platform
+      enrichment.
+  - name: email_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source email access status, as reported by Shopify; no platform
+      enrichment.
+  - name: phone_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source phone access status, as reported by Shopify; no platform
+      enrichment.
+  - name: whatsapp_consent_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Access result for WhatsApp consent; missing evidence is unknown.
+  - name: addresses_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source addresses access status, as reported by Shopify; no
+      platform enrichment.
+  - name: summaries_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source summaries access status, as reported by Shopify; no
+      platform enrichment.
+  - name: statistics_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source statistics access status, as reported by Shopify;
+      no platform enrichment.
+  - name: tags_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source tags access status, as reported by Shopify; no platform
+      enrichment.
+  - name: metafields_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source metafields access status, as reported by Shopify;
+      no platform enrichment.
+  - name: tax_id_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source tax id access status, as reported by Shopify; no platform
+      enrichment.
+  - name: company_contacts_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source company contacts access status, as reported by Shopify;
+      no platform enrichment.
+  - name: external_identities_access_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source external identities access status, as reported by
+      Shopify; no platform enrichment.
+- name: dim_customer_addresses
+  description: Restricted personal source data. One row per shopify_shop_id, shopify_customer_id,
+    shopify_address_id. No platform behavioral enrichment.
+  config:
+    meta:
+      publication:
+        access: restricted
+        grain: One row per shopify_shop_id, shopify_customer_id, shopify_address_id,
+          latest observed state
+        key: &id003
+        - shopify_shop_id
+        - shopify_customer_id
+        - shopify_address_id
+        checks:
+        - dim_customer_addresses_unique_key
+  data_tests:
+  - unique_combination:
+      name: dim_customer_addresses_unique_key
+      arguments:
+        columns: *id003
+  columns:
+  - name: shopify_shop_id
+    data_type: varchar
+    description: Current source shopify shop id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_customer_id
+    data_type: varchar
+    description: Current source shopify customer id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_address_id
+    data_type: varchar
+    description: Current source shopify address id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: first_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current first name reported by Shopify; restricted personal data.
+  - name: last_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current last name reported by Shopify; restricted personal data.
+  - name: full_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current source full name, as reported by Shopify; no platform enrichment.
+  - name: company
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current source company, as reported by Shopify; no platform enrichment.
+  - name: phone_number
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current source phone number, as reported by Shopify; no platform
+      enrichment.
+  - name: address_line_1
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current source address line 1, as reported by Shopify; no platform
+      enrichment.
+  - name: address_line_2
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current source address line 2, as reported by Shopify; no platform
+      enrichment.
+  - name: postal_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source postal code, as reported by Shopify; no platform enrichment.
+  - name: city
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source city, as reported by Shopify; no platform enrichment.
+  - name: province_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source province name, as reported by Shopify; no platform
+      enrichment.
+  - name: province_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source province code, as reported by Shopify; no platform
+      enrichment.
+  - name: country_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source country name, as reported by Shopify; no platform
+      enrichment.
+  - name: country_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source country code, as reported by Shopify; no platform
+      enrichment.
+  - name: time_zone
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source time zone, as reported by Shopify; no platform enrichment.
+  - name: address_validation_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source address validation status, as reported by Shopify;
+      no platform enrichment.
+  - name: is_default_address
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Current source is default address, as reported by Shopify; no platform
+      enrichment.
+  - name: is_coordinates_validated
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Current source is coordinates validated, as reported by Shopify;
+      no platform enrichment.
+  - name: latitude
+    config:
+      meta: {pii: true}
+    data_type: decimal(38, 9)
+    description: Current source latitude, as reported by Shopify; no platform enrichment.
+  - name: longitude
+    config:
+      meta: {pii: true}
+    data_type: decimal(38, 9)
+    description: Current source longitude, as reported by Shopify; no platform enrichment.
+- name: dim_customer_tags
+  description: Restricted personal source data. One row per shopify_shop_id, shopify_customer_id,
+    position. No platform behavioral enrichment.
+  config:
+    meta:
+      publication:
+        access: restricted
+        grain: One row per shopify_shop_id, shopify_customer_id, position, latest
+          observed state
+        key: &id004
+        - shopify_shop_id
+        - shopify_customer_id
+        - tag_position
+        checks:
+        - dim_customer_tags_unique_key
+  data_tests:
+  - unique_combination:
+      name: dim_customer_tags_unique_key
+      arguments:
+        columns: *id004
+  columns:
+  - name: shopify_shop_id
+    data_type: varchar
+    description: Current source shopify shop id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_customer_id
+    data_type: varchar
+    description: Current source shopify customer id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: tag_position
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Current source position, as reported by Shopify; no platform enrichment.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: tag
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source tag, as reported by Shopify; no platform enrichment.
+- name: dim_customer_metafields
+  description: Restricted personal source data. One row per shopify_shop_id, shopify_customer_id,
+    shopify_metafield_id. No platform behavioral enrichment.
+  config:
+    meta:
+      publication:
+        access: restricted
+        grain: One row per shopify_shop_id, shopify_customer_id, shopify_metafield_id,
+          latest observed state
+        key: &id005
+        - shopify_shop_id
+        - shopify_customer_id
+        - shopify_metafield_id
+        checks:
+        - dim_customer_metafields_unique_key
+  data_tests:
+  - unique_combination:
+      name: dim_customer_metafields_unique_key
+      arguments:
+        columns: *id005
+  columns:
+  - name: shopify_shop_id
+    data_type: varchar
+    description: Current source shopify shop id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_customer_id
+    data_type: varchar
+    description: Current source shopify customer id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_metafield_id
+    data_type: varchar
+    description: Current source shopify metafield id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: metafield_namespace
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source namespace, as reported by Shopify; no platform enrichment.
+  - name: metafield_key
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source key, as reported by Shopify; no platform enrichment.
+  - name: metafield_type
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source type, as reported by Shopify; no platform enrichment.
+  - name: metafield_value
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current source value, as reported by Shopify; no platform enrichment.
+  - name: created_at
+    data_type: timestamp
+    description: Current source created at, as reported by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: updated_at
+    data_type: timestamp
+    description: Current source updated at, as reported by Shopify; no platform enrichment.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+- name: dim_customer_tax_exemptions
+  description: Restricted personal source data. One row per shopify_shop_id, shopify_customer_id,
+    position. No platform behavioral enrichment.
+  config:
+    meta:
+      publication:
+        access: restricted
+        grain: One row per shopify_shop_id, shopify_customer_id, position, latest
+          observed state
+        key: &id006
+        - shopify_shop_id
+        - shopify_customer_id
+        - tax_exemption_position
+        checks:
+        - dim_customer_tax_exemptions_unique_key
+  data_tests:
+  - unique_combination:
+      name: dim_customer_tax_exemptions_unique_key
+      arguments:
+        columns: *id006
+  columns:
+  - name: shopify_shop_id
+    data_type: varchar
+    description: Current source shopify shop id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_customer_id
+    data_type: varchar
+    description: Current source shopify customer id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: tax_exemption_position
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Current source position, as reported by Shopify; no platform enrichment.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Current source code, as reported by Shopify; no platform enrichment.
+- name: dim_customer_company_contacts
+  description: Restricted personal source data. One row per shopify_shop_id, shopify_customer_id,
+    shopify_company_contact_id, company_contact_position. No platform behavioral enrichment.
+  config:
+    meta:
+      publication:
+        access: restricted
+        grain: One row per shopify_shop_id, shopify_customer_id, shopify_company_contact_id,
+          company_contact_position, latest observed state
+        key: &id007
+        - shopify_shop_id
+        - shopify_customer_id
+        - shopify_company_contact_id
+        - company_contact_position
+        checks:
+        - dim_customer_company_contacts_unique_key
+  data_tests:
+  - unique_combination:
+      name: dim_customer_company_contacts_unique_key
+      arguments:
+        columns: *id007
+  columns:
+  - name: shopify_shop_id
+    data_type: varchar
+    description: Current source shopify shop id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_customer_id
+    data_type: varchar
+    description: Current source shopify customer id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_company_contact_id
+    data_type: varchar
+    description: Current source shopify company contact id, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: shopify_company_id
+    data_type: varchar
+    description: Current source shopify company id, as reported by Shopify; no platform
+      enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shopify_company_location_id
+    data_type: varchar
+    description: Current source shopify company location id, as reported by Shopify;
+      no platform enrichment.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: is_main_contact
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Current source is main contact, as reported by Shopify; no platform
+      enrichment.
+  - name: title
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Current source title, as reported by Shopify; no platform enrichment.
+  - name: company_contact_position
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Current source company contact position, as reported by Shopify;
+      no platform enrichment.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null

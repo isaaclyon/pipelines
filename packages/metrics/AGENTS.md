@@ -1,0 +1,1 @@
+../../.agents/instructions/packages/metrics/AGENTS.md

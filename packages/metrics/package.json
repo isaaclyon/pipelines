@@ -1,0 +1,12 @@
+{
+  "name": "analytics-metrics",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "22.19.15",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "check": "tsc --project tsconfig.json && node --test tests/*.test.cjs"
+  }
+}

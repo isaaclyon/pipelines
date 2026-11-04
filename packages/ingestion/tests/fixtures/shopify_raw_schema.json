@@ -1,0 +1,1692 @@
+{
+  "ingestion_batches": {
+    "anomalies": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "api_version": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "batch_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "completed_at": {
+      "data_type": "timestamp",
+      "nullable": true
+    },
+    "completeness": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "exceptions": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "extraction_revision": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "kind": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "load_ids": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "observation_sequence": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "observed_finished_at": {
+      "data_type": "timestamp",
+      "nullable": true
+    },
+    "observed_started_at": {
+      "data_type": "timestamp",
+      "nullable": true
+    },
+    "orders_applied": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "orders_observed": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "query_version": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "status": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "window_end": {
+      "data_type": "timestamp",
+      "nullable": false
+    },
+    "window_field": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "window_start": {
+      "data_type": "timestamp",
+      "nullable": false
+    }
+  },
+  "order_source_status": {
+    "created_at": {
+      "data_type": "timestamp",
+      "nullable": true
+    },
+    "detail": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "detected_at": {
+      "data_type": "timestamp",
+      "nullable": false
+    },
+    "evidence_batch_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "status": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders": {
+    "_api_version": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "_batch_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "_content_digest": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "_extraction_kind": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "_extraction_revision": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "_observation_sequence": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "_observed_at": {
+      "data_type": "timestamp",
+      "nullable": false
+    },
+    "_query_version": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "billing_address_address1": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_address2": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_city": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_company": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_country": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_country_code": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_first_name": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_last_name": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_phone": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_province": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_province_code": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "billing_address_zip": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "cancel_reason": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "cancelled_at": {
+      "data_type": "timestamp",
+      "nullable": true
+    },
+    "closed_at": {
+      "data_type": "timestamp",
+      "nullable": true
+    },
+    "created_at": {
+      "data_type": "timestamp",
+      "nullable": false
+    },
+    "currency_code": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "current_subtotal_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "current_subtotal_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "current_subtotal_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "current_subtotal_price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "current_total_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "current_total_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "current_total_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "current_total_price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "current_total_tax_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "current_total_tax_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "current_total_tax_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "current_total_tax_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "customer_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "display_financial_status": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "display_fulfillment_status": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "email": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "name": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "original_total_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "original_total_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "original_total_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "original_total_price_shop_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "phone": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "presentment_currency_code": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "processed_at": {
+      "data_type": "timestamp",
+      "nullable": false
+    },
+    "shipping_address_address1": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_address2": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_city": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_company": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_country": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_country_code": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_first_name": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_last_name": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_phone": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_province": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_province_code": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shipping_address_zip": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "source_name": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "subtotal_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "subtotal_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "subtotal_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "subtotal_price_shop_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "taxes_included": {
+      "data_type": "bool",
+      "nullable": true
+    },
+    "test": {
+      "data_type": "bool",
+      "nullable": false
+    },
+    "total_discounts_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_discounts_presentment_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "total_discounts_shop_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_discounts_shop_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "total_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_refunded_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_refunded_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_refunded_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_refunded_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_shipping_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_shipping_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "total_shipping_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_shipping_price_shop_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "total_tax_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_tax_presentment_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "total_tax_shop_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_tax_shop_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "transactions_count": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "transactions_count_precision": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "updated_at": {
+      "data_type": "timestamp",
+      "nullable": false
+    }
+  },
+  "orders__agreements": {
+    "agreement_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "happened_at": {
+      "data_type": "timestamp",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "reason": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "refund_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "return_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "type": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__agreements__sales": {
+    "action_type": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "additional_fee_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "additional_fee_name": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "additional_fee_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "additional_fee_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "additional_fee_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "additional_fee_price_shop_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "agreement_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "duty_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "fee_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "fee_type": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "line_item_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "line_type": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "quantity": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "sale_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shipping_line_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_discount_amount_after_taxes_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_discount_amount_after_taxes_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_discount_amount_after_taxes_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_discount_amount_after_taxes_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_discount_amount_before_taxes_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_discount_amount_before_taxes_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_discount_amount_before_taxes_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_discount_amount_before_taxes_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_tax_amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_tax_amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_tax_amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_tax_amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "type": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__agreements__sales__taxes": {
+    "agreement_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "channel_liable": {
+      "data_type": "bool",
+      "nullable": true
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "position": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "rate": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "sale_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "sale_tax_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "title": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__discount_applications": {
+    "allocation_method": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "application_index": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "code": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "description": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "target_selection": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "target_type": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "title": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "type": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "value_amount": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "value_currency": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "value_percentage": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "value_type": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__discount_codes": {
+    "code": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__lines": {
+    "current_quantity": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "discounted_total_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "discounted_total_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "discounted_total_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "discounted_total_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "is_gift_card": {
+      "data_type": "bool",
+      "nullable": true
+    },
+    "line_item_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "name": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "non_fulfillable_quantity": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "original_unit_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "original_unit_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "original_unit_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "original_unit_price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "product_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "quantity": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "requires_shipping": {
+      "data_type": "bool",
+      "nullable": true
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "sku": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "title": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "unfulfilled_quantity": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "variant_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "variant_title": {
+      "data_type": "text",
+      "nullable": true
+    }
+  },
+  "orders__lines__discount_allocations": {
+    "allocated_amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "allocated_amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "allocated_amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "allocated_amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "application_index": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "line_item_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "position": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__lines__tax_lines": {
+    "channel_liable": {
+      "data_type": "bool",
+      "nullable": true
+    },
+    "line_item_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "position": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "rate": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "title": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__refunds": {
+    "created_at": {
+      "data_type": "timestamp",
+      "nullable": true
+    },
+    "note": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "processed_at": {
+      "data_type": "timestamp",
+      "nullable": true
+    },
+    "refund_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "return_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_refunded_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_refunded_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_refunded_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_refunded_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "updated_at": {
+      "data_type": "timestamp",
+      "nullable": false
+    }
+  },
+  "orders__refunds__adjustments": {
+    "adjustment_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "reason": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "refund_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "tax_amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "tax_amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "tax_amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "tax_amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__refunds__duties": {
+    "amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "duty_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "position": {
+      "data_type": "bigint",
+      "nullable": true
+    },
+    "refund_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__refunds__lines": {
+    "line_item_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "quantity": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "refund_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "refund_line_item_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "subtotal_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "subtotal_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "subtotal_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "subtotal_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_tax_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_tax_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "total_tax_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "total_tax_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__refunds__shipping_lines": {
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "refund_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "refund_shipping_line_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shipping_line_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "subtotal_amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "subtotal_amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "subtotal_amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "subtotal_amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "tax_amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "tax_amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "tax_amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "tax_amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__refunds__transactions": {
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "refund_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "transaction_id": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__shipping_lines": {
+    "code": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "current_discounted_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "current_discounted_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "current_discounted_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "current_discounted_price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "discounted_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "discounted_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "discounted_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "discounted_price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "is_removed": {
+      "data_type": "bool",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "original_price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "original_price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "original_price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "original_price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shipping_line_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "source": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "title": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__shipping_lines__discount_allocations": {
+    "allocated_amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "allocated_amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "allocated_amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "allocated_amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "application_index": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "position": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "shipping_line_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__shipping_lines__tax_lines": {
+    "channel_liable": {
+      "data_type": "bool",
+      "nullable": true
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "position": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "rate": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "shipping_line_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "title": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__tags": {
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "tag": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__tax_lines": {
+    "channel_liable": {
+      "data_type": "bool",
+      "nullable": true
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "position": {
+      "data_type": "bigint",
+      "nullable": false
+    },
+    "price_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "price_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "price_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "price_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "rate": {
+      "data_type": "decimal",
+      "nullable": true,
+      "precision": 38,
+      "scale": 9
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "title": {
+      "data_type": "text",
+      "nullable": false
+    }
+  },
+  "orders__transactions": {
+    "amount_presentment_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "amount_presentment_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "amount_shop_amount": {
+      "data_type": "decimal",
+      "nullable": false,
+      "precision": 38,
+      "scale": 9
+    },
+    "amount_shop_currency": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "created_at": {
+      "data_type": "timestamp",
+      "nullable": false
+    },
+    "error_code": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "gateway": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "kind": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "order_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "parent_transaction_id": {
+      "data_type": "text",
+      "nullable": true
+    },
+    "processed_at": {
+      "data_type": "timestamp",
+      "nullable": true
+    },
+    "shop_id": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "status": {
+      "data_type": "text",
+      "nullable": false
+    },
+    "test": {
+      "data_type": "bool",
+      "nullable": false
+    },
+    "transaction_id": {
+      "data_type": "text",
+      "nullable": false
+    }
+  }
+}

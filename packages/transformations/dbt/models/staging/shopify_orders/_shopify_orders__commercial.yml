@@ -1,0 +1,1831 @@
+version: 2
+models:
+- name: stg_shopify_orders__agreements
+  description: Shopify order agreements renamed and typed, one row per agreement. Instants are UTC.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, agreement_id)
+      key:
+      - shop_id
+      - order_id
+      - agreement_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_agreements_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - agreement_id
+  - composite_relationship:
+      name: shopify_agreements_refund_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        to: ref('stg_shopify_orders__refunds')
+        to_columns:
+        - shop_id
+        - order_id
+        - refund_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: agreement_id
+    data_type: varchar
+    description: Shopify agreement identity within the order.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: agreement_type
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Concrete Shopify agreement type, such as RefundAgreement.
+  - name: happened_at
+    data_type: timestamp
+    description: When the agreement happened, in UTC.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: reason
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify agreement reason as reported.
+  - name: refund_id
+    data_type: varchar
+    description: Refund identity for a refund agreement; null otherwise.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: return_id
+    data_type: varchar
+    description: Return identity for a return agreement; null otherwise.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+- name: stg_shopify_orders__agreement_sales
+  description: Shopify agreement sales renamed and typed, one row per sale. Money keeps its source currencies.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, agreement_id, sale_id)
+      key:
+      - shop_id
+      - order_id
+      - agreement_id
+      - sale_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_agreement_sales_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - agreement_id
+        - sale_id
+  - composite_relationship:
+      name: shopify_agreement_sales_agreement_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - agreement_id
+        to: ref('stg_shopify_orders__agreements')
+        to_columns:
+        - shop_id
+        - order_id
+        - agreement_id
+  - composite_relationship:
+      name: shopify_agreement_sales_shipping_line_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+        to: source('shopify_orders', 'orders__shipping_lines')
+        to_columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+  - composite_relationship:
+      name: shopify_agreement_sales_line_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - line_item_id
+        to: ref('stg_shopify_orders__order_lines')
+        to_columns:
+        - shop_id
+        - order_id
+        - line_item_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: agreement_id
+    data_type: varchar
+    description: Shopify agreement identity within the order.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: sale_id
+    data_type: varchar
+    description: Shopify sale identity within the agreement.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: sale_type
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Concrete Shopify sale type, such as ProductSale.
+  - name: action_type
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Sale action type with whitespace removed and case normalized; unknown values remain visible.
+  - name: line_type
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Sale line type with whitespace removed and case normalized; unknown values remain visible.
+  - name: signed_quantity
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Signed quantity Shopify reports for the sale; null when the sale has none.
+  - name: line_item_id
+    data_type: varchar
+    description: Order line identity for product, gift-card and tip sales; null otherwise.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shipping_line_id
+    data_type: varchar
+    description: Shipping-line identity for shipping sales; null otherwise.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: duty_id
+    data_type: varchar
+    description: Duty identity for duty sales; null otherwise.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: fee_id
+    data_type: varchar
+    description: Source fee identity for fee sales; null otherwise.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: fee_type
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Source fee type for fee sales; null otherwise.
+  - name: additional_fee_id
+    data_type: varchar
+    description: Additional fee identity for additional-fee sales; null otherwise.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: additional_fee_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Additional fee name; null for other sales.
+  - name: additional_fee_price_shop_amount
+    data_type: decimal(38, 9)
+    description: Additional fee price. Shop-money amount. Null when Shopify omits this money bag.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: additional_fee_price_shop_currency_code
+  - name: additional_fee_price_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: additional_fee_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: Additional fee price. Presentment-money amount. Null when Shopify omits this money bag.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: additional_fee_price_presentment_currency_code
+  - name: additional_fee_price_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: total_amount_shop_amount
+    data_type: decimal(38, 9)
+    description: Total sale amount. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_amount_shop_currency_code
+  - name: total_amount_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: total_amount_presentment_amount
+    data_type: decimal(38, 9)
+    description: Total sale amount. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_amount_presentment_currency_code
+  - name: total_amount_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: total_tax_amount_shop_amount
+    data_type: decimal(38, 9)
+    description: Total tax on the sale. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_tax_amount_shop_currency_code
+  - name: total_tax_amount_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: total_tax_amount_presentment_amount
+    data_type: decimal(38, 9)
+    description: Total tax on the sale. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_tax_amount_presentment_currency_code
+  - name: total_tax_amount_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: total_discount_amount_before_taxes_shop_amount
+    data_type: decimal(38, 9)
+    description: Discount on the sale before taxes. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_discount_amount_before_taxes_shop_currency_code
+  - name: total_discount_amount_before_taxes_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: total_discount_amount_before_taxes_presentment_amount
+    data_type: decimal(38, 9)
+    description: Discount on the sale before taxes. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_discount_amount_before_taxes_presentment_currency_code
+  - name: total_discount_amount_before_taxes_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: total_discount_amount_after_taxes_shop_amount
+    data_type: decimal(38, 9)
+    description: Discount on the sale after taxes. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_discount_amount_after_taxes_shop_currency_code
+  - name: total_discount_amount_after_taxes_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: total_discount_amount_after_taxes_presentment_amount
+    data_type: decimal(38, 9)
+    description: Discount on the sale after taxes. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_discount_amount_after_taxes_presentment_currency_code
+  - name: total_discount_amount_after_taxes_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__agreement_sale_taxes
+  description: Shopify sale taxes renamed and typed, one row per sale tax. Keeps the tax line detail and
+    source money.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, agreement_id, sale_id, sale_tax_id)
+      key:
+      - shop_id
+      - order_id
+      - agreement_id
+      - sale_id
+      - sale_tax_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_agreement_sale_taxes_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - agreement_id
+        - sale_id
+        - sale_tax_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: agreement_id
+    data_type: varchar
+    description: Shopify agreement identity within the order.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: sale_id
+    data_type: varchar
+    description: Shopify sale identity within the agreement.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: sale_tax_id
+    data_type: varchar
+    description: Shopify sale tax identity within the sale.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: sale_tax_position
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Zero-based position within the sale's taxes.
+  - name: tax_title
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Title of the tax line.
+  - name: tax_rate
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: Tax rate as a decimal fraction; null when Shopify omits it.
+  - name: is_channel_liable
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Whether the sales channel is liable for the tax; null when Shopify omits it.
+  - name: sale_tax_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax amount recorded on the sale. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: sale_tax_shop_currency_code
+  - name: sale_tax_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: sale_tax_presentment_amount
+    data_type: decimal(38, 9)
+    description: Tax amount recorded on the sale. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: sale_tax_presentment_currency_code
+  - name: sale_tax_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: tax_price_shop_amount
+    data_type: decimal(38, 9)
+    description: Price of the tax line. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: tax_price_shop_currency_code
+  - name: tax_price_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: tax_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: Price of the tax line. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: tax_price_presentment_currency_code
+  - name: tax_price_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__refund_lines
+  description: Shopify refund lines renamed and typed, one row per refunded line item. Money keeps its
+    source currencies.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, refund_id, refund_line_item_id)
+      key:
+      - shop_id
+      - order_id
+      - refund_id
+      - refund_line_item_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_refund_lines_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        - refund_line_item_id
+  - composite_relationship:
+      name: shopify_refund_lines_refund_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        to: ref('stg_shopify_orders__refunds')
+        to_columns:
+        - shop_id
+        - order_id
+        - refund_id
+  - composite_relationship:
+      name: shopify_refund_lines_line_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - line_item_id
+        to: ref('stg_shopify_orders__order_lines')
+        to_columns:
+        - shop_id
+        - order_id
+        - line_item_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: refund_id
+    data_type: varchar
+    description: Shopify refund identity within the order.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: refund_line_item_id
+    data_type: varchar
+    description: Shopify refund line item identity within the refund.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: line_item_id
+    data_type: varchar
+    description: Order line identity that this refund line refunds.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: refunded_quantity
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Quantity refunded for the line.
+  - name: subtotal_shop_amount
+    data_type: decimal(38, 9)
+    description: Refunded subtotal for the line. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: subtotal_shop_currency_code
+  - name: subtotal_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: subtotal_presentment_amount
+    data_type: decimal(38, 9)
+    description: Refunded subtotal for the line. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: subtotal_presentment_currency_code
+  - name: subtotal_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: total_tax_shop_amount
+    data_type: decimal(38, 9)
+    description: Refunded tax for the line. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_tax_shop_currency_code
+  - name: total_tax_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: total_tax_presentment_amount
+    data_type: decimal(38, 9)
+    description: Refunded tax for the line. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: total_tax_presentment_currency_code
+  - name: total_tax_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__refund_adjustments
+  description: Shopify refund adjustments renamed and typed, one row per adjustment. Amounts keep their
+    signs as Shopify reports them.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, refund_id, adjustment_id)
+      key:
+      - shop_id
+      - order_id
+      - refund_id
+      - adjustment_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_refund_adjustments_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        - adjustment_id
+  - composite_relationship:
+      name: shopify_refund_adjustments_refund_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        to: ref('stg_shopify_orders__refunds')
+        to_columns:
+        - shop_id
+        - order_id
+        - refund_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: refund_id
+    data_type: varchar
+    description: Shopify refund identity within the order.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: adjustment_id
+    data_type: varchar
+    description: Shopify order adjustment identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: adjustment_reason
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Source reason for the adjustment; null when Shopify records none.
+  - name: adjustment_shop_amount
+    data_type: decimal(38, 9)
+    description: Signed adjustment amount, as Shopify reports it. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: adjustment_shop_currency_code
+  - name: adjustment_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: adjustment_presentment_amount
+    data_type: decimal(38, 9)
+    description: Signed adjustment amount, as Shopify reports it. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: adjustment_presentment_currency_code
+  - name: adjustment_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: adjustment_tax_shop_amount
+    data_type: decimal(38, 9)
+    description: Signed tax on the adjustment, as Shopify reports it. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: adjustment_tax_shop_currency_code
+  - name: adjustment_tax_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: adjustment_tax_presentment_amount
+    data_type: decimal(38, 9)
+    description: Signed tax on the adjustment, as Shopify reports it. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: adjustment_tax_presentment_currency_code
+  - name: adjustment_tax_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__refund_shipping_lines
+  description: Shopify refunded shipping lines renamed and typed, one row per refunded shipping line.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, refund_id, refund_shipping_line_id)
+      key:
+      - shop_id
+      - order_id
+      - refund_id
+      - refund_shipping_line_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_refund_shipping_lines_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        - refund_shipping_line_id
+  - composite_relationship:
+      name: shopify_refund_shipping_lines_refund_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        to: ref('stg_shopify_orders__refunds')
+        to_columns:
+        - shop_id
+        - order_id
+        - refund_id
+  - composite_relationship:
+      name: shopify_refund_shipping_lines_shipping_line_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+        to: source('shopify_orders', 'orders__shipping_lines')
+        to_columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: refund_id
+    data_type: varchar
+    description: Shopify refund identity within the order.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: refund_shipping_line_id
+    data_type: varchar
+    description: Shopify refunded shipping line identity within the refund.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shipping_line_id
+    data_type: varchar
+    description: Shipping-line identity that this refund refunds; null when Shopify does not link one.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: subtotal_shop_amount
+    data_type: decimal(38, 9)
+    description: Refunded shipping subtotal. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: subtotal_shop_currency_code
+  - name: subtotal_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: subtotal_presentment_amount
+    data_type: decimal(38, 9)
+    description: Refunded shipping subtotal. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: subtotal_presentment_currency_code
+  - name: subtotal_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: tax_shop_amount
+    data_type: decimal(38, 9)
+    description: Refunded shipping tax. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: tax_shop_currency_code
+  - name: tax_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: tax_presentment_amount
+    data_type: decimal(38, 9)
+    description: Refunded shipping tax. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: tax_presentment_currency_code
+  - name: tax_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__refund_duties
+  description: Shopify refunded duties renamed and typed, one row per refunded duty position.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, refund_id, duty_position)
+      key:
+      - shop_id
+      - order_id
+      - refund_id
+      - duty_position
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_refund_duties_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        - duty_position
+  - composite_relationship:
+      name: shopify_refund_duties_refund_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+        to: ref('stg_shopify_orders__refunds')
+        to_columns:
+        - shop_id
+        - order_id
+        - refund_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: refund_id
+    data_type: varchar
+    description: Shopify refund identity within the order.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: duty_position
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Zero-based position within the refund's duties.
+    data_tests:
+    - not_null
+  - name: duty_id
+    data_type: varchar
+    description: Original duty identity; null when the duty is deleted or unavailable.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: refund_shop_amount
+    data_type: decimal(38, 9)
+    description: Refunded duty amount. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: refund_shop_currency_code
+  - name: refund_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: refund_presentment_amount
+    data_type: decimal(38, 9)
+    description: Refunded duty amount. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: refund_presentment_currency_code
+  - name: refund_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__shipping_lines
+  description: Shopify shipping lines renamed and typed, one row per shipping line. Removed lines are
+    retained.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, shipping_line_id)
+      key:
+      - shop_id
+      - order_id
+      - shipping_line_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_shipping_lines_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shipping_line_id
+    data_type: varchar
+    description: Shopify shipping line identity within the order.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shipping_title
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Shipping line title.
+  - name: shipping_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shipping method code; null when absent.
+  - name: shipping_source
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shipping source; null when absent.
+  - name: is_removed
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when Shopify marks the shipping line removed.
+  - name: original_price_shop_amount
+    data_type: decimal(38, 9)
+    description: Original shipping price. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: original_price_shop_currency_code
+  - name: original_price_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: original_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: Original shipping price. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: original_price_presentment_currency_code
+  - name: original_price_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: discounted_price_shop_amount
+    data_type: decimal(38, 9)
+    description: Shipping price after discounts. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: discounted_price_shop_currency_code
+  - name: discounted_price_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: discounted_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: Shipping price after discounts. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: discounted_price_presentment_currency_code
+  - name: discounted_price_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+  - name: current_discounted_price_shop_amount
+    data_type: decimal(38, 9)
+    description: Current shipping price after discounts and changes. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: current_discounted_price_shop_currency_code
+  - name: current_discounted_price_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: current_discounted_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: Current shipping price after discounts and changes. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: current_discounted_price_presentment_currency_code
+  - name: current_discounted_price_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__discount_applications
+  description: Shopify discount applications renamed and typed, one row per order-scoped application index.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, application_index)
+      key:
+      - shop_id
+      - order_id
+      - application_index
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_discount_applications_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - application_index
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: application_index
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Order-scoped discount application index.
+    data_tests:
+    - not_null
+  - name: discount_application_type
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Concrete Shopify discount application type.
+  - name: allocation_method
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Allocation method with whitespace removed and case normalized.
+  - name: target_selection
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Target selection with whitespace removed and case normalized.
+  - name: target_type
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Target type with whitespace removed and case normalized.
+  - name: discount_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Discount code; null when the application has none.
+  - name: discount_title
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Discount title; null when Shopify omits it.
+  - name: discount_description
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Discount description; null when Shopify omits it.
+  - name: discount_value_type
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Discount value type, such as MoneyV2 or PricingPercentageValue.
+  - name: discount_value_amount
+    data_type: decimal(38, 9)
+    description: Fixed discount value; null for percentage values.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: discount_value_currency_code
+  - name: discount_value_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Currency of the fixed discount value; null for percentage values.
+  - name: discount_value_percentage
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: Percentage discount value; null for fixed values.
+- name: stg_shopify_orders__line_discount_allocations
+  description: Shopify line discount allocations renamed and typed, one row per allocation position.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, line_item_id, allocation_position)
+      key:
+      - shop_id
+      - order_id
+      - line_item_id
+      - allocation_position
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_line_discount_allocations_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - line_item_id
+        - allocation_position
+  - composite_relationship:
+      name: shopify_line_discount_allocations_application_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - application_index
+        to: ref('stg_shopify_orders__discount_applications')
+        to_columns:
+        - shop_id
+        - order_id
+        - application_index
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: line_item_id
+    data_type: varchar
+    description: Order line identity that receives the allocation.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: allocation_position
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Zero-based position within the line's discount allocations.
+    data_tests:
+    - not_null
+  - name: application_index
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Order-scoped discount application index for this allocation.
+  - name: allocated_amount_shop_amount
+    data_type: decimal(38, 9)
+    description: Discount amount allocated to the line. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: allocated_amount_shop_currency_code
+  - name: allocated_amount_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: allocated_amount_presentment_amount
+    data_type: decimal(38, 9)
+    description: Discount amount allocated to the line. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: allocated_amount_presentment_currency_code
+  - name: allocated_amount_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__shipping_line_discount_allocations
+  description: Shopify shipping-line discount allocations renamed and typed, one row per allocation position.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, shipping_line_id, allocation_position)
+      key:
+      - shop_id
+      - order_id
+      - shipping_line_id
+      - allocation_position
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_shipping_line_discount_allocations_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+        - allocation_position
+  - composite_relationship:
+      name: shopify_shipping_discount_allocations_shipping_line_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+        to: source('shopify_orders', 'orders__shipping_lines')
+        to_columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+  - composite_relationship:
+      name: shopify_shipping_discount_allocations_application_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - application_index
+        to: ref('stg_shopify_orders__discount_applications')
+        to_columns:
+        - shop_id
+        - order_id
+        - application_index
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shipping_line_id
+    data_type: varchar
+    description: Shipping-line identity that receives the allocation.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: allocation_position
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Zero-based position within the shipping line's discount allocations.
+    data_tests:
+    - not_null
+  - name: application_index
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Order-scoped discount application index for this allocation.
+  - name: allocated_amount_shop_amount
+    data_type: decimal(38, 9)
+    description: Discount amount allocated to the shipping line. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: allocated_amount_shop_currency_code
+  - name: allocated_amount_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: allocated_amount_presentment_amount
+    data_type: decimal(38, 9)
+    description: Discount amount allocated to the shipping line. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: allocated_amount_presentment_currency_code
+  - name: allocated_amount_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__line_tax_lines
+  description: Shopify order line tax lines renamed and typed, one row per tax line position.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, line_item_id, tax_line_position)
+      key:
+      - shop_id
+      - order_id
+      - line_item_id
+      - tax_line_position
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_line_tax_lines_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - line_item_id
+        - tax_line_position
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: line_item_id
+    data_type: varchar
+    description: Order line identity that carries the tax line.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: tax_line_position
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Zero-based position within the line's tax lines.
+    data_tests:
+    - not_null
+  - name: tax_title
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Title of the tax line.
+  - name: tax_rate
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: Tax rate as a decimal fraction; null when Shopify omits it.
+  - name: is_channel_liable
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Whether the sales channel is liable for the tax; null when Shopify omits it.
+  - name: tax_price_shop_amount
+    data_type: decimal(38, 9)
+    description: Price of the tax line. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: tax_price_shop_currency_code
+  - name: tax_price_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: tax_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: Price of the tax line. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: tax_price_presentment_currency_code
+  - name: tax_price_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.
+- name: stg_shopify_orders__shipping_line_tax_lines
+  description: Shopify shipping-line tax lines renamed and typed, one row per tax line position.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, shipping_line_id, tax_line_position)
+      key:
+      - shop_id
+      - order_id
+      - shipping_line_id
+      - tax_line_position
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_shipping_line_tax_lines_unique_key
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+        - tax_line_position
+  - composite_relationship:
+      name: shopify_shipping_tax_lines_shipping_line_exists
+      config:
+        tags:
+        - shopify_commercial_cross_model
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+        to: source('shopify_orders', 'orders__shipping_lines')
+        to_columns:
+        - shop_id
+        - order_id
+        - shipping_line_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shipping_line_id
+    data_type: varchar
+    description: Shipping-line identity that carries the tax line.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: tax_line_position
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Zero-based position within the shipping line's tax lines.
+    data_tests:
+    - not_null
+  - name: tax_title
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Title of the tax line.
+  - name: tax_rate
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: Tax rate as a decimal fraction; null when Shopify omits it.
+  - name: is_channel_liable
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Whether the sales channel is liable for the tax; null when Shopify omits it.
+  - name: tax_price_shop_amount
+    data_type: decimal(38, 9)
+    description: Price of the tax line. Shop-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: tax_price_shop_currency_code
+  - name: tax_price_shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency code of the shop-money amount.
+  - name: tax_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: Price of the tax line. Presentment-money amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: tax_price_presentment_currency_code
+  - name: tax_price_presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Presentment currency code of the presentment-money amount.

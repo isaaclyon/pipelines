@@ -1,0 +1,140 @@
+sources:
+- name: loop_return_headers
+  description: Separate non-PII Loop header snapshots. Never the legacy wider returns table.
+  schema: '{{ env_var(''LOOP_RETURNS_DATASET'', ''LOOP_RETURN_HEADERS_RAW'') }}'
+  tables:
+  - name: returns
+    description: Source return headers from the full-history replacement.
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Source shop id.
+      data_type: text
+    - name: return_id
+      config:
+        meta: {pii: false}
+      description: Source return id.
+      data_type: text
+    - name: shopify_order_id
+      config:
+        meta: {pii: false}
+      description: Source shopify order id.
+      data_type: text
+    - name: return_state
+      config:
+        meta: {pii: false}
+      description: Source return state.
+      data_type: text
+    - name: created_at
+      config:
+        meta: {pii: false}
+      description: Source created at.
+      data_type: timestamp
+    - name: updated_at
+      config:
+        meta: {pii: false}
+      description: Source updated at.
+      data_type: timestamp
+    - name: currency
+      config:
+        meta: {pii: false}
+      description: Source currency.
+      data_type: text
+    - name: return_total
+      config:
+        meta: {pii: false}
+      description: Source return total.
+      data_type: decimal(38, 9)
+    - name: refund
+      config:
+        meta: {pii: false}
+      description: Source refund.
+      data_type: decimal(38, 9)
+    - name: handling_fee
+      config:
+        meta: {pii: false}
+      description: Source handling fee.
+      data_type: decimal(38, 9)
+    - name: gift_card
+      config:
+        meta: {pii: false}
+      description: Source gift card.
+      data_type: decimal(38, 9)
+    - name: exchange_total
+      config:
+        meta: {pii: false}
+      description: Source exchange total.
+      data_type: decimal(38, 9)
+    - name: upsell
+      config:
+        meta: {pii: false}
+      description: Source upsell.
+      data_type: decimal(38, 9)
+  - name: return_snapshots
+    description: Load-package evidence for a header snapshot.
+    columns:
+    - name: snapshot_id
+      config:
+        meta: {pii: false}
+      description: Source snapshot id.
+      data_type: text
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Source shop id.
+      data_type: text
+    - name: row_count
+      config:
+        meta: {pii: false}
+      description: Source row count.
+      data_type: bigint
+    - name: removed_count
+      config:
+        meta: {pii: false}
+      description: Source removed count.
+      data_type: bigint
+    - name: window_count
+      config:
+        meta: {pii: false}
+      description: Source window count.
+      data_type: bigint
+    - name: snapshot_end
+      config:
+        meta: {pii: false}
+      description: Source snapshot end.
+      data_type: timestamp
+    - name: completed_at
+      config:
+        meta: {pii: false}
+      description: Source completed at.
+      data_type: timestamp
+  - name: loads
+    identifier: _dlt_loads
+    description: dlt completed load packages; status zero records completion.
+    columns:
+    - name: load_id
+      config:
+        meta: {pii: false}
+      description: Completed dlt load identity.
+      data_type: text
+    - name: schema_name
+      config:
+        meta: {pii: false}
+      description: dlt schema owning the load.
+      data_type: text
+    - name: status
+      config:
+        meta: {pii: false}
+      description: Load status; zero means completed.
+      data_type: bigint
+    - name: inserted_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the load completed.
+      data_type: timestamp
+    - name: schema_version_hash
+      config:
+        meta: {pii: false}
+      description: Loaded schema version hash.
+      data_type: text

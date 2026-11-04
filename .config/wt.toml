@@ -1,0 +1,3 @@
+# Runs synchronously when Worktrunk creates a worktree.
+[pre-start]
+setup = "sh scripts/worktree-setup.sh {{ primary_worktree_path }}"

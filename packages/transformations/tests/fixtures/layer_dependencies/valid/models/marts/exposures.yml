@@ -1,0 +1,8 @@
+version: 2
+exposures:
+  - name: order_dashboard
+    type: dashboard
+    owner: {name: Analytics}
+    depends_on:
+      - ref('fct_orders')
+      - ref('dim_customers')

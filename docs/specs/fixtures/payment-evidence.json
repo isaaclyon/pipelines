@@ -1,0 +1,1853 @@
+{
+  "status": "design_examples_not_executable_dbt_tests",
+  "specification": "../20261018-order-payment-eligibility.md",
+  "cases": [
+    {
+      "name": "unpaid",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "payment_transition",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [],
+        "has_merchandise": true,
+        "commercial_value": "0.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": false,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": false,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "0.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "0.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "0.000000000",
+        "revenue_exclusion_reasons": [
+          "payment_not_fully_collected"
+        ],
+        "aov_exclusion_reasons": [
+          "no_retained_commercial_value",
+          "payment_not_fully_collected"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "authorized",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "payment_transition",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "auth",
+            "parent_transaction_id": null,
+            "kind": "AUTHORIZATION",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "0.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": false,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": false,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "0.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "0.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "0.000000000",
+        "revenue_exclusion_reasons": [
+          "payment_not_fully_collected"
+        ],
+        "aov_exclusion_reasons": [
+          "no_retained_commercial_value",
+          "payment_not_fully_collected"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "partially_paid",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "payment_transition",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "capture",
+            "parent_transaction_id": null,
+            "kind": "CAPTURE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "40.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "40.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": false,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": false,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "40.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "40.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "40.000000000",
+        "revenue_exclusion_reasons": [
+          "payment_not_fully_collected"
+        ],
+        "aov_exclusion_reasons": [
+          "payment_not_fully_collected"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "fully_paid",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "payment_transition",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": true,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "gift_card_capture",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "gift_card_capture",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "auth",
+            "parent_transaction_id": null,
+            "kind": "AUTHORIZATION",
+            "status": "SUCCESS",
+            "gateway": "gift_card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "capture",
+            "parent_transaction_id": "auth",
+            "kind": "CAPTURE",
+            "status": "SUCCESS",
+            "gateway": "gift_card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": true,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "failed_or_pending",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "failed_or_pending",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "pending_capture",
+            "parent_transaction_id": null,
+            "kind": "CAPTURE",
+            "status": "PENDING",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "failed_capture",
+            "parent_transaction_id": null,
+            "kind": "CAPTURE",
+            "status": "FAILURE",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "pending_refund",
+            "parent_transaction_id": "sale",
+            "kind": "REFUND",
+            "status": "PENDING",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-02T12:00:00Z",
+            "amount": "20.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "failed_refund",
+            "parent_transaction_id": "sale",
+            "kind": "REFUND",
+            "status": "FAILURE",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-02T12:00:00Z",
+            "amount": "20.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": true,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "split_capture",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "split_capture",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "auth",
+            "parent_transaction_id": null,
+            "kind": "AUTHORIZATION",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "capture_a",
+            "parent_transaction_id": "auth",
+            "kind": "CAPTURE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "40.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "capture_b",
+            "parent_transaction_id": "auth",
+            "kind": "CAPTURE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "60.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": true,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "obligation_unknown",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "obligation_unknown",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": null,
+        "obligation_verified": false,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": null,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": null,
+        "is_aov_eligible": null,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [
+          "payment_obligation_unknown"
+        ],
+        "aov_unresolved_requirements": [
+          "payment_obligation_unknown"
+        ]
+      }
+    },
+    {
+      "name": "observation_unknown",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "observation_unknown",
+        "order_date": "2026-07-01",
+        "observation_complete": false,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [],
+        "has_merchandise": true,
+        "commercial_value": null,
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": null,
+        "is_partially_refunded": null,
+        "is_fully_refunded": null,
+        "is_revenue_eligible": null,
+        "is_aov_eligible": null,
+        "gross_collection_amount": null,
+        "gross_refund_amount": null,
+        "business_collection_amount": null,
+        "business_refund_amount": null,
+        "net_customer_payment_retained": null,
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [
+          "payment_evidence_incomplete"
+        ],
+        "aov_unresolved_requirements": [
+          "commercial_value_unknown",
+          "payment_evidence_incomplete"
+        ]
+      }
+    },
+    {
+      "name": "edit_unresolved",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "edit_unresolved",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": true,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": null,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": null,
+        "is_aov_eligible": null,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [
+          "payment_edit_unresolved"
+        ],
+        "aov_unresolved_requirements": [
+          "payment_edit_unresolved"
+        ]
+      }
+    },
+    {
+      "name": "partial_refund",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "partial_refund",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "refund",
+            "parent_transaction_id": "sale",
+            "kind": "REFUND",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-08-01T12:00:00Z",
+            "amount": "20.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "80.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": true,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": true,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "20.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "20.000000000",
+        "net_customer_payment_retained": "80.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "full_refund",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "full_refund",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "refund",
+            "parent_transaction_id": "sale",
+            "kind": "REFUND",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-08-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "0.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": true,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "100.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "100.000000000",
+        "net_customer_payment_retained": "0.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [
+          "fully_refunded",
+          "no_retained_commercial_value"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "tax_only_retained",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "tax_only_retained",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "110.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "110.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "refund",
+            "parent_transaction_id": "sale",
+            "kind": "REFUND",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-02T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "0.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": true,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "110.000000000",
+        "gross_refund_amount": "100.000000000",
+        "business_collection_amount": "110.000000000",
+        "business_refund_amount": "100.000000000",
+        "net_customer_payment_retained": "10.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [
+          "no_retained_commercial_value"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "failed_attempt_reversal",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "failed_attempt_reversal",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [
+          "gift_attempt",
+          "attempt_reversal"
+        ],
+        "transactions": [
+          {
+            "transaction_id": "gift_attempt",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "gift_card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "50.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "failed_card",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "FAILURE",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:01:00Z",
+            "amount": "50.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "attempt_reversal",
+            "parent_transaction_id": "gift_attempt",
+            "kind": "REFUND",
+            "status": "SUCCESS",
+            "gateway": "gift_card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:02:00Z",
+            "amount": "50.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "final_sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:03:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": true,
+        "gross_collection_amount": "150.000000000",
+        "gross_refund_amount": "50.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "genuine_gift_card_refund",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "genuine_gift_card_refund",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "gift_sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "gift_card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "gift_refund",
+            "parent_transaction_id": "gift_sale",
+            "kind": "REFUND",
+            "status": "SUCCESS",
+            "gateway": "gift_card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-02T12:00:00Z",
+            "amount": "20.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "80.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": true,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": true,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "20.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "20.000000000",
+        "net_customer_payment_retained": "80.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "ambiguous_reversal",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "ambiguous_reversal",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": false,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "gift_card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "refund",
+            "parent_transaction_id": "sale",
+            "kind": "REFUND",
+            "status": "SUCCESS",
+            "gateway": "gift_card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-02T12:00:00Z",
+            "amount": "20.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": null,
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": null,
+        "is_partially_refunded": null,
+        "is_fully_refunded": null,
+        "is_revenue_eligible": null,
+        "is_aov_eligible": null,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "20.000000000",
+        "business_collection_amount": null,
+        "business_refund_amount": null,
+        "net_customer_payment_retained": null,
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [
+          "refund_reversal_unresolved"
+        ],
+        "aov_unresolved_requirements": [
+          "commercial_value_unknown",
+          "refund_reversal_unresolved"
+        ]
+      }
+    },
+    {
+      "name": "negative_retained",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "negative_retained",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "refund",
+            "parent_transaction_id": "sale",
+            "kind": "REFUND",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-02T12:00:00Z",
+            "amount": "120.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": null,
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": null,
+        "is_fully_refunded": null,
+        "is_revenue_eligible": null,
+        "is_aov_eligible": null,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "120.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "120.000000000",
+        "net_customer_payment_retained": "-20.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [
+          "payment_balance_unresolved"
+        ],
+        "aov_unresolved_requirements": [
+          "commercial_value_unknown",
+          "payment_balance_unresolved"
+        ]
+      }
+    },
+    {
+      "name": "commercial_value_unknown",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "commercial_value_unknown",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": null,
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": null,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": [
+          "commercial_value_unknown"
+        ]
+      }
+    },
+    {
+      "name": "test_unknown",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "test_unknown",
+        "order_date": "2026-07-01",
+        "observation_complete": false,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [],
+        "has_merchandise": true,
+        "commercial_value": null,
+        "currency_code": "USD",
+        "is_test": true,
+        "is_cancelled": false,
+        "is_gifted": null,
+        "is_replacement": null,
+        "is_exchange": null,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": null,
+        "is_partially_refunded": null,
+        "is_fully_refunded": null,
+        "is_revenue_eligible": false,
+        "is_aov_eligible": false,
+        "gross_collection_amount": null,
+        "gross_refund_amount": null,
+        "business_collection_amount": null,
+        "business_refund_amount": null,
+        "net_customer_payment_retained": null,
+        "revenue_exclusion_reasons": [
+          "test_order"
+        ],
+        "aov_exclusion_reasons": [
+          "test_order"
+        ],
+        "revenue_unresolved_requirements": [
+          "payment_evidence_incomplete"
+        ],
+        "aov_unresolved_requirements": [
+          "classification_evidence_incomplete",
+          "commercial_value_unknown",
+          "payment_evidence_incomplete"
+        ]
+      }
+    },
+    {
+      "name": "cancelled_unknown",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "cancelled_unknown",
+        "order_date": "2026-07-01",
+        "observation_complete": false,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [],
+        "has_merchandise": true,
+        "commercial_value": null,
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": true,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": null,
+        "is_partially_refunded": null,
+        "is_fully_refunded": null,
+        "is_revenue_eligible": null,
+        "is_aov_eligible": false,
+        "gross_collection_amount": null,
+        "gross_refund_amount": null,
+        "business_collection_amount": null,
+        "business_refund_amount": null,
+        "net_customer_payment_retained": null,
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [
+          "cancelled_order"
+        ],
+        "revenue_unresolved_requirements": [
+          "payment_evidence_incomplete"
+        ],
+        "aov_unresolved_requirements": [
+          "commercial_value_unknown",
+          "payment_evidence_incomplete"
+        ]
+      }
+    },
+    {
+      "name": "classification_unknown",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "classification_unknown",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": null,
+        "is_replacement": null,
+        "is_exchange": null,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": null,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": [
+          "classification_evidence_incomplete"
+        ]
+      }
+    },
+    {
+      "name": "cancelled_paid",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "cancelled_paid",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": true,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [
+          "cancelled_order"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "gifted_paid",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "gifted_paid",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": true,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [
+          "gifted_order"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "replacement_paid",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "replacement_paid",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": true,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [
+          "replacement_order"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "exchange_paid",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "exchange_paid",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": true,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [
+          "exchange_order"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "employee_paid",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "employee_paid",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": true,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": true,
+        "is_aov_eligible": true,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [],
+        "aov_exclusion_reasons": [],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "gift_card_only",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "gift_card_only",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": false,
+        "commercial_value": "0.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": false,
+        "is_revenue_eligible": false,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "0.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "0.000000000",
+        "net_customer_payment_retained": "100.000000000",
+        "revenue_exclusion_reasons": [
+          "gift_card_only"
+        ],
+        "aov_exclusion_reasons": [
+          "gift_card_only",
+          "no_retained_commercial_value"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "multiple_exclusions",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "multiple_exclusions",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "refund",
+            "parent_transaction_id": "sale",
+            "kind": "REFUND",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-02T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "0.000000000",
+        "currency_code": "USD",
+        "is_test": true,
+        "is_cancelled": true,
+        "is_gifted": true,
+        "is_replacement": true,
+        "is_exchange": true,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "is_fully_paid_for_eligibility": true,
+        "is_partially_refunded": false,
+        "is_fully_refunded": true,
+        "is_revenue_eligible": false,
+        "is_aov_eligible": false,
+        "gross_collection_amount": "100.000000000",
+        "gross_refund_amount": "100.000000000",
+        "business_collection_amount": "100.000000000",
+        "business_refund_amount": "100.000000000",
+        "net_customer_payment_retained": "0.000000000",
+        "revenue_exclusion_reasons": [
+          "test_order"
+        ],
+        "aov_exclusion_reasons": [
+          "cancelled_order",
+          "exchange_order",
+          "fully_refunded",
+          "gifted_order",
+          "no_retained_commercial_value",
+          "replacement_order",
+          "test_order"
+        ],
+        "revenue_unresolved_requirements": [],
+        "aov_unresolved_requirements": []
+      }
+    },
+    {
+      "name": "duplicate_transaction",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "duplicate_transaction",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "same",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          },
+          {
+            "transaction_id": "same",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "USD"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "correctness_error": "duplicate_transaction_identity"
+      }
+    },
+    {
+      "name": "currency_mismatch",
+      "given": {
+        "shopify_shop_id": "fixture_shop",
+        "shopify_order_id": "currency_mismatch",
+        "order_date": "2026-07-01",
+        "observation_complete": true,
+        "obligation_amount": "100.000000000",
+        "obligation_verified": true,
+        "edit_unresolved": false,
+        "refund_classification_complete": true,
+        "confirmed_reversal_transaction_ids": [],
+        "transactions": [
+          {
+            "transaction_id": "sale",
+            "parent_transaction_id": null,
+            "kind": "SALE",
+            "status": "SUCCESS",
+            "gateway": "card",
+            "is_test": false,
+            "error_code": null,
+            "processed_at": "2026-07-01T12:00:00Z",
+            "amount": "100.000000000",
+            "currency_code": "EUR"
+          }
+        ],
+        "has_merchandise": true,
+        "commercial_value": "100.000000000",
+        "currency_code": "USD",
+        "is_test": false,
+        "is_cancelled": false,
+        "is_gifted": false,
+        "is_replacement": false,
+        "is_exchange": false,
+        "is_employee_order": false,
+        "source_observed_at": "2026-08-02T12:00:00Z"
+      },
+      "expect": {
+        "correctness_error": "payment_currency_mismatch"
+      }
+    }
+  ]
+}

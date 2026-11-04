@@ -1,0 +1,7 @@
+{
+  "include": ["."],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "strict",
+  "reportAny": "error",
+  "reportExplicitAny": "error"
+}

@@ -1,0 +1,65 @@
+storage:
+  postgres:
+    postgres_db:
+      hostname: postgres
+      username: dagster
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      db_name: dagster
+      port: 5432
+
+local_artifact_storage:
+  module: dagster._core.storage.root
+  class: LocalArtifactStorage
+  config:
+    base_dir: /var/lib/analytics/artifacts
+
+compute_logs:
+  module: dagster._core.storage.local_compute_log_manager
+  class: LocalComputeLogManager
+  config:
+    base_dir: /var/lib/analytics/artifacts/compute-logs
+
+run_coordinator:
+  module: dagster._core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs:
+      env: DAGSTER_MAX_CONCURRENT_RUNS
+    tag_concurrency_limits:
+      - key: analytics/exclusive-resource
+        value:
+          applyLimitPerUniqueValue: true
+        limit: 1
+      - key: analytics/publication-input
+        value:
+          applyLimitPerUniqueValue: true
+        limit: 1
+
+run_launcher:
+  module: dagster_docker
+  class: DockerRunLauncher
+  config:
+    network:
+      env: ANALYTICS_NETWORK
+    env_vars:
+      - DAGSTER_POSTGRES_PASSWORD
+      - ANALYTICS_ENVIRONMENT
+      - DBT_TARGET
+      - DAGSTER_MAX_CONCURRENT_RUNS
+    container_kwargs:
+      user: "10001:10001"
+      mem_limit: "2g"
+      nano_cpus: 2000000000
+
+run_monitoring:
+  enabled: true
+  start_timeout_seconds: 120
+  cancel_timeout_seconds: 60
+
+run_retries:
+  enabled: true
+  max_retries: 1
+
+telemetry:
+  enabled: false

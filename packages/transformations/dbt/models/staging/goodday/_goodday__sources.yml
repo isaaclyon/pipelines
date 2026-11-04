@@ -1,0 +1,180 @@
+version: 2
+sources:
+- name: goodday
+  description: Retained GoodDay inventory observations and completion evidence from
+    dlt.
+  # Local only (ADR 0029): read the loader's raw file attached read-only.
+  database: '{{ ''raw_goodday'' if target.type == ''duckdb'' and env_var(''DBT_RAW_ROOT'', '''') else target.database }}'
+  schema: '{{ env_var(''GOODDAY_DATASET'', ''raw_goodday'') }}'
+  config:
+    meta: {raw_file: goodday/local/goodday.duckdb}
+    enabled: '{{ env_var(''GOODDAY_INVENTORY_ENABLED'', ''false'') == ''true'' }}'
+  tables:
+  - name: inventory_by_item
+    description: Source inventory rows per capture, not current membership.
+    columns:
+    - name: _capture_id
+      config:
+        meta: {pii: false}
+      description: Extraction attempt identity.
+    - name: _dlt_load_id
+      config:
+        meta: {pii: false}
+      description: dlt load identity for this row.
+    - name: _row_number
+      config:
+        meta: {pii: false}
+      description: One-based position in a capture; not a source business identity.
+    - name: merchant_id
+      config:
+        meta: {pii: false}
+      description: GoodDay merchant id; source nulls retained.
+    - name: item_id
+      config:
+        meta: {pii: false}
+      description: GoodDay item id; source nulls retained.
+    - name: channel_id
+      config:
+        meta: {pii: false}
+      description: GoodDay channel id; source nulls retained.
+    - name: location_id
+      config:
+        meta: {pii: false}
+      description: GoodDay location id; source nulls retained.
+    - name: parent_item_id
+      config:
+        meta: {pii: false}
+      description: GoodDay parent item id; source nulls retained.
+    - name: merchant_name
+      config:
+        meta: {pii: false}
+      description: Unmodified GoodDay merchant name.
+    - name: item_name
+      config:
+        meta: {pii: false}
+      description: Unmodified GoodDay item name.
+    - name: item_status
+      config:
+        meta: {pii: false}
+      description: Unmodified GoodDay item status.
+    - name: sku
+      config:
+        meta: {pii: false}
+      description: Unmodified GoodDay sku.
+    - name: channel_name
+      config:
+        meta: {pii: false}
+      description: Unmodified GoodDay channel name.
+    - name: location_name
+      config:
+        meta: {pii: false}
+      description: Unmodified GoodDay location name.
+    - name: on_hand_total
+      config:
+        meta: {pii: false}
+      description: GoodDay on hand total units; retained without recalculation, including
+        null and negative values.
+    - name: on_hand_sellable
+      config:
+        meta: {pii: false}
+      description: GoodDay on hand sellable units; retained without recalculation,
+        including null and negative values.
+    - name: on_hand_unsellable
+      config:
+        meta: {pii: false}
+      description: GoodDay on hand unsellable units; retained without recalculation,
+        including null and negative values.
+    - name: on_hand_reserved
+      config:
+        meta: {pii: false}
+      description: GoodDay on hand reserved units; retained without recalculation,
+        including null and negative values.
+    - name: on_hand_committed
+      config:
+        meta: {pii: false}
+      description: GoodDay on hand committed units; retained without recalculation,
+        including null and negative values.
+    - name: on_hand_available
+      config:
+        meta: {pii: false}
+      description: GoodDay on hand available units; retained without recalculation,
+        including null and negative values.
+    - name: available
+      config:
+        meta: {pii: false}
+      description: GoodDay available units; retained without recalculation, including
+        null and negative values.
+    - name: ats
+      config:
+        meta: {pii: false}
+      description: GoodDay ats units; retained without recalculation, including null
+        and negative values.
+    - name: inbound_total
+      config:
+        meta: {pii: false}
+      description: GoodDay inbound total units; retained without recalculation, including
+        null and negative values.
+    - name: inbound_available
+      config:
+        meta: {pii: false}
+      description: GoodDay inbound available units; retained without recalculation,
+        including null and negative values.
+    - name: fulfilled_total
+      config:
+        meta: {pii: false}
+      description: GoodDay fulfilled total units; retained without recalculation,
+        including null and negative values.
+    - name: transfer_in_transit
+      config:
+        meta: {pii: false}
+      description: GoodDay transfer in transit units; retained without recalculation,
+        including null and negative values.
+    - name: return_total
+      config:
+        meta: {pii: false}
+      description: GoodDay return total units; retained without recalculation, including
+        null and negative values.
+    - name: updated_at
+      config:
+        meta: {pii: false}
+      description: Source row update instant, not evidence of a complete source refresh.
+  - name: inventory_captures
+    description: Completed extraction evidence including successful empty results;
+      load success is required.
+    columns:
+    - name: capture_id
+      config:
+        meta: {pii: false}
+      description: Extraction attempt identity shared by evidence and rows.
+    - name: _dlt_load_id
+      config:
+        meta: {pii: false}
+      description: dlt load identity that successfully committed the capture.
+    - name: source_relation
+      config:
+        meta: {pii: false}
+      description: Explicit vendor project, dataset and relation observed.
+    - name: row_count
+      config:
+        meta: {pii: false}
+      description: Expected rows in the completed result, including zero.
+    - name: captured_at
+      config:
+        meta: {pii: false}
+      description: UTC extraction start; not vendor freshness.
+    - name: observed_at
+      config:
+        meta: {pii: false}
+      description: UTC time the source read started; not vendor
+        refresh time.
+  - name: _dlt_loads
+    description: dlt load completion records; status zero denotes successful loading.
+    columns:
+    - name: load_id
+      config:
+        meta: {pii: false}
+      description: dlt load identity used by rows and evidence.
+    - name: status
+      config:
+        meta: {pii: false}
+      description: Zero indicates successfully committed load completion.

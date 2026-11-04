@@ -1,0 +1,102 @@
+version: 2
+models:
+- name: stg_shopify_orders__order_tags
+  description: Shopify order tags, one row per source tag. Rows exist only for observations at
+    extraction revision 2 or later; an order at those revisions without rows has an empty tag list.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, tag)
+      key:
+      - shop_id
+      - order_id
+      - tag
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_order_tags_unique_tag
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - tag
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: tag
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Order tag exactly as recorded in Shopify.
+    data_tests:
+    - not_null
+  - name: normalized_tag
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Tag with surrounding whitespace removed and lowercased, for classification rules.
+- name: stg_shopify_orders__order_discount_codes
+  description: Discount codes applied to Shopify orders, one row per source code. Rows exist only
+    for observations at extraction revision 2 or later; an order at those revisions without rows
+    has no discount codes.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, discount_code)
+      key:
+      - shop_id
+      - order_id
+      - discount_code
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_order_discount_codes_unique_code
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - discount_code
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity: {kind: source, source: shopify}
+  - name: discount_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Discount code exactly as recorded on the order in Shopify.
+    data_tests:
+    - not_null
+  - name: normalized_discount_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Discount code with surrounding whitespace removed and lowercased, for classification
+      rules.

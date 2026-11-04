@@ -1,0 +1,84 @@
+version: 2
+models:
+- name: stg_loop_returns__snapshots
+  description: Loop evidence independent of header rows, including successful empty snapshots. Disabled
+    feeds return no evidence. All snapshots are retained; only evidence matching the current headers can
+    be complete.
+  config:
+    meta:
+      grain: One row per shop, snapshot and load
+      key:
+      - shop_id
+      - snapshot_id
+      - snapshot_load_id
+  data_tests:
+  - unique_combination:
+      name: loop_snapshots_unique
+      arguments:
+        columns:
+        - shop_id
+        - snapshot_id
+        - snapshot_load_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop whose Loop snapshots are retained.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+  - name: snapshot_id
+    data_type: varchar
+    description: Loop extraction attempt identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+  - name: snapshot_load_id
+    data_type: varchar
+    description: dlt load package containing this snapshot evidence.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+  - name: snapshot_ended_at
+    data_type: timestamp
+    description: UTC exclusive created-at endpoint of the full-history extraction; not a vendor change
+      cutoff.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: extraction_completed_at
+    data_type: timestamp
+    description: UTC extraction completion before loading; not the load completion time.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: expected_return_count
+    data_type: bigint
+    description: Declared return rows, including zero for an empty snapshot.
+    config:
+      meta:
+        pii: false
+  - name: current_return_count
+    data_type: bigint
+    description: Actual current header rows for this shop across all load IDs.
+    config:
+      meta:
+        pii: false
+  - name: is_snapshot_complete
+    data_type: boolean
+    description: True only for a successful dlt load with expected/current/per-load counts matching and
+      valid chronology. Old evidence cannot certify headers from a different load.
+    config:
+      meta:
+        pii: false

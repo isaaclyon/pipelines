@@ -1,0 +1,226 @@
+version: 2
+
+models:
+  - name: int_shopify_order_lines__allocations
+    description: >
+      One row per source order line with final merchandise discount, merchandise
+      refund, shipping and shipping refund. Each final amount is the direct line
+      amount plus any allocated share of the order remainder. The method column
+      names how the share was resolved, or why it stayed unresolved.
+    config:
+      meta:
+        grain: One row per (shop_id, order_id, line_item_id)
+        key:
+          - shop_id
+          - order_id
+          - line_item_id
+    data_tests:
+      - unique_combination:
+          name: shopify_order_line_allocations_unique_line
+          arguments:
+            columns:
+              - shop_id
+              - order_id
+              - line_item_id
+    columns:
+      - name: shop_id
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: Source Shopify shop identity.
+        data_tests:
+          - not_null
+      - name: order_id
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: Source Shopify order identity.
+        data_tests:
+          - not_null
+      - name: line_item_id
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: Source Shopify order line identity.
+        data_tests:
+          - not_null
+      - name: is_gift_card_line
+        config:
+          meta: {pii: false}
+        data_type: boolean
+        description: Whether the line is a gift card. NULL when unknown.
+      - name: merchandise_discount_direct_shop_amount
+        data_type: decimal(38, 9)
+        description: Discount assigned directly to this line, in the shop currency.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: merchandise_discount_allocated_shop_amount
+        data_type: decimal(38, 9)
+        description: Share of the discount remainder allocated to this line.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: merchandise_discount_shop_amount
+        data_type: decimal(38, 9)
+        description: Final merchandise discount, direct plus allocated. NULL when unknown.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: merchandise_discount_allocation_method
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: How the discount was resolved, or the unresolved reason.
+      - name: merchandise_refund_direct_shop_amount
+        data_type: decimal(38, 9)
+        description: Refund assigned directly to this line, in the shop currency.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: merchandise_refund_allocated_shop_amount
+        data_type: decimal(38, 9)
+        description: Share of the refund remainder allocated to this line.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: merchandise_refund_shop_amount
+        data_type: decimal(38, 9)
+        description: Final merchandise refund, direct plus allocated. NULL when unknown.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: merchandise_refund_allocation_method
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: How the refund was resolved, or the unresolved reason.
+      - name: shipping_shop_amount
+        data_type: decimal(38, 9)
+        description: Allocated share of the unassigned shipping, in the shop currency.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: shipping_allocation_method
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: How the shipping share was resolved, or the unresolved reason.
+      - name: shipping_refund_shop_amount
+        data_type: decimal(38, 9)
+        description: Allocated share of the unassigned shipping refund, in the shop currency.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: shipping_refund_allocation_method
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: How the shipping refund share was resolved, or the unresolved reason.
+      - name: reporting_currency_code
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: Governed reporting currency for every amount in this model; always USD.
+
+  - name: int_shopify_orders__allocations
+    description: >
+      One row per source order. Each unallocated amount is the order total minus the
+      sum of final line amounts. NULL means the amount is unknown. allocation_status
+      gives the first blocking reason, or complete.
+    config:
+      meta:
+        grain: One row per (shop_id, order_id)
+        key:
+          - shop_id
+          - order_id
+    data_tests:
+      - unique_combination:
+          name: shopify_order_allocations_unique_order
+          arguments:
+            columns:
+              - shop_id
+              - order_id
+    columns:
+      - name: shop_id
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: Source Shopify shop identity.
+        data_tests:
+          - not_null
+      - name: order_id
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: Source Shopify order identity.
+        data_tests:
+          - not_null
+      - name: merchandise_discount_unallocated_shop_amount
+        data_type: decimal(38, 9)
+        description: Order discount not yet assigned to a line. NULL when unknown.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: merchandise_refund_unallocated_shop_amount
+        data_type: decimal(38, 9)
+        description: Order merchandise refund not yet assigned to a line. NULL when unknown.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: shipping_unallocated_shop_amount
+        data_type: decimal(38, 9)
+        description: Order shipping not yet assigned to a line. NULL when unknown.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: shipping_refund_unallocated_shop_amount
+        data_type: decimal(38, 9)
+        description: Order shipping refund not yet assigned to a line. NULL when unknown.
+        config:
+          meta:
+            pii: false
+            currency:
+              column: reporting_currency_code
+      - name: unknown_gift_card_line_count
+        config:
+          meta: {pii: false}
+        data_type: bigint
+        description: Lines whose gift-card flag is unknown.
+      - name: allocation_status
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: First blocking reason, or complete.
+      - name: is_allocation_complete
+        config:
+          meta: {pii: false}
+        data_type: boolean
+        description: Whether every component is fully allocated.
+      - name: reporting_currency_code
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: Governed reporting currency for every amount in this model; always USD.

@@ -1,0 +1,9 @@
+load_from:
+  - grpc_server:
+      host: ingestion
+      port: 4000
+      location_name: ingestion
+  - grpc_server:
+      host: transformations
+      port: 4000
+      location_name: transformations

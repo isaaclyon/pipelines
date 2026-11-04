@@ -1,0 +1,1 @@
+../.agents/instructions/docs/AGENTS.md

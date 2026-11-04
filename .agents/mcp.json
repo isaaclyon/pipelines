@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "dagster": {
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "git+https://github.com/kyryl-opens-ml/mcp-server-dagster.git@08965d09e3a92e1d011403d878993400d9fb16fd",
+        "--with",
+        "mcp==1.6.0",
+        "mcp-dagster"
+      ]
+    }
+  }
+}

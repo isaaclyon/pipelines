@@ -1,0 +1,52 @@
+version: 2
+models:
+- name: int_shopify_orders__window_coverage
+  description: 'Connected intervals of verified Shopify updated_at coverage per shop. Overlapping, nested
+    and adjacent successful windows merge; gaps remain separate. These intervals do not establish an initial
+    order-date population or cover changes that Shopify does not expose through updated_at.
+
+    '
+  config:
+    meta:
+      grain: One row per shop and connected interval of verified updated_at windows
+      key:
+      - shop_id
+      - coverage_started_at
+  data_tests:
+  - unique_combination:
+      name: shopify_window_coverage_unique_interval
+      arguments:
+        columns:
+        - shop_id
+        - coverage_started_at
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop; evidence never bridges different shops.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+  - name: coverage_started_at
+    data_type: timestamp
+    description: Inclusive UTC start of a connected verified change window.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: coverage_ended_at
+    data_type: timestamp
+    description: Exclusive UTC end of this connected window, not necessarily the most recent window.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC

@@ -1,0 +1,40 @@
+# Password-protected dbt documentation site. Caddy serves only the
+# static page that the transformations `dbt_docs` job writes to the docs
+# volume, mounted read-only. It proxies nothing: Dagster and Cube stay on
+# loopback. DOCS_SITE_ADDRESS is `http://:8080` locally and in CI, and the
+# development host's nip.io name remotely, where Caddy obtains a certificate.
+# DOCS_PASSWORD_HASH is a base64-encoded bcrypt hash; an empty value fails
+# to load, so the site never starts without a password.
+{
+	admin off
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$DOCS_SITE_ADDRESS} {
+	header {
+		-Server
+		Cache-Control "no-store"
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		# Both pages are self-contained. The lineage page bundles third-party
+		# analytics code that its opt-out disables; blocking all connections
+		# keeps any usage data from leaving the browser regardless.
+		Content-Security-Policy "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src 'self' data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	}
+	basic_auth {
+		analytics {$DOCS_PASSWORD_HASH}
+	}
+	handle_errors {
+		header -Server
+		respond "{err.status_code} {err.status_text}"
+	}
+	encode zstd gzip
+	root * /srv/docs
+	file_server {
+		# The docs job stages its page as a dotfile before renaming it.
+		hide .*
+	}
+}

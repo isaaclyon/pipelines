@@ -1,0 +1,1863 @@
+[
+  {
+    "model_id": "model.analytics.dim_order_contacts",
+    "relation": "dim_order_contacts",
+    "description": "Order contact for each Shopify order: the email, phone and addresses most recently recorded on the order. Contains personal data. One row per order in fct_orders.",
+    "grain": "One row per Shopify order, latest known state",
+    "key": [
+      "shopify_shop_id",
+      "shopify_order_id"
+    ],
+    "columns": [
+      {
+        "name": "shopify_shop_id",
+        "data_type": "varchar",
+        "description": "Shopify shop identity. Part of the order key.",
+        "pii": false,
+        "nullable": false
+      },
+      {
+        "name": "shopify_order_id",
+        "data_type": "varchar",
+        "description": "Shopify order identity within the shop. Part of the order key.",
+        "pii": false,
+        "nullable": false
+      },
+      {
+        "name": "order_email",
+        "data_type": "varchar",
+        "description": "Email most recently recorded on the order. Not the customer's current profile email.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "order_phone",
+        "data_type": "varchar",
+        "description": "Phone most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_first_name",
+        "data_type": "varchar",
+        "description": "Billing address first name, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_last_name",
+        "data_type": "varchar",
+        "description": "Billing address last name, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_company",
+        "data_type": "varchar",
+        "description": "Billing address company, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_address1",
+        "data_type": "varchar",
+        "description": "Billing address first street line, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_address2",
+        "data_type": "varchar",
+        "description": "Billing address second street line, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_city",
+        "data_type": "varchar",
+        "description": "Billing address city, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_province",
+        "data_type": "varchar",
+        "description": "Billing address province or state name, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_province_code",
+        "data_type": "varchar",
+        "description": "Billing address province or state code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_zip",
+        "data_type": "varchar",
+        "description": "Billing address postal code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_country",
+        "data_type": "varchar",
+        "description": "Billing address country name, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_country_code",
+        "data_type": "varchar",
+        "description": "Billing address ISO country code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_phone",
+        "data_type": "varchar",
+        "description": "Billing address phone number, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_first_name",
+        "data_type": "varchar",
+        "description": "Shipping address first name, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_last_name",
+        "data_type": "varchar",
+        "description": "Shipping address last name, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_company",
+        "data_type": "varchar",
+        "description": "Shipping address company, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_address1",
+        "data_type": "varchar",
+        "description": "Shipping address first street line, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_address2",
+        "data_type": "varchar",
+        "description": "Shipping address second street line, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_city",
+        "data_type": "varchar",
+        "description": "Shipping address city, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_province",
+        "data_type": "varchar",
+        "description": "Shipping address province or state name, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_province_code",
+        "data_type": "varchar",
+        "description": "Shipping address province or state code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_zip",
+        "data_type": "varchar",
+        "description": "Shipping address postal code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_country",
+        "data_type": "varchar",
+        "description": "Shipping address country name, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_country_code",
+        "data_type": "varchar",
+        "description": "Shipping address ISO country code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_phone",
+        "data_type": "varchar",
+        "description": "Shipping address phone number, as most recently recorded on the order.",
+        "pii": true,
+        "nullable": true
+      }
+    ],
+    "checks": [
+      "test.analytics.dim_order_contacts_match_orders",
+      "test.analytics.dim_order_contacts_unique_order.6c47e8440e",
+      "test.analytics.not_null_dim_order_contacts_shopify_order_id.20377df31a",
+      "test.analytics.not_null_dim_order_contacts_shopify_shop_id.597eb07f1b"
+    ],
+    "owner": "Analytics Platform",
+    "access": "analytical"
+  },
+  {
+    "model_id": "model.analytics.fct_data_availability",
+    "relation": "fct_data_availability",
+    "description": "Availability evidence captured in the same candidate as order facts, one row per known shop or one unknown row before discovery. Does not join to orders in Cube. Age must be evaluated at query time.",
+    "grain": "One row per known shop, or one unknown row before source discovery",
+    "key": [
+      "availability_id"
+    ],
+    "columns": [
+      {
+        "name": "availability_id",
+        "data_type": "varchar",
+        "description": "Publication-local availability identity for a shop, or a single unknown row before source discovery.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shopify_shop_id",
+        "data_type": "varchar",
+        "description": "Shopify source shop identity; null on the initial unknown row.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "publication_id",
+        "data_type": "varchar",
+        "description": "Generation captured with these facts and evidence; null outside the validated publisher.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "environment",
+        "data_type": "varchar",
+        "description": "Explicit execution environment for this candidate, or unknown outside configured execution.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "evidence_captured_at",
+        "data_type": "timestamp",
+        "description": "UTC time the candidate captures availability evidence; never a source cutoff or final publication time.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shopify_coverage_started_at",
+        "data_type": "timestamp",
+        "description": "Inclusive start of the latest connected verified updated-at interval; gaps before it are not covered.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shopify_coverage_ended_at",
+        "data_type": "timestamp",
+        "description": "Exclusive end of the latest connected verified updated-at interval; null without evidence.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "loop_snapshot_ended_at",
+        "data_type": "timestamp",
+        "description": "Latest Loop extraction endpoint, retaining incomplete attempts; not a guarantee of vendor updated-at coverage.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_loop_snapshot_complete",
+        "data_type": "boolean",
+        "description": "Whether the latest Loop snapshot matches current headers and a successful load. False for missing or disabled evidence.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_loop_enabled",
+        "data_type": "boolean",
+        "description": "Whether the candidate reads the separately maintained Loop header feed.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "coverage_limitations",
+        "data_type": "varchar",
+        "description": "Known limitations of source coverage; inspect eligibility and scope separately, including for fresh sources.",
+        "pii": false,
+        "nullable": true
+      }
+    ],
+    "checks": [
+      "test.analytics.data_availability_consistent",
+      "test.analytics.not_null_fct_data_availability_availability_id.fe2f9ef7ea",
+      "test.analytics.unique_fct_data_availability_availability_id.bdbac051ab"
+    ],
+    "owner": "Analytics Platform",
+    "access": "analytical"
+  },
+  {
+    "model_id": "model.analytics.fct_order_lines",
+    "relation": "fct_order_lines",
+    "description": "Shopify source order lines at their latest observed state, one row per shop, order and line item. Repeated product lines, test and cancelled orders remain available. Includes source product attributes and parent reporting context; excludes direct contact details and repeated order monetary totals. Adds evidence-based net ordered units, not physical return quantities. Commercial money and allocations remain separate work.",
+    "grain": "One row per Shopify order line, latest observed state",
+    "key": [
+      "shopify_shop_id",
+      "shopify_order_id",
+      "shopify_line_item_id"
+    ],
+    "columns": [
+      {
+        "name": "shopify_shop_id",
+        "data_type": "varchar",
+        "description": "Shopify shop identity. Part of the order key.",
+        "pii": false,
+        "nullable": false
+      },
+      {
+        "name": "shopify_order_id",
+        "data_type": "varchar",
+        "description": "Shopify order identity within the shop. Part of the order key.",
+        "pii": false,
+        "nullable": false
+      },
+      {
+        "name": "shopify_line_item_id",
+        "data_type": "varchar",
+        "description": "Shopify line item identity within its parent order. Part of the line key.",
+        "pii": false,
+        "nullable": false
+      },
+      {
+        "name": "sku",
+        "data_type": "varchar",
+        "description": "SKU recorded on the source order line. Nullable; not a unique line key or a catalog join requirement.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "line_name",
+        "data_type": "varchar",
+        "description": "Combined name recorded on the source order line at its latest observation.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "title",
+        "data_type": "varchar",
+        "description": "Product title recorded on the source order line. Nullable for older observations; not a current catalog lookup.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "variant_title",
+        "data_type": "varchar",
+        "description": "Variant title recorded on the source order line. Nullable for older observations.",
+        "pii": true,
+        "nullable": true
+      },
+      {
+        "name": "shopify_product_id",
+        "data_type": "varchar",
+        "description": "Shopify product identity recorded on the order line. Nullable for deleted or unavailable products.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shopify_variant_id",
+        "data_type": "varchar",
+        "description": "Shopify variant identity recorded on the order line. Nullable for deleted or unavailable variants.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_gift_card_item",
+        "data_type": "boolean",
+        "description": "Whether the source line sells a gift card, not whether gift-card tender paid for the order. Nullable for older observations.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "gross_ordered_quantity",
+        "data_type": "bigint",
+        "description": "Source ordered units before cancellations, removals and quantity refunds. Used by the parent gross quantity rollup.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "current_quantity",
+        "data_type": "bigint",
+        "description": "Shopify current quantity, excluding refunded and removed units. Not validated business net ordered quantity or physically kept quantity; cancellations can retain positive values.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "original_unit_price_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Source original unit price at the latest order observation, before discounts. Tax treatment follows is_tax_included; not governed gross sales. In shop (USD) currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "original_unit_price_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Source original unit price at the latest order observation, before discounts. Tax treatment follows is_tax_included; not governed gross sales. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "discounted_total_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Source discounted line total; the selected Shopify field omits order-level discounts and does not establish net sales. In shop (USD) currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "discounted_total_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Source discounted line total; the selected Shopify field omits order-level discounts and does not establish net sales. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "original_line_value_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Ordered quantity times source original unit price, preserving nine decimal places. Reconciles to the parent original line value; not governed gross sales or net sales. In shop (USD) currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "original_line_value_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Ordered quantity times source original unit price, preserving nine decimal places. Reconciles to the parent original line value; not governed gross sales or net sales. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "order_name",
+        "data_type": "varchar",
+        "description": "Shopify order name, the human-readable reference such as #1001.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shopify_customer_id",
+        "data_type": "varchar",
+        "description": "Shopify customer identity. Null when the order has no linked customer.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "data_type": "timestamp",
+        "description": "When Shopify created the order, in UTC.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "processed_at",
+        "data_type": "timestamp",
+        "description": "When the order was processed, in UTC. Null when Shopify recorded none.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "updated_at",
+        "data_type": "timestamp",
+        "description": "When Shopify last updated the order, in UTC.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "cancelled_at",
+        "data_type": "timestamp",
+        "description": "When the order was cancelled, in UTC. Null when not cancelled.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "closed_at",
+        "data_type": "timestamp",
+        "description": "When the order was closed, in UTC. Null when open.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "ordered_at",
+        "data_type": "timestamp",
+        "description": "The instant order_date comes from, in UTC: processed_at, or created_at when Shopify recorded no processing time.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "order_date_source",
+        "data_type": "varchar",
+        "description": "Which timestamp ordered_at uses: processed_at, or created_at as a fallback.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "order_date",
+        "data_type": "date",
+        "description": "Calendar date of ordered_at in the reporting time zone. Later refunds and edits keep this date (order-date basis).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "cancel_reason",
+        "data_type": "varchar",
+        "description": "Shopify cancellation reason. Null when not cancelled.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_test",
+        "data_type": "boolean",
+        "description": "True for Shopify test orders. Test orders are retained and must be filtered by consumers.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "source_name",
+        "data_type": "varchar",
+        "description": "Shopify source name, such as web or pos. Not a channel classification.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "financial_status",
+        "data_type": "varchar",
+        "description": "Shopify display financial status at the latest observation. Does not prove payment history.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "fulfillment_status",
+        "data_type": "varchar",
+        "description": "Shopify display fulfillment status at the latest observation.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_tax_included",
+        "data_type": "boolean",
+        "description": "True when source prices include tax. Null for observations before extraction revision 2.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shop_currency_code",
+        "data_type": "varchar",
+        "description": "Shop currency for *_shop_amount columns. Tested to be USD, the reporting currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "presentment_currency_code",
+        "data_type": "varchar",
+        "description": "Customer checkout currency for *_presentment_amount columns.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "source_observed_at",
+        "data_type": "timestamp",
+        "description": "When ingestion last observed this order in Shopify, in UTC.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_cancelled",
+        "data_type": "boolean",
+        "description": "True when cancelled_at is set.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_city",
+        "data_type": "varchar",
+        "description": "Billing address city, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_province",
+        "data_type": "varchar",
+        "description": "Billing address province or state name, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_province_code",
+        "data_type": "varchar",
+        "description": "Billing address province or state code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_zip",
+        "data_type": "varchar",
+        "description": "Billing address postal code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_country",
+        "data_type": "varchar",
+        "description": "Billing address country name, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "billing_address_country_code",
+        "data_type": "varchar",
+        "description": "Billing address ISO country code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_city",
+        "data_type": "varchar",
+        "description": "Shipping address city, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_province",
+        "data_type": "varchar",
+        "description": "Shipping address province or state name, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_province_code",
+        "data_type": "varchar",
+        "description": "Shipping address province or state code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_zip",
+        "data_type": "varchar",
+        "description": "Shipping address postal code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_country",
+        "data_type": "varchar",
+        "description": "Shipping address country name, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_address_country_code",
+        "data_type": "varchar",
+        "description": "Shipping address ISO country code, as most recently recorded on the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "net_ordered_quantity",
+        "data_type": "bigint",
+        "description": "Units after source refunds/removals and additional unfulfilled cancellation removal. Null when required evidence is unknown; not physically kept units.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "net_quantity_status",
+        "data_type": "varchar",
+        "description": "Source basis or unresolved reason for this line net quantity.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_discount_direct_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Discount assigned directly to this line, in the shop currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_discount_allocated_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Share of the discount remainder allocated to this line.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_discount_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Final merchandise discount, direct plus allocated. NULL when unknown.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_discount_allocation_method",
+        "data_type": "varchar",
+        "description": "How the discount was resolved, or the unresolved reason.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_refund_direct_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Refund assigned directly to this line, in the shop currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_refund_allocated_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Share of the refund remainder allocated to this line.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_refund_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Final merchandise refund, direct plus allocated. NULL when unknown.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_refund_allocation_method",
+        "data_type": "varchar",
+        "description": "How the refund was resolved, or the unresolved reason.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Allocated share of the unassigned shipping, in the shop currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_allocation_method",
+        "data_type": "varchar",
+        "description": "How the shipping share was resolved, or the unresolved reason.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_refund_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Allocated share of the unassigned shipping refund, in the shop currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_refund_allocation_method",
+        "data_type": "varchar",
+        "description": "How the shipping refund share was resolved, or the unresolved reason.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "reporting_currency_code",
+        "data_type": "varchar",
+        "description": "Governed reporting currency for every amount in this model; always USD.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_line_sale_count",
+        "data_type": "bigint",
+        "description": "Number of directly assigned ledger sales that did not resolve.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "line_commercial_status",
+        "data_type": "varchar",
+        "description": "resolved, unresolved_sales or no_sale_evidence.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "gross_merchandise_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Merchandise value before discount assigned to the line; NULL unless resolved.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "gift_card_liability_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive gift-card sale value assigned to the line.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_tax_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Source tax on merchandise sales assigned to the line.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "commercial_resolution_status",
+        "data_type": "varchar",
+        "description": "Parent order commercial evidence status.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "allocation_status",
+        "data_type": "varchar",
+        "description": "Parent order allocation status, including unknown or unallocated amounts.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "net_merchandise_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive line merchandise after discounts and commercial refunds. Null when the parent commercial evidence or this line allocation is unresolved.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_revenue_eligible",
+        "data_type": "boolean",
+        "description": "Parent order verdict, not line eligibility. True for resolved revenue scope with verified full payment; false for any proven exclusion; null when required evidence is unknown without a proven exclusion. Does not apply AOV exclusions.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "revenue_exclusion_reasons",
+        "data_type": "varchar",
+        "description": "Parent order reasons. All proven exclusion identifiers separated and terminated by a pipe; empty when none. Identifiers are test_order, gift_card_only and payment_not_fully_collected.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "revenue_unresolved_requirements",
+        "data_type": "varchar",
+        "description": "Parent order requirements. All unresolved requirement identifiers separated and terminated by a pipe; empty when none. Identifiers are test_status_unknown, payment_evidence_incomplete, payment_obligation_unknown, payment_chronology_unresolved and commercial_value_unknown. Retained even for excluded orders.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_aov_eligible",
+        "data_type": "boolean",
+        "description": "Parent whole-order AOV verdict, not a line count or average: true only for verified paid, commercially resolved merchandise scope with known non-gifted, non-replacement, non-exchange classification, no cancellation or full refund and positive net revenue excluding tax and handling fees. False for a proven exclusion; null for unresolved requirements.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "aov_exclusion_reasons",
+        "data_type": "varchar",
+        "description": "Parent order AOV exclusions, pipe-separated and terminated; empty when none. Includes revenue exclusions plus cancelled_order, gifted_order, replacement_order, exchange_order, fully_refunded and nonpositive_commercial_value.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "aov_unresolved_requirements",
+        "data_type": "varchar",
+        "description": "Parent order unknown AOV requirements, retained even for excluded orders. Includes revenue requirements plus revenue_evidence_missing, gifting_status_unknown, replacement_status_unknown, exchange_status_unknown, refund_status_unknown and retained_commercial_value_unknown; pipe-separated and terminated.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_asp_eligible",
+        "data_type": "boolean",
+        "description": "Line ASP verdict: true only for resolved paid merchandise scope, known net quantity and line sales/discount/refund allocations, with no test, cancellation, gifting, replacement or exchange exclusion. Amount-only full refunds and zero-unit residual values remain eligible. False for proven exclusion; null when required evidence is unknown.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "asp_exclusion_reasons",
+        "data_type": "varchar",
+        "description": "All proven ASP exclusions, pipe-separated and terminated. Includes shared revenue and parent cancellation/gifting/replacement/exchange exclusions plus gift_card_item. Does not inherit AOV full-refund or positive-value requirements.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "asp_unresolved_requirements",
+        "data_type": "varchar",
+        "description": "All unknown ASP requirements, retained even for excluded lines; pipe-separated and terminated. Includes shared parent payment/commercial/classification requirements plus parent_eligibility_missing, gift_card_status_unknown, net_quantity_unknown and line_commercial_value_unknown.",
+        "pii": false,
+        "nullable": true
+      }
+    ],
+    "checks": [
+      "test.analytics.fct_order_lines_match_staging",
+      "test.analytics.fct_order_lines_reconcile_orders",
+      "test.analytics.fct_order_lines_unique_line.ab7674c9d7",
+      "test.analytics.not_null_fct_order_lines_shopify_line_item_id.aa70ebfe23",
+      "test.analytics.not_null_fct_order_lines_shopify_order_id.839f155a3b",
+      "test.analytics.not_null_fct_order_lines_shopify_shop_id.3243c84442",
+      "test.analytics.shopify_published_average_eligibility",
+      "test.analytics.shopify_published_commercial_reconcile",
+      "test.analytics.shopify_published_net_units_reconcile"
+    ],
+    "owner": "Analytics Platform",
+    "access": "analytical"
+  },
+  {
+    "model_id": "model.analytics.fct_orders",
+    "relation": "fct_orders",
+    "description": "Shopify orders at their latest known state, one row per order. Includes test and cancelled orders. Source totals keep Shopify's meanings; governed revenue measures are not yet defined here. Adds USD commercial components and explicit unresolved evidence; net revenue excludes finalized fees. Channel and order-characteristic flags are nullable; null means the evidence is unavailable.",
+    "grain": "One row per Shopify order, latest known state",
+    "key": [
+      "shopify_shop_id",
+      "shopify_order_id"
+    ],
+    "columns": [
+      {
+        "name": "is_payment_observation_complete",
+        "data_type": "boolean",
+        "description": "Whether parent observation lineage is present at revision 3 or later and its EXACT transaction count matches the retained transaction rows. Does not prove freshness or source-window coverage.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_payment_obligation_verified",
+        "data_type": "boolean",
+        "description": "Whether one dated initial ORDER and supported dated changes reconcile to original and current order totals in USD using the validated ledger handling-fee header adjustment. Event obligations retain those fees. Unsupported RETURN agreements remain false.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_payment_chronology_resolved",
+        "data_type": "boolean",
+        "description": "Whether cash movements are classified, amounts and times are usable, refund links resolve to one agreement, and chronological retained cash never becomes negative.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "has_fully_paid_current_obligation",
+        "data_type": "boolean",
+        "description": "Whether net cash covers a verified obligation at a logical event on or after the latest order edit. Later refunds preserve proof; a new unpaid edit resets it. Null for incomplete proof.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "net_customer_payment_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Successful collections less customer refunds, excluding proven failed-attempt reversal pairs; null when observation or chronology is unresolved.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_partially_refunded",
+        "data_type": "boolean",
+        "description": "Whether successful customer refunds exist with positive net retained payment; null for unresolved observation or payment chronology.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_fully_refunded",
+        "data_type": "boolean",
+        "description": "Whether previous collections and successful customer refunds leave zero net retained payment; null for unresolved observation or payment chronology.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_revenue_eligible",
+        "data_type": "boolean",
+        "description": "True for resolved revenue scope with verified full payment; false for any proven exclusion; null when required evidence is unknown without a proven exclusion. Does not apply AOV exclusions.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "revenue_exclusion_reasons",
+        "data_type": "varchar",
+        "description": "All proven exclusion identifiers separated and terminated by a pipe; empty when none. Identifiers are test_order, gift_card_only and payment_not_fully_collected.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "revenue_unresolved_requirements",
+        "data_type": "varchar",
+        "description": "All unresolved requirement identifiers separated and terminated by a pipe; empty when none. Identifiers are test_status_unknown, payment_evidence_incomplete, payment_obligation_unknown, payment_chronology_unresolved and commercial_value_unknown. Retained even for excluded orders.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_aov_eligible",
+        "data_type": "boolean",
+        "description": "Whole-order AOV verdict: true only for verified paid, commercially resolved merchandise scope with known non-gifted, non-replacement, non-exchange classification, no cancellation or full refund and positive net revenue excluding tax and handling fees. False for a proven exclusion; null for unresolved requirements.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "aov_exclusion_reasons",
+        "data_type": "varchar",
+        "description": "All proven AOV exclusions, pipe-separated and terminated; empty when none. Includes revenue exclusions plus cancelled_order, gifted_order, replacement_order, exchange_order, fully_refunded and nonpositive_commercial_value.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "aov_unresolved_requirements",
+        "data_type": "varchar",
+        "description": "All unknown AOV requirements, retained even for excluded orders. Includes revenue requirements plus revenue_evidence_missing, gifting_status_unknown, replacement_status_unknown, exchange_status_unknown, refund_status_unknown and retained_commercial_value_unknown; pipe-separated and terminated.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "reporting_market",
+        "data_type": "varchar",
+        "description": "Reporting bucket based on latest shipping destination. A country listed in the separate_reporting_markets project var reports as itself; every other destination, including a missing country, reports in home_reporting_market. Not actual geography.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_draft_order",
+        "data_type": "boolean",
+        "description": "Whether source_name exactly matches shopify_draft_order; null when source_name is absent. This marker does not prove exhaustive draft-origin coverage.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "publication_id",
+        "data_type": "varchar",
+        "description": "Publication generation stamped during candidate build; null for standalone builds outside the publisher. An optional diagnostic for pairing order facts with availability evidence; not required for consumer queries.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shopify_shop_id",
+        "data_type": "varchar",
+        "description": "Shopify shop identity. Part of the order key.",
+        "pii": false,
+        "nullable": false
+      },
+      {
+        "name": "shopify_order_id",
+        "data_type": "varchar",
+        "description": "Shopify order identity within the shop. Part of the order key.",
+        "pii": false,
+        "nullable": false
+      },
+      {
+        "name": "order_name",
+        "data_type": "varchar",
+        "description": "Shopify order name, the human-readable reference such as #1001.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shopify_customer_id",
+        "data_type": "varchar",
+        "description": "Shopify customer identity. Null when the order has no linked customer.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "data_type": "timestamp",
+        "description": "When Shopify created the order, in UTC.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "processed_at",
+        "data_type": "timestamp",
+        "description": "When the order was processed, in UTC. Null when Shopify recorded none.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "updated_at",
+        "data_type": "timestamp",
+        "description": "When Shopify last updated the order, in UTC.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "cancelled_at",
+        "data_type": "timestamp",
+        "description": "When the order was cancelled, in UTC. Null when not cancelled.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "closed_at",
+        "data_type": "timestamp",
+        "description": "When the order was closed, in UTC. Null when open.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "ordered_at",
+        "data_type": "timestamp",
+        "description": "The instant order_date comes from, in UTC: processed_at, or created_at when Shopify recorded no processing time.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "order_date_source",
+        "data_type": "varchar",
+        "description": "Which timestamp ordered_at uses: processed_at, or created_at as a fallback.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "order_date",
+        "data_type": "date",
+        "description": "Calendar date of ordered_at in the reporting time zone. Later refunds and edits keep this date (order-date basis).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "cancel_reason",
+        "data_type": "varchar",
+        "description": "Shopify cancellation reason. Null when not cancelled.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_cancelled",
+        "data_type": "boolean",
+        "description": "True when cancelled_at is set.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_test",
+        "data_type": "boolean",
+        "description": "True for Shopify test orders. Test orders are retained and must be filtered by consumers.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "source_name",
+        "data_type": "varchar",
+        "description": "Shopify source name, such as web or pos. Not a channel classification.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "financial_status",
+        "data_type": "varchar",
+        "description": "Shopify display financial status at the latest observation. Does not prove payment history.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "fulfillment_status",
+        "data_type": "varchar",
+        "description": "Shopify display fulfillment status at the latest observation.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_tax_included",
+        "data_type": "boolean",
+        "description": "True when source prices include tax. Null for observations before extraction revision 2.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shop_currency_code",
+        "data_type": "varchar",
+        "description": "Shop currency for *_shop_amount columns. Tested to be USD, the reporting currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "presentment_currency_code",
+        "data_type": "varchar",
+        "description": "Customer checkout currency for *_presentment_amount columns.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_price_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalPriceSet at the latest observation: the order total including tax and shipping, before later refunds. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_price_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalPriceSet at the latest observation: the order total including tax and shipping, before later refunds. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "current_total_price_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify currentTotalPriceSet: the order total after edits, returns and refunds. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "current_total_price_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify currentTotalPriceSet: the order total after edits, returns and refunds. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "original_total_price_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify originalTotalPriceSet: the order total at creation, before edits. Null for observations before extraction revision 2. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "original_total_price_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify originalTotalPriceSet: the order total at creation, before edits. Null for observations before extraction revision 2. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "subtotal_price_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify subtotalPriceSet: line subtotal after discounts, before shipping and tax. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "subtotal_price_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify subtotalPriceSet: line subtotal after discounts, before shipping and tax. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "current_subtotal_price_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify currentSubtotalPriceSet: subtotal after edits, returns and refunds. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "current_subtotal_price_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify currentSubtotalPriceSet: subtotal after edits, returns and refunds. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_discounts_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalDiscountsSet: total discounts applied to the order. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_discounts_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalDiscountsSet: total discounts applied to the order. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_tax_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalTaxSet: tax charged on the order. Null for observations before extraction revision 2. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_tax_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalTaxSet: tax charged on the order. Null for observations before extraction revision 2. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "current_total_tax_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify currentTotalTaxSet: tax after edits, returns and refunds. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "current_total_tax_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify currentTotalTaxSet: tax after edits, returns and refunds. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_shipping_price_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalShippingPriceSet: shipping charged, after shipping discounts. Null for observations before extraction revision 2. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_shipping_price_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalShippingPriceSet: shipping charged, after shipping discounts. Null for observations before extraction revision 2. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_refunded_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalRefundedSet: total amount refunded, including tax. A reconciliation input, not a commercial refund measure. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "total_refunded_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shopify totalRefundedSet: total amount refunded, including tax. A reconciliation input, not a commercial refund measure. In presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "line_count",
+        "data_type": "bigint",
+        "description": "Number of source order lines, including removed and refunded lines. Zero when the order has no lines.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "gross_ordered_quantity",
+        "data_type": "bigint",
+        "description": "Units ordered across all lines before cancellations, removals and refunds.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "original_line_value_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Sum of quantity times original unit price across lines, before any discounts, edits or refunds. Not gross sales. In shop currency (USD).",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "original_line_value_presentment_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "original_line_value in presentment currency.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "source_observed_at",
+        "data_type": "timestamp",
+        "description": "When ingestion last observed this order in Shopify, in UTC.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "has_classification_evidence",
+        "data_type": "boolean",
+        "description": "True when the latest observation selected tags, discount codes and order email (extraction revision 2 or later). False means tag, code and email rules are unknown, so channel and characteristic flags that need them are null.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "has_retail_evidence",
+        "data_type": "boolean",
+        "description": "Retail rule match. True when the trimmed, lowercased source name is pos.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "has_specialty_evidence",
+        "data_type": "boolean",
+        "description": "Specialty rule match, kept even when retail wins. True for a tag matching the specialty_order_tags project var or a discount code matching specialty_discount_codes. Null without classification evidence.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "has_bulk_evidence",
+        "data_type": "boolean",
+        "description": "Bulk rule match, kept even when retail or specialty wins. True for a tag matching bulk_order_tags. Null without classification evidence.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "has_gifting_tag_evidence",
+        "data_type": "boolean",
+        "description": "True for a tag matching gifting_order_tags. Null without classification evidence.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_d2c",
+        "data_type": "boolean",
+        "description": "Direct-to-consumer channel, the residual of the commercial rules. True when retail, specialty and bulk were all evaluated with no match; false for commercial orders; null when commercial evidence is unavailable. Independent of revenue, refunds and metric eligibility.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_commercial",
+        "data_type": "boolean",
+        "description": "True when the order is retail, specialty or bulk. Mutually exclusive with is_d2c; null when no commercial channel is established and evidence is unavailable.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_retail",
+        "data_type": "boolean",
+        "description": "Retail commercial channel. Every Shopify POS order is retail; retail takes precedence over specialty and bulk.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_specialty",
+        "data_type": "boolean",
+        "description": "Specialty commercial channel. True with specialty evidence and no retail match.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_bulk",
+        "data_type": "boolean",
+        "description": "Bulk commercial channel. True with bulk evidence and no retail or specialty match.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_employee_order",
+        "data_type": "boolean",
+        "description": "True when the order email domain is exactly one of the employee_email_domains project var, paid or free. Uses the order email, not the current customer profile. Null when the email is unavailable.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_gifted",
+        "data_type": "boolean",
+        "description": "True for a gifting tag or a non-test, non-replacement employee order whose original whole-order total after discounts, including shipping and tax, is zero. Later edits or refunds do not establish gifting. Null when required evidence is unavailable or invalid and no decisive condition resolves the rule.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_replacement",
+        "data_type": "boolean",
+        "description": "True for a tag matching replacement_order_tags or a discount code matching replacement_discount_codes.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_exchange",
+        "data_type": "boolean",
+        "description": "True for a tag matching exchange_order_tags or a discount code matching exchange_discount_codes. Can overlap with is_replacement.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_shopify_collective",
+        "data_type": "boolean",
+        "description": "True for a tag matching shopify_collective_order_tags. Collective orders are D2C unless a commercial rule matches.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_broadcast",
+        "data_type": "boolean",
+        "description": "True for a tag matching broadcast_order_tags. Broadcast orders are D2C unless a commercial rule matches.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "net_ordered_quantity",
+        "data_type": "bigint",
+        "description": "Units after source refunds/removals and additional unfulfilled cancellation removal. Null when required evidence is unknown; not physically kept units.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_quantity_line_count",
+        "data_type": "bigint",
+        "description": "Source lines with unknown net quantity. A positive count makes the order net quantity null.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "commercial_resolution_status",
+        "data_type": "varchar",
+        "description": "First blocking reason, or complete. Values are no_agreement_evidence, no_order_agreement, no_sale_evidence, unresolved_sales, unresolved_refund, unfinalized_fee, unresolved_adjustment, unresolved_payment_refund, unresolved_payment_currency and complete.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_commercial_resolved",
+        "data_type": "boolean",
+        "description": "Whether commercial_resolution_status is complete.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "agreement_count",
+        "data_type": "bigint",
+        "description": "Number of sales agreements for the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "sale_count",
+        "data_type": "bigint",
+        "description": "Number of ledger sales for the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_sale_count",
+        "data_type": "bigint",
+        "description": "Number of ledger sales that did not resolve.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "refund_object_count",
+        "data_type": "bigint",
+        "description": "Number of Shopify refund objects for the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "refund_without_agreement_count",
+        "data_type": "bigint",
+        "description": "Number of refund objects with no sales agreement carrying the same refund identity.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "refund_object_unresolved_count",
+        "data_type": "bigint",
+        "description": "Number of refund objects that are not in USD or have no amount.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unfinalized_fee_count",
+        "data_type": "bigint",
+        "description": "Number of fee sales that need finalized Loop evidence.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_adjustment_count",
+        "data_type": "bigint",
+        "description": "Number of refund adjustments. Each one is unexplained until finalized evidence explains it.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "non_gift_card_line_count",
+        "data_type": "bigint",
+        "description": "Number of source order lines that are not gift cards; a parent allocation input.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unknown_gift_card_line_count",
+        "data_type": "bigint",
+        "description": "Number of source order lines whose gift-card flag is missing.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_refund_payment_count",
+        "data_type": "bigint",
+        "description": "Number of successful refund transactions that are not yet classified.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "gross_merchandise_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Merchandise value before discount for the order; NULL when sales are not fully known.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_discount_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive merchandise discount for the order, as a negative effect.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_refund_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive merchandise refund for the order, net of discount, as a negative value.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "net_merchandise_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Gross merchandise plus discount plus merchandise refund; NULL unless the status is complete.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive shipping charged for the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_refund_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive shipping refunded for the order, as a negative value.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "net_shipping_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shipping plus shipping refund; NULL unless the status is complete.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "net_revenue_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Net merchandise plus net shipping; NULL unless the status is complete. Excludes fees.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "duty_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive duty sales for the order, signed as reported.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "gift_card_liability_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive gift-card sale value for the order; excluded from merchandise.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "tax_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Source tax across resolved sales for the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "return_shipping_fee_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive return shipping fee for the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unfinalized_fee_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive fee sales that need finalized Loop evidence. Not a handling fee.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "additional_fee_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-exclusive additional fee sales for the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_adjustment_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Sum of refund adjustment amounts in USD. Unexplained; not a merchandise, shipping or fee amount.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_adjustment_tax_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Sum of refund adjustment tax amounts in USD. Unexplained.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unassigned_shipping_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shipping charged for the order with no direct line assignment; the parent allocates it.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unassigned_shipping_refund_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Shipping refunded for the order with no direct line assignment; the parent allocates it.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "ledger_total_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Sum of resolved sale totals including tax; compare with the current order total.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "ledger_header_difference_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Ledger total minus the current order total in the source header. Zero means the ledger reconciles.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "refund_object_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Sum of refund object totals in USD for the order.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "refund_linked_sale_total_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Tax-inclusive sale totals on sales agreements that carry a refund identity.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "refund_agreement_difference_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Refund object total plus refund-linked sale totals. Zero means the refund objects match the agreements.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "successful_collected_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Successful collected payments for the order, including gift-card tender.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "successful_refund_object_payment_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Successful refund payments linked to a Shopify refund object.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "failed_attempt_reversal_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Successful refund payments identified as reversals of failed attempts; excluded from commercial refunds.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_refund_payment_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Successful refund payments that are not yet classified; excluded from commercial refunds.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "reporting_currency_code",
+        "data_type": "varchar",
+        "description": "Governed reporting currency for every amount in this model; always USD.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_handling_fee_count",
+        "data_type": "bigint",
+        "description": "Refunds whose handling-fee evidence remains unresolved.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "handling_fee_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Finalized handling fees in USD, separate from merchandise, shipping and net revenue. Unknown when any refund fee is unresolved.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "unresolved_payment_activity_count",
+        "data_type": "bigint",
+        "description": "Unclassified payment activity or money movement with missing or negative amounts.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "payment_transaction_count",
+        "data_type": "bigint",
+        "description": "Observed payment transactions; zero does not establish payment collection.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_discount_unallocated_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Order discount not yet assigned to a line. NULL when unknown.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "merchandise_refund_unallocated_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Order merchandise refund not yet assigned to a line. NULL when unknown.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_unallocated_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Order shipping not yet assigned to a line. NULL when unknown.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "shipping_refund_unallocated_shop_amount",
+        "data_type": "decimal(38, 9)",
+        "description": "Order shipping refund not yet assigned to a line. NULL when unknown.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "allocation_status",
+        "data_type": "varchar",
+        "description": "First blocking reason, or complete.",
+        "pii": false,
+        "nullable": true
+      },
+      {
+        "name": "is_allocation_complete",
+        "data_type": "boolean",
+        "description": "Whether every component is fully allocated.",
+        "pii": false,
+        "nullable": true
+      }
+    ],
+    "checks": [
+      "test.analytics.data_availability_consistent",
+      "test.analytics.dim_order_contacts_match_orders",
+      "test.analytics.fct_order_lines_reconcile_orders",
+      "test.analytics.fct_orders_channels_consistent",
+      "test.analytics.fct_orders_reconcile_staging",
+      "test.analytics.fct_orders_unique_order.cec5cf551f",
+      "test.analytics.not_null_fct_orders_has_classification_evidence.9b8b47ec4d",
+      "test.analytics.not_null_fct_orders_has_retail_evidence.f5ea65dc6d",
+      "test.analytics.not_null_fct_orders_shopify_order_id.a4959c0dea",
+      "test.analytics.not_null_fct_orders_shopify_shop_id.ebfee6f2ea",
+      "test.analytics.shopify_agreement_sale_taxes_sale_exists",
+      "test.analytics.shopify_commercial_currencies_match",
+      "test.analytics.shopify_orders_timezones_match",
+      "test.analytics.shopify_published_average_eligibility",
+      "test.analytics.shopify_published_commercial_reconcile",
+      "test.analytics.shopify_published_net_units_reconcile",
+      "test.analytics.shopify_published_revenue_eligibility"
+    ],
+    "owner": "Analytics Platform",
+    "access": "analytical"
+  }
+]

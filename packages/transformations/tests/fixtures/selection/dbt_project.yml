@@ -1,0 +1,7 @@
+# A small project for the dbt selection tests (ADR 0026).
+name: selection_fixture
+version: "0.1.0"
+config-version: 2
+profile: selection_fixture
+model-paths: [models]
+test-paths: [tests]

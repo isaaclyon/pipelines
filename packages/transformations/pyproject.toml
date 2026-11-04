@@ -1,0 +1,67 @@
+[project]
+name = "analytics_transformations"
+requires-python = ">=3.12,<3.13"
+version = "0.1.0"
+dependencies = [
+    "dagster==1.13.25",
+    "dagster-docker==0.29.25",
+    "dagster-postgres==0.29.25",
+    # Dagster 1.13.25 storage is incompatible with SQLAlchemy 2.1/psycopg3.
+    "sqlalchemy==2.0.54",
+    "dbt-core==1.12.5",
+    "dbt-duckdb==1.11.0",
+    "dbt-snowflake==1.12.1",
+    "duckdb==1.5.6",
+    "snowflake-connector-python==4.8.0",
+    "dagster-dbt==0.29.25",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright==1.40.2",
+    "dagster-dg-cli==1.13.25",
+    "pytest==9.1.1",
+    "pytest-xdist==3.8.0",
+    "ruff==0.16.10",
+    "sqlfluff==4.4.0",
+    "sqlfluff-templater-dbt==4.4.0",
+]
+
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/analytics_transformations"]
+force-include = { "pyproject.toml" = "pyproject.toml", "dbt" = "analytics_transformations/dbt" }
+
+[tool.dg]
+directory_type = "project"
+
+[tool.dg.project]
+root_module = "analytics_transformations"
+
+[tool.dg.cli.telemetry]
+enabled = false
+
+[tool.ruff]
+extend = "../../ruff.toml"
+
+[tool.basedpyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+reportAny = "error"
+reportExplicitAny = "error"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# More than four dbt workers contend for memory and slow the suite down.
+addopts = "--import-mode=importlib --numprocesses=auto --maxprocesses=4"
+markers = [
+    "dbt(*selectors, files=()): real dbt project nodes the test executes, as dbt selectors, and project files it copies (ADR 0026)",
+    "dbt_subprocess: start real dbt processes instead of running dbt in the test process",
+]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"analytics_ingestion" = { msg = "No cross-package dependency is declared." }

@@ -1,0 +1,473 @@
+version: 2
+models:
+- name: int_shopify_refunds__handling_fees
+  description: One row per Shopify refund with the return handling fee that Loop evidence proves
+    inside that refund's adjustments. A fee is resolved only by one strict, unique match between a
+    Shopify refund and a closed, complete, USD Loop return. Unmatched or ambiguous adjustments stay
+    unresolved. Merchandise and refund totals are not changed; the parent model owns revenue.
+  config:
+    meta:
+      grain: One row per Shopify refund
+      key:
+      - shop_id
+      - order_id
+      - refund_id
+  data_tests:
+  - unique_combination:
+      name: shopify_refunds_handling_fees_unique_refund
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - refund_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Source Shopify identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Source Shopify identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: refund_id
+    data_type: varchar
+    description: Source Shopify identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: loop_return_id
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Loop return identity that proves the handling fee. Null unless the refund has exactly
+      one matching Loop return and the return has exactly one matching refund.
+  - name: handling_fee_shop_amount
+    data_type: decimal(38, 9)
+    description: Positive return handling fee contained in this refund's adjustments. Zero only when the
+      refund has no adjustment records and no Loop return with a nonzero or unknown fee on the same
+      order. Null when the fee remains unresolved. In shop currency (USD).
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: reporting_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Currency of handling_fee_shop_amount. Every amount resolves only in USD, so this is
+      always USD.
+  - name: handling_fee_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Reason for the resolved or unresolved handling fee.
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - matched_loop_handling_fee
+          - no_adjustment_records
+          - unresolved_no_adjustment_loop_fee
+          - unresolved_no_loop_return
+          - unresolved_ambiguous_loop_return
+          - unresolved_ambiguous_refund
+          - unresolved_loop_return_open
+          - unresolved_loop_snapshot_incomplete
+          - unresolved_other_loop_amount
+          - unresolved_currency_not_usd
+          - unresolved_handling_fee_not_positive
+          - unresolved_return_total_mismatch
+          - unresolved_refund_lines_mismatch
+          - unresolved_other_refund_components
+          - unresolved_adjustment_unknown
+          - unresolved_adjustment_tax
+          - unresolved_adjustment_sum_mismatch
+unit_tests:
+- name: known_handling_fee_matches_strict_loop_evidence
+  description: The known +15 example resolves to its Loop return. A refund without adjustments and
+    without a Loop fee is an explicit zero.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+    - {shop_id: s, order_id: o2, refund_id: r2, total_refunded_shop_amount: 50, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: ret1, handling_fee_shop_amount: 15, reporting_currency_code: USD, handling_fee_status: matched_loop_handling_fee}
+    - {shop_id: s, order_id: o2, refund_id: r2, loop_return_id: null, handling_fee_shop_amount: 0, reporting_currency_code: USD, handling_fee_status: no_adjustment_records}
+- name: duplicate_loop_returns_with_same_amounts_are_ambiguous
+  description: Two closed Loop returns with the same refund amount on one order leave the refund unresolved.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+    - {shop_id: s, return_id: ret2, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_ambiguous_loop_return}
+- name: duplicate_refunds_with_same_amounts_are_ambiguous
+  description: One closed Loop return that matches two refunds with the same amount leaves both refunds unresolved.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+    - {shop_id: s, order_id: o1, refund_id: r2, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+    - {shop_id: s, order_id: o1, refund_id: r2, refund_line_item_id: li2, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+    - {shop_id: s, order_id: o1, refund_id: r2, adjustment_id: a2, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_ambiguous_refund}
+    - {shop_id: s, order_id: o1, refund_id: r2, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_ambiguous_refund}
+- name: adjustment_without_loop_return_is_unresolved
+  description: A refund adjustment with no Loop return on its order is not a fee. Its amount stays unresolved.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret9, order_id: o9, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_no_loop_return}
+- name: loop_fee_without_shopify_adjustment_is_unresolved
+  description: No adjustment rows are not evidence of a zero fee when a Loop return on the same refund amount
+    records a fee.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows: []
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_no_adjustment_loop_fee}
+- name: open_loop_return_is_unresolved
+  description: A Loop return that is not closed is a proposed fee, not finalized evidence.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: open, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_loop_return_open}
+- name: incomplete_loop_snapshot_is_unresolved
+  description: A Loop header without a completed load package is not fee evidence.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: false}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_loop_snapshot_incomplete}
+- name: unknown_or_nonzero_loop_other_amounts_are_unresolved
+  description: A null exchange amount is unknown, not zero. A nonzero gift card amount is another return credit.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+    - {shop_id: s, order_id: o2, refund_id: r2, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+    - {shop_id: s, order_id: o2, refund_id: r2, refund_line_item_id: li2, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+    - {shop_id: s, order_id: o2, refund_id: r2, adjustment_id: a2, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: null, upsell_amount: 0, is_snapshot_complete: true}
+    - {shop_id: s, return_id: ret2, order_id: o2, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 5, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_other_loop_amount}
+    - {shop_id: s, order_id: o2, refund_id: r2, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_other_loop_amount}
+- name: cross_currency_evidence_is_unresolved
+  description: Loop amounts in a currency other than USD, or Shopify presentment money in another currency,
+    cannot prove a shop-currency fee.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+    - {shop_id: s, order_id: o2, refund_id: r2, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: CAD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+    - {shop_id: s, order_id: o2, refund_id: r2, refund_line_item_id: li2, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+    - {shop_id: s, order_id: o2, refund_id: r2, adjustment_id: a2, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: CAD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+    - {shop_id: s, return_id: ret2, order_id: o2, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_currency_not_usd}
+    - {shop_id: s, order_id: o2, refund_id: r2, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_currency_not_usd}
+- name: refund_lines_must_match_loop_return_total
+  description: The Shopify refund lines, including tax, must equal the Loop return total before the fee resolves.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.74, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_refund_lines_mismatch}
+- name: adjustment_tax_must_be_known_zero
+  description: The handling fee has no tax component. A nonzero or unknown adjustment tax stays unresolved.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 1, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_adjustment_tax}
+- name: adjustment_sum_must_equal_loop_fee
+  description: Adjustments must sum to the Loop handling fee. A different sum is not the fee.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 175.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 175.48, handling_fee_amount: 14, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_adjustment_sum_mismatch}
+- name: zero_valued_adjustment_row_is_unresolved
+  description: A zero-valued adjustment row has no proven category. It stays unresolved even when the other rows sum to the fee.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a2, adjustment_shop_amount: 0, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_adjustment_unknown}
+- name: nonzero_refund_shipping_or_duty_is_unresolved
+  description: Refunded shipping or duties are other refund components. They do not prove the Loop fee.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 174.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 15, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 174.48, handling_fee_amount: 15, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_shipping_line_id: sh1, shipping_line_id: sl1, subtotal_shop_amount: 9, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, tax_shop_amount: 0.59, tax_shop_currency_code: USD, tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_other_refund_components}
+- name: zero_loop_fee_with_adjustment_is_not_a_fee
+  description: A Loop return with a zero fee does not prove a fee. A zero-valued adjustment on that refund
+    stays unresolved.
+  model: int_shopify_refunds__handling_fees
+  given:
+  - input: ref('stg_shopify_orders__refunds')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, total_refunded_shop_amount: 189.48, shop_currency_code: USD, presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_lines')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, refund_line_item_id: li1, subtotal_shop_amount: 178.75, subtotal_shop_currency_code: USD, subtotal_presentment_currency_code: USD, total_tax_shop_amount: 10.73, total_tax_shop_currency_code: USD, total_tax_presentment_currency_code: USD}
+  - input: ref('stg_shopify_orders__refund_adjustments')
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, adjustment_id: a1, adjustment_shop_amount: 0, adjustment_shop_currency_code: USD, adjustment_presentment_currency_code: USD, adjustment_tax_shop_amount: 0, adjustment_tax_shop_currency_code: USD, adjustment_tax_presentment_currency_code: USD}
+  - input: ref('stg_loop_returns__headers')
+    rows:
+    - {shop_id: s, return_id: ret1, order_id: o1, return_state: closed, currency_code: USD, return_total_amount: 189.48, refund_amount: 189.48, handling_fee_amount: 0, gift_card_amount: 0, exchange_total_amount: 0, upsell_amount: 0, is_snapshot_complete: true}
+  - input: ref('stg_shopify_orders__refund_shipping_lines')
+    rows: []
+  - input: ref('stg_shopify_orders__refund_duties')
+    rows: []
+  expect:
+    rows:
+    - {shop_id: s, order_id: o1, refund_id: r1, loop_return_id: null, handling_fee_shop_amount: null, reporting_currency_code: USD, handling_fee_status: unresolved_handling_fee_not_positive}

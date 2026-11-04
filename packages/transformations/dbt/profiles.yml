@@ -1,0 +1,23 @@
+analytics:
+  target: "{{ env_var('DBT_TARGET', 'local') }}"
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', '/var/lib/analytics/working/warehouse.duckdb') }}"
+      schema: main
+      threads: 1
+    # dbt renders unused outputs too; Compose requires these values for live targets.
+    snowflake-development: &snowflake
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', '') }}"
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', '') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', '') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', '') }}"
+      schema: "{{ env_var('SNOWFLAKE_SCHEMA', '') }}"
+      threads: 1
+      session_parameters:
+        TIMEZONE: UTC
+        STATEMENT_TIMEOUT_IN_SECONDS: "{{ env_var('DBT_STATEMENT_TIMEOUT_SECONDS', '0') | int }}"
+    production: *snowflake

@@ -1,0 +1,113 @@
+name: analytics
+version: "0.1.0"
+config-version: 2
+profile: analytics
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+clean-targets: ["target", "dbt_packages"]
+
+# ADR 0029: the local target attaches per-source raw files read-only.
+on-run-start: ["{{ attach_raw_files() }}"]
+
+# Brand business rules. Edit these for your business, or pass --vars to
+# override them per run. Tag and discount-code rules are SQL LIKE patterns
+# matched against trimmed, lowercased values: % matches any text and _ any
+# single character. An empty list never matches. The reporting time zone is
+# the ANALYTICS_REPORTING_TIME_ZONE environment variable, shared with Cube.
+vars:
+  # Market reported for every order whose shipping country is not listed in
+  # separate_reporting_markets (ISO 3166 alpha-2 codes).
+  home_reporting_market: US
+  separate_reporting_markets: [CA]
+  # Order email domains that mark an employee order, such as example.com.
+  employee_email_domains: []
+  specialty_order_tags: ["%specialty%", "%wholesale%"]
+  specialty_discount_codes: [wholesale]
+  bulk_order_tags: ["%bulk%"]
+  replacement_order_tags: [replacement]
+  replacement_discount_codes: ["%replacement%"]
+  exchange_order_tags: [exchange]
+  exchange_discount_codes: ["%exchange%"]
+  gifting_order_tags:
+    - gifting
+    - influencer
+    - influencers
+    - influencer order
+    - press
+    - pr
+    - pr box
+    - corporate gifting
+  shopify_collective_order_tags: [shopify collective]
+  broadcast_order_tags: ["broadcast%"]
+
+models:
+  analytics:
+    +meta:
+      owner: Analytics Platform
+    staging:
+      goodday:
+        +enabled: "{{ env_var('GOODDAY_INVENTORY_ENABLED', 'false') == 'true' }}"
+      shopify_customers:
+        +enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+      +schema: staging
+      +materialized: view
+      +meta:
+        schema_description: >
+          Internal views, one per source entity: renamed, cast and lightly
+          normalized raw data. Not a consumer interface.
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+      # Measured on Snowflake: creating the stacked allocation views never
+      # finished, so these heavy models are tables.
+      shopify_orders:
+        int_shopify_sales__ledger:
+          +materialized: table
+        int_shopify_order_lines__commercial_components:
+          +materialized: table
+        int_shopify_orders__commercial_components:
+          +materialized: table
+        int_shopify_order_lines__net_units:
+          +materialized: table
+        int_shopify_orders__net_units:
+          +materialized: table
+        int_shopify_order_lines__allocations:
+          +materialized: table
+        int_shopify_orders__payment_reconciliation:
+          +materialized: table
+        int_shopify_orders__allocations:
+          +materialized: table
+      +meta:
+        schema_description: >
+          Internal views that combine staging models into reusable business
+          logic, such as rollups and classifications. Not a consumer interface.
+    marts:
+      shopify_orders:
+        +meta:
+          publication_group: orders
+      goodday:
+        +meta:
+          publication_group: inventory
+        +enabled: "{{ env_var('GOODDAY_INVENTORY_ENABLED', 'false') == 'true' }}"
+      shopify_customers:
+        +meta:
+          publication_group: customers
+        +enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+      +schema: marts
+      +materialized: table
+      +meta:
+        schema_description: >
+          Contracted fact and dimension tables published for consumers such as
+          Cube; replaced only after their blocking checks pass.
+      +access: public
+      +contract:
+        enforced: true
+
+# Fail closed: a data test blocks publication unless it explicitly opts down to
+# a warning. Native severity is the sole blocking declaration.
+data_tests:
+  analytics:
+    +severity: error

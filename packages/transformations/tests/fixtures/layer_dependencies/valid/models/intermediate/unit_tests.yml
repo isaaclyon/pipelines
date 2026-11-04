@@ -1,0 +1,11 @@
+version: 2
+unit_tests:
+  - name: dated_orders_keep_order_id
+    model: int_orders__customers
+    given:
+      - input: ref('int_orders__dated')
+        rows: [{order_id: 1}]
+      - input: ref('stg_shop__customers')
+        rows: [{country_name: US}]
+    expect:
+      rows: [{order_id: 1, country_name: US}]

@@ -1,0 +1,133 @@
+models:
+- name: stg_loop_returns__headers
+  description: Non-PII return-header evidence, empty when LOOP_RETURNS_ENABLED is false. No fallback to
+    legacy data or inferred zero fees.
+  config:
+    meta:
+      grain: One row per Loop return per shop
+      key:
+      - shop_id
+      - return_id
+  data_tests:
+  - unique_combination:
+      name: loop_headers_unique
+      arguments:
+        columns:
+        - shop_id
+        - return_id
+  columns:
+  - name: shop_id
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Source shop id.
+    data_tests:
+    - not_null
+  - name: return_id
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Source return id.
+    data_tests:
+    - not_null
+  - name: order_id
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify Order GID constructed from the Loop provider order ID; matches maintained Shopify
+      raw identity.
+  - name: return_state
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Source workflow state; closed is necessary but not sufficient fee evidence.
+  - name: created_at
+    data_type: timestamp
+    description: Source created at.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: updated_at
+    data_type: timestamp
+    description: Source updated at.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Loop order currency. Match currency bases before mapping amounts to shop currency.
+  - name: return_total_amount
+    data_type: decimal(38, 9)
+    description: Source return total amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: currency_code
+  - name: refund_amount
+    data_type: decimal(38, 9)
+    description: Source refund amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: currency_code
+  - name: handling_fee_amount
+    data_type: decimal(38, 9)
+    description: Source fee in Loop currency; not presumed shop currency or finalized.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: currency_code
+  - name: gift_card_amount
+    data_type: decimal(38, 9)
+    description: Source gift card amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: currency_code
+  - name: exchange_total_amount
+    data_type: decimal(38, 9)
+    description: Source exchange total amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: currency_code
+  - name: upsell_amount
+    data_type: decimal(38, 9)
+    description: Source upsell amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: currency_code
+  - name: snapshot_id
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Source snapshot id.
+  - name: snapshot_ended_at
+    data_type: timestamp
+    description: Source snapshot end.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: is_snapshot_complete
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True only when header and evidence share a completed dlt load package.

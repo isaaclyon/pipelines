@@ -1,0 +1,80 @@
+#!/bin/sh
+# Platform command dispatcher. Resolves the target environment, enforces each
+# command's allowed targets, and runs scripts/platform.d/<command>.sh.
+set -eu
+
+repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+commands_dir="$repo_root/scripts/platform.d"
+cd "$repo_root"
+
+command_field() {
+    sed -n "s/^# $1: //p" "$2"
+}
+
+usage() {
+    echo "Usage: $0 <local|ci> <command> [arguments]"
+    echo
+    echo "Commands:"
+    for command_file in "$commands_dir"/*.sh; do
+        printf '  %-10s %s [%s]\n' "$(basename "$command_file" .sh)" \
+            "$(command_field summary "$command_file")" \
+            "$(command_field targets "$command_file")"
+    done
+}
+
+if [ "${1:-}" = help ] || [ "${1:-}" = --help ] || [ "${1:-}" = -h ]; then
+    usage
+    exit 0
+fi
+if [ "$#" -lt 2 ]; then
+    usage >&2
+    exit 2
+fi
+
+target=$1
+command_name=$2
+shift 2
+
+command_file="$commands_dir/$command_name.sh"
+case "$command_name" in
+    */*|.*) command_file= ;;
+esac
+if [ -z "$command_file" ] || [ ! -f "$command_file" ]; then
+    echo "Unknown command: $command_name (see '$0 help')" >&2
+    exit 2
+fi
+
+export ANALYTICS_ENVIRONMENT="$target"
+export ANALYTICS_PROJECT="${ANALYTICS_PROJECT:-analytics-$target}"
+
+case "$target" in
+    local|ci)
+        export DBT_TARGET=local CUBEJS_DB_TYPE=snowflake
+        env_file=${ANALYTICS_ENV_FILE:-deploy/compose/.env.local.example}
+        ;;
+    *)
+        echo "Unknown target: $target" >&2
+        exit 2
+        ;;
+esac
+
+allowed_targets=$(command_field targets "$command_file")
+case " $allowed_targets " in
+    *" $target "*) ;;
+    *)
+        echo "'$command_name' supports targets: $allowed_targets" >&2
+        exit 2
+        ;;
+esac
+
+# Command files call compose to use this target's files and environment.
+compose() {
+    case "$target" in
+        local) set -- -f deploy/compose/compose.yaml -f deploy/compose/local.yaml -- "$@" ;;
+        ci) set -- -f deploy/compose/compose.yaml -f deploy/compose/local.yaml -f deploy/compose/ci.yaml -- "$@" ;;
+    esac
+    python3 scripts/run_context.py --env-file "$env_file" --project-name "$ANALYTICS_PROJECT" "$@"
+}
+
+# shellcheck source=/dev/null
+. "$command_file"

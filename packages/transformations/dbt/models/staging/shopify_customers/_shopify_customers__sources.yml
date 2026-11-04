@@ -1,0 +1,710 @@
+sources:
+- name: shopify_customers
+  description: Raw current customer profiles and complete child collections from the independent dlt customer
+    source. Restricted personal data.
+  schema: '{{ env_var(''SHOPIFY_CUSTOMERS_DATASET'', ''SHOPIFY_CUSTOMERS_RAW'') }}'
+  tables:
+  - name: customers
+    description: Source-shaped customers; available fields and legitimate nulls are distinguished by customer_field_access.
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: customer_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the customer.
+      data_type: text
+    - name: legacy_id
+      config:
+        meta: {pii: false}
+      description: Numeric customer ID shown in Shopify admin URLs.
+      data_type: text
+    - name: first_name
+      config:
+        meta: {pii: true}
+      description: First name. Restricted personal data. Null unless the names field group was available.
+      data_type: text
+    - name: last_name
+      config:
+        meta: {pii: true}
+      description: Last name. Restricted personal data. Null unless the names field group was available.
+      data_type: text
+    - name: display_name
+      config:
+        meta: {pii: true}
+      description: Full display name. Restricted personal data. Null unless the names field group was
+        available.
+      data_type: text
+    - name: created_at
+      config:
+        meta: {pii: false}
+      description: UTC instant Shopify created the customer.
+      data_type: timestamp
+    - name: updated_at
+      config:
+        meta: {pii: false}
+      description: UTC instant Shopify last changed the customer.
+      data_type: timestamp
+    - name: locale
+      config:
+        meta: {pii: false}
+      description: Customer's preferred language, such as en or fr-CA.
+      data_type: text
+    - name: account_state
+      config:
+        meta: {pii: false}
+      description: Customer account state, such as ENABLED or DISABLED.
+      data_type: text
+    - name: is_email_verified
+      config:
+        meta: {pii: false}
+      description: Whether the customer verified their email address.
+      data_type: bool
+    - name: product_subscriber_status
+      config:
+        meta: {pii: false}
+      description: Product subscription status, such as NEVER_SUBSCRIBED.
+      data_type: text
+    - name: is_data_sale_opted_out
+      config:
+        meta: {pii: false}
+      description: Whether the customer opted out of having their data sold or shared.
+      data_type: bool
+    - name: is_tax_exempt
+      config:
+        meta: {pii: false}
+      description: Whether the customer is exempt from all taxes.
+      data_type: bool
+    - name: customer_note
+      config:
+        meta: {pii: true}
+      description: Staff note on the customer. Restricted personal data. Null unless the names field group
+        was available.
+      data_type: text
+    - name: default_address_id
+      config:
+        meta: {pii: false}
+      description: Shopify ID of the default address in customers__addresses.
+      data_type: text
+    - name: email_address
+      config:
+        meta: {pii: true}
+      description: Default email address. Restricted personal data. Null unless the email field group
+        was available.
+      data_type: text
+    - name: is_email_format_valid
+      config:
+        meta: {pii: false}
+      description: Whether the default email address is well formed. Null unless the email field group
+        was available.
+      data_type: bool
+    - name: email_marketing_state
+      config:
+        meta: {pii: false}
+      description: Email marketing consent state, such as SUBSCRIBED. Null unless the email field group
+        was available.
+      data_type: text
+    - name: email_marketing_opt_in_level
+      config:
+        meta: {pii: false}
+      description: Email opt-in level, such as CONFIRMED_OPT_IN. Null unless the email field group was
+        available.
+      data_type: text
+    - name: email_marketing_updated_at
+      config:
+        meta: {pii: false}
+      description: UTC instant email consent last changed. Null unless the email field group was available.
+      data_type: timestamp
+    - name: email_marketing_source_location_id
+      config:
+        meta: {pii: false}
+      description: Shopify location that collected email consent. Null unless the email field group was
+        available.
+      data_type: text
+    - name: email_open_tracking_level
+      config:
+        meta: {pii: false}
+      description: Whether email opens may be tracked, such as OPTED_IN. Null unless the email field group
+        was available.
+      data_type: text
+    - name: phone_number
+      config:
+        meta: {pii: true}
+      description: Default phone number. Restricted personal data. Null unless the phone field group was
+        available.
+      data_type: text
+    - name: sms_marketing_state
+      config:
+        meta: {pii: false}
+      description: SMS marketing consent state. Null unless the phone field group was available.
+      data_type: text
+    - name: sms_marketing_opt_in_level
+      config:
+        meta: {pii: false}
+      description: SMS opt-in level, such as SINGLE_OPT_IN. Null unless the phone field group was available.
+      data_type: text
+    - name: sms_marketing_collected_from
+      config:
+        meta: {pii: false}
+      description: Where SMS consent was collected, such as SHOPIFY. Null unless the phone field group
+        was available.
+      data_type: text
+    - name: sms_marketing_updated_at
+      config:
+        meta: {pii: false}
+      description: UTC instant SMS consent last changed. Null unless the phone field group was available.
+      data_type: timestamp
+    - name: sms_marketing_source_location_id
+      config:
+        meta: {pii: false}
+      description: Shopify location that collected SMS consent. Null unless the phone field group was
+        available.
+      data_type: text
+    - name: whatsapp_marketing_state
+      config:
+        meta: {pii: false}
+      description: WhatsApp marketing consent state. Null unless the whatsapp_consent field group was
+        available.
+      data_type: text
+    - name: whatsapp_marketing_opt_in_level
+      config:
+        meta: {pii: false}
+      description: WhatsApp opt-in level, such as SINGLE_OPT_IN. Null unless the whatsapp_consent field
+        group was available.
+      data_type: text
+    - name: whatsapp_marketing_collected_from
+      config:
+        meta: {pii: false}
+      description: Where WhatsApp consent was collected, such as SHOPIFY. Null unless the whatsapp_consent
+        field group was available.
+      data_type: text
+    - name: whatsapp_marketing_updated_at
+      config:
+        meta: {pii: false}
+      description: UTC instant WhatsApp consent last changed. Null unless the whatsapp_consent field group
+        was available.
+      data_type: timestamp
+    - name: whatsapp_marketing_source_location_id
+      config:
+        meta: {pii: false}
+      description: Shopify location that collected WhatsApp consent. Null unless the whatsapp_consent
+        field group was available.
+      data_type: text
+    - name: shopify_order_count
+      config:
+        meta: {pii: false}
+      description: Shopify's count of the customer's orders. Null unless the summaries field group was
+        available.
+      data_type: bigint
+    - name: shopify_lifetime_spent_amount
+      config:
+        meta: {pii: false}
+      description: Shopify's lifetime spend in the customer's currency. Null unless the summaries field
+        group was available.
+      data_type: decimal(38, 9)
+    - name: shopify_lifetime_spent_currency_code
+      config:
+        meta: {pii: false}
+      description: Currency of shopify_lifetime_spent_amount. Null unless the summaries field group was
+        available.
+      data_type: text
+    - name: shopify_last_order_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the customer's latest order. Null unless the summaries field group
+        was available.
+      data_type: text
+    - name: shopify_predicted_spend_tier
+      config:
+        meta: {pii: false}
+      description: Shopify's predicted spend tier, such as HIGH. Null unless the statistics field group
+        was available.
+      data_type: text
+    - name: shopify_rfm_group
+      config:
+        meta: {pii: false}
+      description: Shopify's recency-frequency-monetary segment. Null unless the statistics field group
+        was available.
+      data_type: text
+    - name: tax_id
+      config:
+        meta: {pii: true}
+      description: Customer tax registration ID. Null unless the tax_id field group was available.
+      data_type: text
+    - name: _batch_id
+      config:
+        meta: {pii: false}
+      description: Dagster run ID of the run that loaded the row.
+      data_type: text
+    - name: _observed_at
+      config:
+        meta: {pii: false}
+      description: UTC instant ingestion read the customer.
+      data_type: timestamp
+    - name: _extraction_kind
+      config:
+        meta: {pii: false}
+      description: 'How the run selected the customer: refresh, lookback, reextract or sweep.'
+      data_type: text
+    - name: _query_version
+      config:
+        meta: {pii: false}
+      description: Fingerprint of the GraphQL query documents used.
+      data_type: text
+    - name: _extraction_revision
+      config:
+        meta: {pii: false}
+      description: Raw contract revision that parsed the customer.
+      data_type: bigint
+    - name: _api_version
+      config:
+        meta: {pii: false}
+      description: Shopify Admin API version that served the customer.
+      data_type: text
+  - name: customers__addresses
+    description: Source-shaped customers__addresses; available fields and legitimate nulls are distinguished
+      by customer_field_access.
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: customer_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the customer.
+      data_type: text
+    - name: address_id
+      config:
+        meta: {pii: false}
+      description: Shopify ID of the mailing address.
+      data_type: text
+    - name: is_default_address
+      config:
+        meta: {pii: false}
+      description: Whether this is the customer's default address.
+      data_type: bool
+    - name: first_name
+      config:
+        meta: {pii: true}
+      description: First name on the address. Restricted personal data.
+      data_type: text
+    - name: last_name
+      config:
+        meta: {pii: true}
+      description: Last name on the address. Restricted personal data.
+      data_type: text
+    - name: full_name
+      config:
+        meta: {pii: true}
+      description: Full name on the address. Restricted personal data.
+      data_type: text
+    - name: company
+      config:
+        meta: {pii: true}
+      description: Company name on the address.
+      data_type: text
+    - name: phone_number
+      config:
+        meta: {pii: true}
+      description: Phone number on the address. Restricted personal data.
+      data_type: text
+    - name: address_line_1
+      config:
+        meta: {pii: true}
+      description: First street line. Restricted personal data.
+      data_type: text
+    - name: address_line_2
+      config:
+        meta: {pii: true}
+      description: Second street line. Restricted personal data.
+      data_type: text
+    - name: postal_code
+      config:
+        meta: {pii: false}
+      description: Postal or ZIP code.
+      data_type: text
+    - name: city
+      config:
+        meta: {pii: false}
+      description: City.
+      data_type: text
+    - name: province_name
+      config:
+        meta: {pii: false}
+      description: Province or state name.
+      data_type: text
+    - name: province_code
+      config:
+        meta: {pii: false}
+      description: Province or state code.
+      data_type: text
+    - name: country_name
+      config:
+        meta: {pii: false}
+      description: Country name.
+      data_type: text
+    - name: country_code
+      config:
+        meta: {pii: false}
+      description: ISO 3166-1 alpha-2 country code.
+      data_type: text
+    - name: time_zone
+      config:
+        meta: {pii: false}
+      description: IANA time zone of the address.
+      data_type: text
+    - name: latitude
+      config:
+        meta: {pii: true}
+      description: Latitude Shopify geocoded. Restricted personal data.
+      data_type: decimal(38, 9)
+    - name: longitude
+      config:
+        meta: {pii: true}
+      description: Longitude Shopify geocoded. Restricted personal data.
+      data_type: decimal(38, 9)
+    - name: are_coordinates_validated
+      config:
+        meta: {pii: false}
+      description: Whether Shopify validated the coordinates.
+      data_type: bool
+    - name: address_validation_status
+      config:
+        meta: {pii: false}
+      description: Shopify address validation summary, such as NO_ISSUES.
+      data_type: text
+  - name: customers__tags
+    description: Source-shaped customers__tags; available fields and legitimate nulls are distinguished
+      by customer_field_access.
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: customer_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the customer.
+      data_type: text
+    - name: position
+      config:
+        meta: {pii: false}
+      description: Zero-based position in the source list; not a durable source ID.
+      data_type: bigint
+    - name: tag
+      config:
+        meta: {pii: false}
+      description: Customer tag as entered.
+      data_type: text
+  - name: customers__tax_exemptions
+    description: Source-shaped customers__tax_exemptions; available fields and legitimate nulls are distinguished
+      by customer_field_access.
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: customer_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the customer.
+      data_type: text
+    - name: position
+      config:
+        meta: {pii: false}
+      description: Zero-based position in the source list; not a durable source ID.
+      data_type: bigint
+    - name: code
+      config:
+        meta: {pii: false}
+      description: Shopify tax exemption code.
+      data_type: text
+  - name: customers__metafields
+    description: Source-shaped customers__metafields; available fields and legitimate nulls are distinguished
+      by customer_field_access.
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: customer_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the customer.
+      data_type: text
+    - name: metafield_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the metafield.
+      data_type: text
+    - name: namespace
+      config:
+        meta: {pii: false}
+      description: Metafield namespace.
+      data_type: text
+    - name: key
+      config:
+        meta: {pii: false}
+      description: Metafield key within its namespace.
+      data_type: text
+    - name: type
+      config:
+        meta: {pii: false}
+      description: Metafield value type, such as single_line_text_field.
+      data_type: text
+    - name: value
+      config:
+        meta: {pii: true}
+      description: Metafield value as Shopify serializes it.
+      data_type: text
+    - name: created_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the metafield was created.
+      data_type: timestamp
+    - name: updated_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the metafield last changed.
+      data_type: timestamp
+  - name: customers__company_contacts
+    description: Source-shaped customers__company_contacts; available fields and legitimate nulls are
+      distinguished by customer_field_access.
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: customer_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the customer.
+      data_type: text
+    - name: company_contact_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the B2B company contact.
+      data_type: text
+    - name: company_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the contact's company.
+      data_type: text
+    - name: company_location_id
+      config:
+        meta: {pii: false}
+      description: Company location the contact is assigned to; empty without one.
+      data_type: text
+    - name: is_main_contact
+      config:
+        meta: {pii: false}
+      description: Whether the contact is the company's main contact.
+      data_type: bool
+    - name: title
+      config:
+        meta: {pii: true}
+      description: Contact's job title.
+      data_type: text
+  - name: customer_field_access
+    description: Source-shaped customer_field_access; available fields and legitimate nulls are distinguished
+      by customer_field_access.
+    columns:
+    - name: shop_id
+      config:
+        meta: {pii: false}
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - name: batch_id
+      config:
+        meta: {pii: false}
+      description: Dagster run ID of the customer ingestion run.
+      data_type: text
+    - name: field_group
+      config:
+        meta: {pii: false}
+      description: Customer field group, such as email or addresses.
+      data_type: text
+    - name: status
+      config:
+        meta: {pii: false}
+      description: 'Access result: available, access_denied, unsupported or excluded.'
+      data_type: text
+    - name: checked_at
+      config:
+        meta: {pii: false}
+      description: UTC instant the run checked access.
+      data_type: timestamp
+  - name: profile_evidence
+    identifier: customer_batch_evidence
+    description: Completed customer incremental profile window; empty successful windows count.
+    config:
+      loaded_at_field: window_end
+      freshness:
+        warn_after:
+          count: 25
+          period: minute
+        error_after:
+          count: 30
+          period: minute
+        filter: kind = 'refresh' and status = 'complete' and completeness = 'complete' and rejects = 0
+    columns: &id001
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: shop_id
+      description: Shopify global ID of the shop the row was read from.
+      data_type: text
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: batch_id
+      description: Dagster run ID of the customer ingestion run.
+      data_type: text
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: kind
+      description: 'Run kind: refresh, lookback, reextract or sweep.'
+      data_type: text
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: window_field
+      description: 'Customer timestamp the window filters: updated_at.'
+      data_type: text
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: window_start
+      description: Inclusive UTC start of the covered window.
+      data_type: timestamp
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: window_end
+      description: Exclusive UTC end of the covered window; freshness reads it.
+      data_type: timestamp
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: status
+      description: Run status; complete, since only successful runs write rows.
+      data_type: text
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: completeness
+      description: complete, or partial when customers changed during the read and were skipped.
+      data_type: text
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: is_full_sweep
+      description: Whether the run read every customer.
+      data_type: bool
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: observed_started_at
+      description: UTC instant extraction started.
+      data_type: timestamp
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: observed_finished_at
+      description: UTC instant extraction finished.
+      data_type: timestamp
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: completed_at
+      description: UTC instant the run recorded this evidence after its load.
+      data_type: timestamp
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: customers_observed
+      description: Complete customers the run read and loaded.
+      data_type: bigint
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: rejects
+      description: Customers still rejected after the run, including older rejects.
+      data_type: bigint
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: pages
+      description: Source pages the run read.
+      data_type: bigint
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: load_ids
+      description: Comma-separated dlt load IDs the run committed.
+      data_type: text
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: api_version
+      description: Shopify Admin API version the run used.
+      data_type: text
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: query_version
+      description: Fingerprint of the GraphQL query documents used.
+      data_type: text
+    - config:
+        meta: {pii: false}
+      config:
+        meta: {pii: false}
+      name: extraction_revision
+      description: Raw contract revision of the run's parser.
+      data_type: bigint
+  - name: sweep_evidence
+    identifier: customer_batch_evidence
+    description: Completed customer full sweep; source summary and disappearance coverage are separate
+      from incremental profiles.
+    config:
+      loaded_at_field: window_end
+      freshness:
+        warn_after:
+          count: 26
+          period: hour
+        error_after:
+          count: 30
+          period: hour
+        filter: kind = 'sweep' and is_full_sweep and status = 'complete' and completeness = 'complete'
+          and rejects = 0
+    columns: *id001
+  config:
+    enabled: '{{ env_var(''SHOPIFY_CUSTOMERS_ENABLED'', ''false'') == ''true'' }}'

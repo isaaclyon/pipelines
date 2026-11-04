@@ -1,0 +1,141 @@
+version: 2
+models:
+- name: stg_shopify_orders__ingestion_batches
+  description: 'Source window evidence written after a successful order load. Retains invalid evidence
+    explicitly; a verified zero-order extraction still covers its window. Missing evidence tables produce
+    no windows, not a completeness claim.
+
+    '
+  config:
+    meta:
+      grain: One row per shop and ingestion batch
+      key:
+      - shop_id
+      - batch_id
+  data_tests:
+  - unique_combination:
+      name: shopify_ingestion_batches_unique_batch
+      arguments:
+        columns:
+        - shop_id
+        - batch_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop whose orders were queried.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+  - name: batch_id
+    data_type: varchar
+    description: Ingestion run identity recorded after its order load succeeds.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+  - name: batch_kind
+    data_type: varchar
+    description: Extraction kind, such as refresh, lookback or reextract.
+    config:
+      meta:
+        pii: false
+  - name: window_field
+    data_type: varchar
+    description: Source timestamp filtered by the window; only updated_at supports change coverage.
+    config:
+      meta:
+        pii: false
+  - name: window_started_at
+    data_type: timestamp
+    description: Inclusive UTC start of the requested source window.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: window_ended_at
+    data_type: timestamp
+    description: Exclusive UTC end of the requested source window, not the load completion time.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: observation_started_at
+    data_type: timestamp
+    description: UTC instant extraction starts reading this window.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: observation_finished_at
+    data_type: timestamp
+    description: UTC instant extraction finishes reading this window.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: completed_at
+    data_type: timestamp
+    description: UTC instant the successful order load records its evidence.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: status
+    data_type: varchar
+    description: Recorded run status; only complete can prove coverage.
+    config:
+      meta:
+        pii: false
+  - name: completeness
+    data_type: varchar
+    description: Recorded pagination and nested-resource completeness verdict.
+    config:
+      meta:
+        pii: false
+  - name: exception_count
+    data_type: bigint
+    description: Rejected orders; null is unknown and cannot establish zero rejects.
+    config:
+      meta:
+        pii: false
+  - name: observed_order_count
+    data_type: bigint
+    description: Complete observed orders, including zero for an empty successful extraction.
+    config:
+      meta:
+        pii: false
+  - name: extraction_revision
+    data_type: bigint
+    description: Raw parser contract revision; revenue coverage needs revision 3 or later.
+    config:
+      meta:
+        pii: false
+  - name: source_query_version
+    data_type: varchar
+    description: Query document fingerprint; blank or missing lineage is unresolved.
+    config:
+      meta:
+        pii: false
+  - name: is_coverage_verified
+    data_type: boolean
+    description: 'True for complete zero-reject updated_at windows with revision and query lineage, a
+      nonnegative observed count and ordered observation times. Does not prove order-date population completeness,
+      publication freshness, deleted-order coverage or Loop availability.
+
+      '
+    config:
+      meta:
+        pii: false

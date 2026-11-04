@@ -1,0 +1,237 @@
+version: 2
+models:
+- name: int_shopify_order_lines__net_units
+  description: One row per source order line; removes only unfulfilled cancelled units without subtracting
+    quantity refunds twice.
+  config:
+    meta:
+      grain: One row per (shop_id, order_id, line_item_id)
+      key: &id001
+      - shop_id
+      - order_id
+      - line_item_id
+  data_tests:
+  - unique_combination:
+      name: shopify_net_units_unique_line
+      arguments:
+        columns: *id001
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Source Shopify identity.
+    data_tests: &id002
+    - not_null
+    config: &id003
+      meta:
+        pii: false
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Source Shopify identity.
+    data_tests: &id004
+    - not_null
+    config: &id005
+      meta:
+        pii: false
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: line_item_id
+    data_type: varchar
+    description: Source Shopify identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: net_ordered_quantity
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Current units after additional unfulfilled cancellation removal; null when cancellation
+      evidence is missing or invalid.
+  - name: net_quantity_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Evidence used for net units; no inference about physical returns.
+- name: int_shopify_orders__net_units
+  description: Net units per order, preserving unknown line quantities rather than summing partial totals.
+  config:
+    meta:
+      grain: One row per order with source lines
+      key:
+      - shop_id
+      - order_id
+  data_tests:
+  - unique_combination:
+      name: shopify_net_units_unique_order
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Source Shopify identity.
+    data_tests: *id002
+    config: *id003
+  - name: order_id
+    data_type: varchar
+    description: Source Shopify identity.
+    data_tests: *id004
+    config: *id005
+  - name: net_ordered_quantity
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Current units after additional unfulfilled cancellation removal; null when cancellation
+      evidence is missing or invalid.
+  - name: unresolved_quantity_line_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Lines whose net quantities remain unknown; their order total remains null.
+unit_tests:
+- name: net_units_do_not_double_subtract_refunds
+  model: int_shopify_order_lines__net_units
+  given:
+  - input: ref('stg_shopify_orders__order_lines')
+    rows:
+    - shop_id: s
+      order_id: ordinary
+      line_item_id: l
+      order_line_quantity: 4
+      current_quantity: 3
+      unfulfilled_quantity: 0
+    - shop_id: s
+      order_id: goodwill
+      line_item_id: l
+      order_line_quantity: 1
+      current_quantity: 1
+      unfulfilled_quantity: 0
+    - shop_id: s
+      order_id: removed
+      line_item_id: l
+      order_line_quantity: 3
+      current_quantity: 1
+      unfulfilled_quantity: 1
+    - shop_id: s
+      order_id: cancelled
+      line_item_id: l
+      order_line_quantity: 3
+      current_quantity: 3
+      unfulfilled_quantity: 3
+    - shop_id: s
+      order_id: partial
+      line_item_id: l
+      order_line_quantity: 3
+      current_quantity: 2
+      unfulfilled_quantity: 1
+    - shop_id: s
+      order_id: fulfilled
+      line_item_id: l
+      order_line_quantity: 2
+      current_quantity: 1
+      unfulfilled_quantity: 0
+    - shop_id: s
+      order_id: missing
+      line_item_id: l
+      order_line_quantity: 1
+      current_quantity: 1
+      unfulfilled_quantity: null
+    - shop_id: s
+      order_id: zero
+      line_item_id: l
+      order_line_quantity: 1
+      current_quantity: 0
+      unfulfilled_quantity: null
+    - shop_id: s
+      order_id: invalid
+      line_item_id: l
+      order_line_quantity: 1
+      current_quantity: 2
+      unfulfilled_quantity: 0
+  - input: ref('stg_shopify_orders__orders')
+    rows:
+    - shop_id: s
+      order_id: ordinary
+      cancelled_at: null
+    - shop_id: s
+      order_id: goodwill
+      cancelled_at: null
+    - shop_id: s
+      order_id: removed
+      cancelled_at: null
+    - shop_id: s
+      order_id: cancelled
+      cancelled_at: '2026-10-01 00:00:00'
+    - shop_id: s
+      order_id: partial
+      cancelled_at: '2026-10-01 00:00:00'
+    - shop_id: s
+      order_id: fulfilled
+      cancelled_at: '2026-10-01 00:00:00'
+    - shop_id: s
+      order_id: missing
+      cancelled_at: '2026-10-01 00:00:00'
+    - shop_id: s
+      order_id: zero
+      cancelled_at: '2026-10-01 00:00:00'
+    - shop_id: s
+      order_id: invalid
+      cancelled_at: null
+  expect:
+    rows:
+    - shop_id: s
+      order_id: ordinary
+      line_item_id: l
+      net_ordered_quantity: 3
+      net_quantity_status: current_quantity
+    - shop_id: s
+      order_id: goodwill
+      line_item_id: l
+      net_ordered_quantity: 1
+      net_quantity_status: current_quantity
+    - shop_id: s
+      order_id: removed
+      line_item_id: l
+      net_ordered_quantity: 1
+      net_quantity_status: current_quantity
+    - shop_id: s
+      order_id: cancelled
+      line_item_id: l
+      net_ordered_quantity: 0
+      net_quantity_status: cancelled_unfulfilled
+    - shop_id: s
+      order_id: partial
+      line_item_id: l
+      net_ordered_quantity: 1
+      net_quantity_status: cancelled_unfulfilled
+    - shop_id: s
+      order_id: fulfilled
+      line_item_id: l
+      net_ordered_quantity: 1
+      net_quantity_status: cancelled_unfulfilled
+    - shop_id: s
+      order_id: missing
+      line_item_id: l
+      net_ordered_quantity: null
+      net_quantity_status: missing_cancellation_evidence
+    - shop_id: s
+      order_id: zero
+      line_item_id: l
+      net_ordered_quantity: 0
+      net_quantity_status: current_quantity
+    - shop_id: s
+      order_id: invalid
+      line_item_id: l
+      net_ordered_quantity: null
+      net_quantity_status: invalid_quantity_evidence

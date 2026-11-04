@@ -1,0 +1,1084 @@
+version: 2
+models:
+- name: fct_orders
+  description: Shopify orders at their latest known state, one row per order. Includes test and cancelled
+    orders. Source totals keep Shopify's meanings; governed revenue measures are not yet defined here.
+    Adds USD commercial components and explicit unresolved evidence; net revenue excludes finalized fees.
+    Channel and order-characteristic flags are nullable; null means the evidence is unavailable.
+  config:
+    meta:
+      publication:
+        access: analytical
+        grain: One row per Shopify order, latest known state
+        key: &id001
+        - shopify_shop_id
+        - shopify_order_id
+        checks:
+        - fct_orders_unique_order
+        - fct_orders_reconcile_staging
+        - shopify_published_net_units_reconcile
+        - shopify_published_commercial_reconcile
+        - fct_orders_channels_consistent
+        - shopify_published_revenue_eligibility
+        - shopify_published_average_eligibility
+  data_tests:
+  - unique_combination:
+      name: fct_orders_unique_order
+      arguments:
+        columns: *id001
+  columns:
+  - name: is_payment_observation_complete
+    data_type: boolean
+    description: Whether parent observation lineage is present at revision 3 or later and its EXACT transaction
+      count matches the retained transaction rows. Does not prove freshness or source-window coverage.
+    config:
+      meta:
+        pii: false
+  - name: is_payment_obligation_verified
+    data_type: boolean
+    description: Whether one dated initial ORDER and supported dated changes reconcile to original and current
+      order totals in USD using the validated ledger handling-fee header adjustment.
+      Event obligations retain those fees. Unsupported RETURN agreements remain false.
+    config:
+      meta:
+        pii: false
+  - name: is_payment_chronology_resolved
+    data_type: boolean
+    description: Whether cash movements are classified, amounts and times are usable, refund links resolve
+      to one agreement, and chronological retained cash never becomes negative.
+    config:
+      meta:
+        pii: false
+  - name: has_fully_paid_current_obligation
+    data_type: boolean
+    description: Whether net cash covers a verified obligation at a logical event on or after the latest
+      order edit. Later refunds preserve proof; a new unpaid edit resets it. Null for incomplete proof.
+    config:
+      meta:
+        pii: false
+  - name: net_customer_payment_shop_amount
+    data_type: decimal(38, 9)
+    description: Successful collections less customer refunds, excluding proven failed-attempt reversal
+      pairs; null when observation or chronology is unresolved.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: is_partially_refunded
+    data_type: boolean
+    description: Whether successful customer refunds exist with positive net retained payment; null for
+      unresolved observation or payment chronology.
+    config:
+      meta:
+        pii: false
+  - name: is_fully_refunded
+    data_type: boolean
+    description: Whether previous collections and successful customer refunds leave zero net retained payment;
+      null for unresolved observation or payment chronology.
+    config:
+      meta:
+        pii: false
+  - name: is_revenue_eligible
+    data_type: boolean
+    description: True for resolved revenue scope with verified full payment; false for any proven exclusion;
+      null when required evidence is unknown without a proven exclusion. Does not apply AOV exclusions.
+    config:
+      meta:
+        pii: false
+  - name: revenue_exclusion_reasons
+    data_type: varchar
+    description: All proven exclusion identifiers separated and terminated by a pipe; empty when none. Identifiers
+      are test_order, gift_card_only and payment_not_fully_collected.
+    config:
+      meta:
+        pii: false
+  - name: revenue_unresolved_requirements
+    data_type: varchar
+    description: All unresolved requirement identifiers separated and terminated by a pipe; empty when none.
+      Identifiers are test_status_unknown, payment_evidence_incomplete, payment_obligation_unknown, payment_chronology_unresolved
+      and commercial_value_unknown. Retained even for excluded orders.
+    config:
+      meta:
+        pii: false
+  - name: is_aov_eligible
+    data_type: boolean
+    description: >-
+      Whole-order AOV verdict: true only for verified paid, commercially resolved merchandise scope with known non-gifted, non-replacement, non-exchange classification, no cancellation or full refund and positive net revenue excluding tax and handling fees. False for a proven exclusion; null for unresolved requirements.
+    config:
+      meta:
+        pii: false
+  - name: aov_exclusion_reasons
+    data_type: varchar
+    description: >-
+      All proven AOV exclusions, pipe-separated and terminated; empty when none. Includes revenue exclusions plus cancelled_order, gifted_order, replacement_order, exchange_order, fully_refunded and nonpositive_commercial_value.
+    config:
+      meta:
+        pii: false
+  - name: aov_unresolved_requirements
+    data_type: varchar
+    description: >-
+      All unknown AOV requirements, retained even for excluded orders. Includes revenue requirements plus revenue_evidence_missing, gifting_status_unknown, replacement_status_unknown, exchange_status_unknown, refund_status_unknown and retained_commercial_value_unknown; pipe-separated and terminated.
+    config:
+      meta:
+        pii: false
+  - name: reporting_market
+    data_type: varchar
+    description: Reporting bucket based on latest shipping destination. A country listed in the separate_reporting_markets project var reports as itself; every other destination, including a missing country, reports in home_reporting_market. Not actual geography.
+    config:
+      meta:
+        pii: false
+  - name: is_draft_order
+    data_type: boolean
+    description: Whether source_name exactly matches shopify_draft_order; null when source_name is absent. This marker does not prove exhaustive draft-origin coverage.
+    config:
+      meta:
+        pii: false
+  - name: publication_id
+    data_type: varchar
+    description: Publication generation stamped during candidate build; null for standalone builds outside the publisher.
+      An optional diagnostic for pairing order facts with availability evidence; not required for consumer queries.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: analytical
+          meaning: Identifier of the validated publication containing these facts, not an order or source identity.
+  - name: shopify_shop_id
+    data_type: varchar
+    description: Shopify shop identity. Part of the order key.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: shopify_order_id
+    data_type: varchar
+    description: Shopify order identity within the shop. Part of the order key.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: 'Shopify order name, the human-readable reference such as #1001.'
+  - name: shopify_customer_id
+    data_type: varchar
+    description: Shopify customer identity. Null when the order has no linked customer.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: created_at
+    data_type: timestamp
+    description: When Shopify created the order, in UTC.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: processed_at
+    data_type: timestamp
+    description: When the order was processed, in UTC. Null when Shopify recorded none.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: updated_at
+    data_type: timestamp
+    description: When Shopify last updated the order, in UTC.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: cancelled_at
+    data_type: timestamp
+    description: When the order was cancelled, in UTC. Null when not cancelled.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: closed_at
+    data_type: timestamp
+    description: When the order was closed, in UTC. Null when open.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: ordered_at
+    data_type: timestamp
+    description: 'The instant order_date comes from, in UTC: processed_at, or created_at when Shopify
+      recorded no processing time.'
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: order_date_source
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: 'Which timestamp ordered_at uses: processed_at, or created_at as a fallback.'
+  - name: order_date
+    data_type: date
+    description: Calendar date of ordered_at in the reporting time zone. Later refunds and edits keep this
+      date (order-date basis).
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: derived_date
+          instant: ordered_at
+          timezone: "{{ env_var('ANALYTICS_REPORTING_TIME_ZONE', 'America/Los_Angeles') }}"
+          test: shopify_orders_timezones_match
+  - name: cancel_reason
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify cancellation reason. Null when not cancelled.
+  - name: is_cancelled
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when cancelled_at is set.
+  - name: is_test
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True for Shopify test orders. Test orders are retained and must be filtered by consumers.
+  - name: source_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify source name, such as web or pos. Not a channel classification.
+  - name: financial_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify display financial status at the latest observation. Does not prove payment history.
+  - name: fulfillment_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify display fulfillment status at the latest observation.
+  - name: is_tax_included
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when source prices include tax. Null for observations before extraction revision
+      2.
+  - name: shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency for *_shop_amount columns. Tested to be USD, the reporting currency.
+  - name: presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Customer checkout currency for *_presentment_amount columns.
+  - name: total_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalPriceSet at the latest observation: the order total including tax and shipping,
+      before later refunds. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalPriceSet at the latest observation: the order total including tax and shipping,
+      before later refunds. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: current_total_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentTotalPriceSet: the order total after edits, returns and refunds. In shop
+      currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: current_total_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentTotalPriceSet: the order total after edits, returns and refunds. In presentment
+      currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: original_total_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify originalTotalPriceSet: the order total at creation, before edits. Null for observations
+      before extraction revision 2. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: original_total_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify originalTotalPriceSet: the order total at creation, before edits. Null for observations
+      before extraction revision 2. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: subtotal_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify subtotalPriceSet: line subtotal after discounts, before shipping and tax. In
+      shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: subtotal_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify subtotalPriceSet: line subtotal after discounts, before shipping and tax. In
+      presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: current_subtotal_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentSubtotalPriceSet: subtotal after edits, returns and refunds. In shop
+      currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: current_subtotal_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentSubtotalPriceSet: subtotal after edits, returns and refunds. In presentment
+      currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: total_discounts_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalDiscountsSet: total discounts applied to the order. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_discounts_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalDiscountsSet: total discounts applied to the order. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: total_tax_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalTaxSet: tax charged on the order. Null for observations before extraction
+      revision 2. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_tax_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalTaxSet: tax charged on the order. Null for observations before extraction
+      revision 2. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: current_total_tax_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentTotalTaxSet: tax after edits, returns and refunds. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: current_total_tax_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentTotalTaxSet: tax after edits, returns and refunds. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: total_shipping_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalShippingPriceSet: shipping charged, after shipping discounts. Null for
+      observations before extraction revision 2. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_shipping_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalShippingPriceSet: shipping charged, after shipping discounts. Null for
+      observations before extraction revision 2. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: total_refunded_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalRefundedSet: total amount refunded, including tax. A reconciliation input,
+      not a commercial refund measure. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_refunded_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalRefundedSet: total amount refunded, including tax. A reconciliation input,
+      not a commercial refund measure. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: line_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of source order lines, including removed and refunded lines. Zero when the order
+      has no lines.
+  - name: gross_ordered_quantity
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Units ordered across all lines before cancellations, removals and refunds.
+  - name: original_line_value_shop_amount
+    data_type: decimal(38, 9)
+    description: Sum of quantity times original unit price across lines, before any discounts, edits or
+      refunds. Not gross sales. In shop currency (USD).
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: original_line_value_presentment_amount
+    data_type: decimal(38, 9)
+    description: original_line_value in presentment currency.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: source_observed_at
+    data_type: timestamp
+    description: When ingestion last observed this order in Shopify, in UTC.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: has_classification_evidence
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when the latest observation selected tags, discount codes and order email
+      (extraction revision 2 or later). False means tag, code and email rules are unknown, so
+      channel and characteristic flags that need them are null.
+    data_tests:
+    - not_null
+  - name: has_retail_evidence
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Retail rule match. True when the trimmed, lowercased source name is pos.
+    data_tests:
+    - not_null
+  - name: has_specialty_evidence
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Specialty rule match, kept even when retail wins. True for a tag matching the
+      specialty_order_tags project var or a discount code matching specialty_discount_codes. Null
+      without classification evidence.
+  - name: has_bulk_evidence
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Bulk rule match, kept even when retail or specialty wins. True for a tag matching
+      bulk_order_tags. Null without classification evidence.
+  - name: has_gifting_tag_evidence
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True for a tag matching gifting_order_tags. Null without classification evidence.
+  - name: is_d2c
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Direct-to-consumer channel, the residual of the commercial rules. True when retail,
+      specialty and bulk were all evaluated with no match; false for commercial orders; null when
+      commercial evidence is unavailable. Independent of revenue, refunds and metric eligibility.
+  - name: is_commercial
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when the order is retail, specialty or bulk. Mutually exclusive with is_d2c; null
+      when no commercial channel is established and evidence is unavailable.
+  - name: is_retail
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Retail commercial channel. Every Shopify POS order is retail; retail takes precedence
+      over specialty and bulk.
+  - name: is_specialty
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Specialty commercial channel. True with specialty evidence and no retail match.
+  - name: is_bulk
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Bulk commercial channel. True with bulk evidence and no retail or specialty match.
+  - name: is_employee_order
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when the order email domain is exactly one of the employee_email_domains project
+      var, paid or free. Uses the order email, not the current customer profile. Null when the email is
+      unavailable.
+  - name: is_gifted
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True for a gifting tag or a non-test, non-replacement employee order whose
+      original whole-order total after discounts, including shipping and tax, is zero. Later edits or
+      refunds do not establish gifting. Null when required evidence is unavailable or invalid and no
+      decisive condition resolves the rule.
+  - name: is_replacement
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True for a tag matching replacement_order_tags or a discount code matching
+      replacement_discount_codes.
+  - name: is_exchange
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True for a tag matching exchange_order_tags or a discount code matching
+      exchange_discount_codes. Can overlap with is_replacement.
+  - name: is_shopify_collective
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True for a tag matching shopify_collective_order_tags. Collective orders are D2C unless a commercial
+      rule matches.
+  - name: is_broadcast
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True for a tag matching broadcast_order_tags. Broadcast orders are D2C unless a commercial rule matches.
+  - name: net_ordered_quantity
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Units after source refunds/removals and additional unfulfilled cancellation removal.
+      Null when required evidence is unknown; not physically kept units.
+  - name: unresolved_quantity_line_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Source lines with unknown net quantity. A positive count makes the order net quantity
+      null.
+  - name: commercial_resolution_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: First blocking reason, or complete. Values are no_agreement_evidence, no_order_agreement,
+      no_sale_evidence, unresolved_sales, unresolved_refund, unfinalized_fee, unresolved_adjustment, unresolved_payment_refund,
+      unresolved_payment_currency and complete.
+  - name: is_commercial_resolved
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Whether commercial_resolution_status is complete.
+  - name: agreement_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of sales agreements for the order.
+  - name: sale_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of ledger sales for the order.
+  - name: unresolved_sale_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of ledger sales that did not resolve.
+  - name: refund_object_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of Shopify refund objects for the order.
+  - name: refund_without_agreement_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of refund objects with no sales agreement carrying the same refund identity.
+  - name: refund_object_unresolved_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of refund objects that are not in USD or have no amount.
+  - name: unfinalized_fee_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of fee sales that need finalized Loop evidence.
+  - name: unresolved_adjustment_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of refund adjustments. Each one is unexplained until finalized evidence explains
+      it.
+  - name: non_gift_card_line_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of source order lines that are not gift cards; a parent allocation input.
+  - name: unknown_gift_card_line_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of source order lines whose gift-card flag is missing.
+  - name: unresolved_refund_payment_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Number of successful refund transactions that are not yet classified.
+  - name: gross_merchandise_shop_amount
+    data_type: decimal(38, 9)
+    description: Merchandise value before discount for the order; NULL when sales are not fully known.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: merchandise_discount_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-exclusive merchandise discount for the order, as a negative effect.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: merchandise_refund_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-exclusive merchandise refund for the order, net of discount, as a negative value.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: net_merchandise_shop_amount
+    data_type: decimal(38, 9)
+    description: Gross merchandise plus discount plus merchandise refund; NULL unless the status is complete.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: shipping_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-exclusive shipping charged for the order.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: shipping_refund_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-exclusive shipping refunded for the order, as a negative value.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: net_shipping_shop_amount
+    data_type: decimal(38, 9)
+    description: Shipping plus shipping refund; NULL unless the status is complete.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: net_revenue_shop_amount
+    data_type: decimal(38, 9)
+    description: Net merchandise plus net shipping; NULL unless the status is complete. Excludes fees.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: duty_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-exclusive duty sales for the order, signed as reported.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: gift_card_liability_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-exclusive gift-card sale value for the order; excluded from merchandise.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: tax_shop_amount
+    data_type: decimal(38, 9)
+    description: Source tax across resolved sales for the order.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: return_shipping_fee_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-exclusive return shipping fee for the order.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: unfinalized_fee_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-exclusive fee sales that need finalized Loop evidence. Not a handling fee.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: additional_fee_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-exclusive additional fee sales for the order.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: unresolved_adjustment_shop_amount
+    data_type: decimal(38, 9)
+    description: Sum of refund adjustment amounts in USD. Unexplained; not a merchandise, shipping or
+      fee amount.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: unresolved_adjustment_tax_shop_amount
+    data_type: decimal(38, 9)
+    description: Sum of refund adjustment tax amounts in USD. Unexplained.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: unassigned_shipping_shop_amount
+    data_type: decimal(38, 9)
+    description: Shipping charged for the order with no direct line assignment; the parent allocates it.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: unassigned_shipping_refund_shop_amount
+    data_type: decimal(38, 9)
+    description: Shipping refunded for the order with no direct line assignment; the parent allocates
+      it.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: ledger_total_shop_amount
+    data_type: decimal(38, 9)
+    description: Sum of resolved sale totals including tax; compare with the current order total.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: ledger_header_difference_shop_amount
+    data_type: decimal(38, 9)
+    description: Ledger total minus the current order total in the source header. Zero means the ledger
+      reconciles.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: refund_object_shop_amount
+    data_type: decimal(38, 9)
+    description: Sum of refund object totals in USD for the order.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: refund_linked_sale_total_shop_amount
+    data_type: decimal(38, 9)
+    description: Tax-inclusive sale totals on sales agreements that carry a refund identity.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: refund_agreement_difference_shop_amount
+    data_type: decimal(38, 9)
+    description: Refund object total plus refund-linked sale totals. Zero means the refund objects match
+      the agreements.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: successful_collected_shop_amount
+    data_type: decimal(38, 9)
+    description: Successful collected payments for the order, including gift-card tender.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: successful_refund_object_payment_shop_amount
+    data_type: decimal(38, 9)
+    description: Successful refund payments linked to a Shopify refund object.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: failed_attempt_reversal_shop_amount
+    data_type: decimal(38, 9)
+    description: Successful refund payments identified as reversals of failed attempts; excluded from
+      commercial refunds.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: unresolved_refund_payment_shop_amount
+    data_type: decimal(38, 9)
+    description: Successful refund payments that are not yet classified; excluded from commercial refunds.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: reporting_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Governed reporting currency for every amount in this model; always USD.
+  - name: unresolved_handling_fee_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Refunds whose handling-fee evidence remains unresolved.
+  - name: handling_fee_shop_amount
+    data_type: decimal(38, 9)
+    description: Finalized handling fees in USD, separate from merchandise, shipping and net revenue.
+      Unknown when any refund fee is unresolved.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: unresolved_payment_activity_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Unclassified payment activity or money movement with missing or negative amounts.
+  - name: payment_transaction_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Observed payment transactions; zero does not establish payment collection.
+  - name: merchandise_discount_unallocated_shop_amount
+    data_type: decimal(38, 9)
+    description: Order discount not yet assigned to a line. NULL when unknown.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: merchandise_refund_unallocated_shop_amount
+    data_type: decimal(38, 9)
+    description: Order merchandise refund not yet assigned to a line. NULL when unknown.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: shipping_unallocated_shop_amount
+    data_type: decimal(38, 9)
+    description: Order shipping not yet assigned to a line. NULL when unknown.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: shipping_refund_unallocated_shop_amount
+    data_type: decimal(38, 9)
+    description: Order shipping refund not yet assigned to a line. NULL when unknown.
+    config:
+      meta:
+        pii: false
+        currency:
+          column: reporting_currency_code
+  - name: allocation_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: First blocking reason, or complete.
+  - name: is_allocation_complete
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: Whether every component is fully allocated.
+unit_tests:
+- name: orders_without_lines_get_zero_rollups
+  description: Every staged order appears once. An order without lines gets zero counts and values rather
+    than nulls or a dropped row.
+  model: fct_orders
+  given:
+  - input: ref('stg_shopify_orders__orders')
+    rows:
+    - shop_id: s
+      order_id: a
+      cancelled_at: null
+    - shop_id: s
+      order_id: b
+      cancelled_at: '2026-01-01 00:00:00'
+  - input: ref('int_shopify_orders__classifications')
+    rows: []
+  - input: ref('int_shopify_orders__line_rollups')
+    rows:
+    - shop_id: s
+      order_id: a
+      line_count: 2
+      gross_ordered_quantity: 5
+      original_line_value_shop_amount: 12.5
+      original_line_value_presentment_amount: 12.5
+  - input: ref('int_shopify_orders__net_units')
+    rows: []
+  - input: ref('int_shopify_orders__commercial_components')
+    rows: []
+  - input: ref('int_shopify_orders__allocations')
+    rows: []
+  - input: ref('int_shopify_orders__payment_history')
+    rows: []
+  - input: ref('int_shopify_orders__revenue_eligibility')
+    rows: []
+  - input: ref('int_shopify_orders__average_eligibility')
+    rows: []
+  expect:
+    rows:
+    - is_cancelled: false
+      line_count: 2
+      gross_ordered_quantity: 5
+      original_line_value_shop_amount: 12.5
+      shopify_shop_id: s
+      shopify_order_id: a
+    - is_cancelled: true
+      line_count: 0
+      gross_ordered_quantity: 0
+      original_line_value_shop_amount: 0
+      shopify_shop_id: s
+      shopify_order_id: b
+- name: orders_get_reporting_market_and_exact_draft_marker
+  description: The staged reporting market passes through. Only the exact source name
+    shopify_draft_order marks a draft; similar names do not, and a missing source stays unknown.
+  model: fct_orders
+  given:
+  - input: ref('stg_shopify_orders__orders')
+    rows:
+    - {shop_id: s, order_id: '1', reporting_market: CA, source_name: web}
+    - {shop_id: s, order_id: '2', reporting_market: US, source_name: web}
+    - {shop_id: s, order_id: '3', reporting_market: US, source_name: shopify_draft_order}
+    - {shop_id: s, order_id: '4', reporting_market: US, source_name: null}
+    - {shop_id: s, order_id: '5', reporting_market: US, source_name: draft_order}
+    - {shop_id: s, order_id: '6', reporting_market: US, source_name: Shopify_Draft_Order}
+  - input: ref('int_shopify_orders__classifications')
+    rows: []
+  - input: ref('int_shopify_orders__line_rollups')
+    rows: []
+  - input: ref('int_shopify_orders__net_units')
+    rows: []
+  - input: ref('int_shopify_orders__commercial_components')
+    rows: []
+  - input: ref('int_shopify_orders__allocations')
+    rows: []
+  - input: ref('int_shopify_orders__payment_history')
+    rows: []
+  - input: ref('int_shopify_orders__revenue_eligibility')
+    rows: []
+  - input: ref('int_shopify_orders__average_eligibility')
+    rows: []
+  expect:
+    rows:
+    - {shopify_order_id: '1', reporting_market: CA, is_draft_order: false}
+    - {shopify_order_id: '2', reporting_market: US, is_draft_order: false}
+    - {shopify_order_id: '3', reporting_market: US, is_draft_order: true}
+    - {shopify_order_id: '4', reporting_market: US, is_draft_order: null}
+    - {shopify_order_id: '5', reporting_market: US, is_draft_order: false}
+    - {shopify_order_id: '6', reporting_market: US, is_draft_order: false}

@@ -1,0 +1,251 @@
+version: 2
+models:
+- name: stg_goodday__inventory_captures
+  description: One row per successfully loaded capture and load. No product enrichment
+    or vendor-freshness guarantee.
+  config:
+    meta:
+      owner: Analytics Platform
+      grain: One row per successfully loaded capture and load
+      key: &id001
+      - inventory_capture_id
+      - inventory_load_id
+  data_tests:
+  - unique_combination:
+      name: stg_goodday__inventory_captures_unique_key
+      arguments:
+        columns: *id001
+  columns:
+  - name: inventory_capture_id
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Extraction attempt identity shared by evidence and rows.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: inventory_load_id
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: dlt load identity that successfully committed the capture.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: source_relation
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Explicit vendor project, dataset and relation observed.
+  - name: inventory_row_count
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Expected rows in the completed result, including zero.
+  - name: captured_at
+    data_type: timestamp
+    description: UTC extraction start; not vendor freshness.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: observed_at
+    data_type: timestamp
+    description: UTC time the source read started; not vendor
+      refresh time.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+- name: stg_goodday__inventory_items
+  description: One row per capture, load and source result position. No product enrichment
+    or vendor-freshness guarantee.
+  config:
+    meta:
+      owner: Analytics Platform
+      grain: One row per capture, load and source result position
+      key: &id002
+      - inventory_capture_id
+      - inventory_load_id
+      - inventory_row_number
+  data_tests:
+  - unique_combination:
+      name: stg_goodday__inventory_items_unique_key
+      arguments:
+        columns: *id002
+  columns:
+  - name: inventory_capture_id
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Extraction attempt identity.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: inventory_load_id
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: dlt load identity for this row.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: inventory_row_number
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: One-based position in a capture; not a source business identity.
+    constraints:
+    - type: not_null
+    data_tests:
+    - not_null
+  - name: merchant_id
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: GoodDay merchant id; source nulls retained.
+  - name: item_id
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: GoodDay item id; source nulls retained.
+  - name: channel_id
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: GoodDay channel id; source nulls retained.
+  - name: location_id
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: GoodDay location id; source nulls retained.
+  - name: parent_item_id
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: GoodDay parent item id; source nulls retained.
+  - name: merchant_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Unmodified GoodDay merchant name.
+  - name: item_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Unmodified GoodDay item name.
+  - name: item_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Unmodified GoodDay item status.
+  - name: sku
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Unmodified GoodDay sku.
+  - name: channel_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Unmodified GoodDay channel name.
+  - name: location_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Unmodified GoodDay location name.
+  - name: on_hand_total_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay on hand total units; retained without recalculation, including
+      null and negative values.
+  - name: on_hand_sellable_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay on hand sellable units; retained without recalculation, including
+      null and negative values.
+  - name: on_hand_unsellable_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay on hand unsellable units; retained without recalculation,
+      including null and negative values.
+  - name: on_hand_reserved_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay on hand reserved units; retained without recalculation, including
+      null and negative values.
+  - name: on_hand_committed_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay on hand committed units; retained without recalculation,
+      including null and negative values.
+  - name: on_hand_available_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay on hand available units; retained without recalculation,
+      including null and negative values.
+  - name: available_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay available units; retained without recalculation, including
+      null and negative values.
+  - name: ats_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay ats units; retained without recalculation, including null
+      and negative values.
+  - name: inbound_total_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay inbound total units; retained without recalculation, including
+      null and negative values.
+  - name: inbound_available_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay inbound available units; retained without recalculation,
+      including null and negative values.
+  - name: fulfilled_total_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay fulfilled total units; retained without recalculation, including
+      null and negative values.
+  - name: transfer_in_transit_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay transfer in transit units; retained without recalculation,
+      including null and negative values.
+  - name: return_total_quantity
+    config:
+      meta: {pii: false}
+    data_type: decimal(38, 9)
+    description: GoodDay return total units; retained without recalculation, including
+      null and negative values.
+  - name: source_updated_at
+    data_type: timestamp
+    description: Source row update instant, not evidence of a complete source refresh.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC

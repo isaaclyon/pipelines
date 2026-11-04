@@ -1,0 +1,15 @@
+name: publication_fixture
+version: '1.0'
+config-version: 2
+profile: analytics
+models:
+  publication_fixture:
+    staging:
+      +schema: staging
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+      +access: public
+      +contract:
+        enforced: true

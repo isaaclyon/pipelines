@@ -1,0 +1,112 @@
+version: 2
+models:
+- name: fct_data_availability
+  description: Availability evidence captured in the same candidate as order facts, one row per known
+    shop or one unknown row before discovery. Does not join to orders in Cube. Age must be evaluated at
+    query time.
+  config:
+    meta:
+      publication:
+        access: analytical
+        grain: One row per known shop, or one unknown row before source discovery
+        key:
+        - availability_id
+        checks:
+        - data_availability_consistent
+  columns:
+  - name: availability_id
+    data_type: varchar
+    description: Publication-local availability identity for a shop, or a single unknown row before source
+      discovery.
+    data_tests:
+    - not_null
+    - unique
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: analytical
+          meaning: Shop-scoped availability record, with one initial unknown record
+  - name: shopify_shop_id
+    data_type: varchar
+    description: Shopify source shop identity; null on the initial unknown row.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: publication_id
+    data_type: varchar
+    description: Generation captured with these facts and evidence; null outside the validated publisher.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: analytical
+          meaning: Validated publication generation shared by facts and availability
+  - name: environment
+    data_type: varchar
+    description: Explicit execution environment for this candidate, or unknown outside configured execution.
+    config:
+      meta:
+        pii: false
+  - name: evidence_captured_at
+    data_type: timestamp
+    description: UTC time the candidate captures availability evidence; never a source cutoff or final
+      publication time.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: shopify_coverage_started_at
+    data_type: timestamp
+    description: Inclusive start of the latest connected verified updated-at interval; gaps before it
+      are not covered.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: shopify_coverage_ended_at
+    data_type: timestamp
+    description: Exclusive end of the latest connected verified updated-at interval; null without evidence.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: loop_snapshot_ended_at
+    data_type: timestamp
+    description: Latest Loop extraction endpoint, retaining incomplete attempts; not a guarantee of vendor
+      updated-at coverage.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+  - name: is_loop_snapshot_complete
+    data_type: boolean
+    description: Whether the latest Loop snapshot matches current headers and a successful load. False
+      for missing or disabled evidence.
+    config:
+      meta:
+        pii: false
+  - name: is_loop_enabled
+    data_type: boolean
+    description: Whether the candidate reads the separately maintained Loop header feed.
+    config:
+      meta:
+        pii: false
+  - name: coverage_limitations
+    data_type: varchar
+    description: Known limitations of source coverage; inspect eligibility and scope separately, including
+      for fresh sources.
+    config:
+      meta:
+        pii: false

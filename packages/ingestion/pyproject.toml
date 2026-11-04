@@ -1,0 +1,59 @@
+[project]
+name = "analytics_ingestion"
+requires-python = ">=3.12,<3.13"
+version = "0.1.0"
+dependencies = [
+    "dagster==1.13.25",
+    "dagster-docker==0.29.25",
+    "dagster-postgres==0.29.25",
+    # Dagster 1.13.25 storage is incompatible with SQLAlchemy 2.1/psycopg3.
+    "sqlalchemy==2.0.54",
+    "dlt[duckdb,snowflake]==1.31.0",
+    "google-cloud-bigquery==3.40.0",
+    "sqlalchemy-bigquery==1.17.3",
+    "google-auth==2.49.1",
+    "requests==2.34.2",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright==1.40.2",
+    "dagster-dg-cli==1.13.25",
+    "pytest==9.1.1",
+    "ruff==0.16.10",
+
+]
+
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/analytics_ingestion"]
+force-include = { "pyproject.toml" = "pyproject.toml" }
+
+[tool.dg]
+directory_type = "project"
+
+[tool.dg.project]
+root_module = "analytics_ingestion"
+
+[tool.dg.cli.telemetry]
+enabled = false
+
+[tool.ruff]
+extend = "../../ruff.toml"
+
+[tool.basedpyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+reportAny = "error"
+reportExplicitAny = "error"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"analytics_transformations" = { msg = "No cross-package dependency is declared." }

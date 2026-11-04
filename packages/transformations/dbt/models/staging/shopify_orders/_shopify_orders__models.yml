@@ -1,0 +1,786 @@
+version: 2
+models:
+- name: stg_shopify_orders__orders
+  description: Shopify orders renamed and typed, one row per order. Instants are UTC; order_date is the
+    reporting-time-zone date of ordered_at.
+  config:
+    meta:
+      grain: One row per Shopify order, latest observed state
+      key:
+      - shop_id
+      - order_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_orders_unique_order
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Shopify order identity within the shop.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: 'Shopify order name, the human-readable reference such as #1001.'
+  - name: customer_id
+    data_type: varchar
+    description: Shopify customer identity. Null when the order has no linked customer.
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: created_at
+    data_type: timestamp
+    description: When Shopify created the order, in UTC.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: processed_at
+    data_type: timestamp
+    description: When the order was processed, in UTC. Null when Shopify recorded none.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: updated_at
+    data_type: timestamp
+    description: When Shopify last updated the order, in UTC.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: cancelled_at
+    data_type: timestamp
+    description: When the order was cancelled, in UTC. Null when not cancelled.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: closed_at
+    data_type: timestamp
+    description: When the order was closed, in UTC. Null when open.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: ordered_at
+    data_type: timestamp
+    description: 'The instant order_date comes from, in UTC: processed_at, or created_at when Shopify
+      has no processing time.'
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: order_date_source
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Which timestamp ordered_at uses, processed_at or created_at.
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - processed_at
+          - created_at
+  - name: order_date
+    data_type: date
+    description: Calendar date of ordered_at in the reporting time zone (ANALYTICS_REPORTING_TIME_ZONE).
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: derived_date
+          instant: ordered_at
+          timezone: "{{ env_var('ANALYTICS_REPORTING_TIME_ZONE', 'America/Los_Angeles') }}"
+          test: shopify_orders_timezones_match
+  - name: cancel_reason
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify cancellation reason. Null when not cancelled.
+  - name: is_test
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True for Shopify test orders. Test orders are retained and must be filtered by consumers.
+  - name: source_name
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify source name, such as web or pos. Not a channel classification.
+  - name: financial_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify display financial status at the latest observation. Does not prove payment history.
+  - name: fulfillment_status
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shopify display fulfillment status at the latest observation.
+  - name: is_tax_included
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when source prices include tax. Null for observations before extraction revision
+      2.
+  - name: shop_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shop currency for *_shop_amount columns. Tested to be USD, the reporting currency.
+  - name: presentment_currency_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Customer checkout currency for *_presentment_amount columns.
+  - name: total_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalPriceSet at the latest observation: the order total including tax and shipping,
+      before later refunds. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalPriceSet at the latest observation: the order total including tax and shipping,
+      before later refunds. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: current_total_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentTotalPriceSet: the order total after edits, returns and refunds. In shop
+      currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: current_total_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentTotalPriceSet: the order total after edits, returns and refunds. In presentment
+      currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: original_total_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify originalTotalPriceSet: the order total at creation, before edits. Null for observations
+      before extraction revision 2. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: original_total_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify originalTotalPriceSet: the order total at creation, before edits. Null for observations
+      before extraction revision 2. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: subtotal_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify subtotalPriceSet: line subtotal after discounts, before shipping and tax. In
+      shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: subtotal_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify subtotalPriceSet: line subtotal after discounts, before shipping and tax. In
+      presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: current_subtotal_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentSubtotalPriceSet: subtotal after edits, returns and refunds. In shop
+      currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: current_subtotal_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentSubtotalPriceSet: subtotal after edits, returns and refunds. In presentment
+      currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: total_discounts_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalDiscountsSet: total discounts applied to the order. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_discounts_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalDiscountsSet: total discounts applied to the order. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: total_tax_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalTaxSet: tax charged on the order. Null for observations before extraction
+      revision 2. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_tax_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalTaxSet: tax charged on the order. Null for observations before extraction
+      revision 2. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: current_total_tax_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentTotalTaxSet: tax after edits, returns and refunds. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: current_total_tax_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify currentTotalTaxSet: tax after edits, returns and refunds. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: total_shipping_price_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalShippingPriceSet: shipping charged, after shipping discounts. Null for
+      observations before extraction revision 2. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_shipping_price_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalShippingPriceSet: shipping charged, after shipping discounts. Null for
+      observations before extraction revision 2. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: total_refunded_shop_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalRefundedSet: total amount refunded, including tax. A reconciliation input,
+      not a commercial refund measure. In shop currency (USD).'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+  - name: total_refunded_presentment_amount
+    data_type: decimal(38, 9)
+    description: 'Shopify totalRefundedSet: total amount refunded, including tax. A reconciliation input,
+      not a commercial refund measure. In presentment currency.'
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+  - name: order_email
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Email most recently recorded on the order. Not the customer's current profile email.
+  - name: order_phone
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Phone most recently recorded on the order.
+  - name: billing_address_first_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Billing address first name, as most recently recorded on the order.
+  - name: billing_address_last_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Billing address last name, as most recently recorded on the order.
+  - name: billing_address_company
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Billing address company, as most recently recorded on the order.
+  - name: billing_address_address1
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Billing address first street line, as most recently recorded on the order.
+  - name: billing_address_address2
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Billing address second street line, as most recently recorded on the order.
+  - name: billing_address_city
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Billing address city, as most recently recorded on the order.
+  - name: billing_address_province
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Billing address province or state name, as most recently recorded on the order.
+  - name: billing_address_province_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Billing address province or state code, as most recently recorded on the order.
+  - name: billing_address_zip
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Billing address postal code, as most recently recorded on the order.
+  - name: billing_address_country
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Billing address country name, as most recently recorded on the order.
+  - name: billing_address_country_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Billing address ISO country code, as most recently recorded on the order.
+  - name: billing_address_phone
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Billing address phone number, as most recently recorded on the order.
+  - name: shipping_address_first_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Shipping address first name, as most recently recorded on the order.
+  - name: shipping_address_last_name
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Shipping address last name, as most recently recorded on the order.
+  - name: shipping_address_company
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Shipping address company, as most recently recorded on the order.
+  - name: shipping_address_address1
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Shipping address first street line, as most recently recorded on the order.
+  - name: shipping_address_address2
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Shipping address second street line, as most recently recorded on the order.
+  - name: shipping_address_city
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shipping address city, as most recently recorded on the order.
+  - name: shipping_address_province
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shipping address province or state name, as most recently recorded on the order.
+  - name: shipping_address_province_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shipping address province or state code, as most recently recorded on the order.
+  - name: shipping_address_zip
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shipping address postal code, as most recently recorded on the order.
+  - name: shipping_address_country
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shipping address country name, as most recently recorded on the order.
+  - name: shipping_address_country_code
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: Shipping address ISO country code, as most recently recorded on the order.
+  - name: reporting_market
+    config:
+      meta: {pii: false}
+    data_type: varchar
+    description: The shipping country when it is listed in the separate_reporting_markets project var;
+      otherwise home_reporting_market, including when the country is missing.
+  - name: is_home_reporting_market
+    config:
+      meta: {pii: false}
+    data_type: boolean
+    description: True when reporting_market is the home_reporting_market project var.
+  - name: shipping_address_phone
+    config:
+      meta: {pii: true}
+    data_type: varchar
+    description: Shipping address phone number, as most recently recorded on the order.
+  - name: source_query_version
+    data_type: varchar
+    description: Fingerprint of the source GraphQL documents used for this retained order observation.
+    config:
+      meta:
+        pii: false
+  - name: transactions_count
+    data_type: bigint
+    description: Source-reported transaction count for the retained observation; not the loaded child row count.
+    config:
+      meta:
+        pii: false
+  - name: transactions_count_precision
+    data_type: varchar
+    description: Source count precision; EXACT is required before verifying the observed transaction history.
+    config:
+      meta:
+        pii: false
+  - name: source_observed_at
+    data_type: timestamp
+    description: When ingestion last observed this order in Shopify, in UTC.
+    config:
+      meta:
+        pii: false
+        temporal:
+          kind: instant
+          timezone: UTC
+          test: shopify_orders_timezones_match
+  - name: extraction_revision
+    config:
+      meta: {pii: false}
+    data_type: bigint
+    description: Ingestion extraction revision of the latest observation. Null source revisions mean
+      revision 1. Revision 2 and later select tags, discount codes and order email, including empty
+      lists and explicit nulls.
+    data_tests:
+    - not_null
+- name: stg_shopify_orders__order_lines
+  description: Shopify order lines renamed and typed, one row per source line.
+  config:
+    meta:
+      grain: One row per Shopify order line, latest observed state
+      key:
+      - shop_id
+      - order_id
+      - line_item_id
+  data_tests:
+  - unique_combination:
+      name: shopify_staged_lines_unique_line
+      arguments:
+        columns:
+        - shop_id
+        - order_id
+        - line_item_id
+  columns:
+  - name: shop_id
+    data_type: varchar
+    description: Shopify shop identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: order_id
+    data_type: varchar
+    description: Parent Shopify order identity.
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: line_item_id
+    description: Shopify line item identity.
+    data_type: varchar
+    data_tests:
+    - not_null
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: sku
+    config:
+      meta: {pii: false}
+    description: Sku.
+    data_type: varchar
+  - name: line_name
+    config:
+      meta: {pii: true}
+    description: Line name.
+    data_type: varchar
+  - name: title
+    config:
+      meta: {pii: true}
+    description: Title.
+    data_type: varchar
+  - name: variant_title
+    config:
+      meta: {pii: true}
+    description: Variant title.
+    data_type: varchar
+  - name: product_id
+    description: Product id.
+    data_type: varchar
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: variant_id
+    description: Variant id.
+    data_type: varchar
+    config:
+      meta:
+        pii: false
+        identity:
+          kind: source
+          source: shopify
+  - name: is_gift_card
+    config:
+      meta: {pii: false}
+    description: Is gift card.
+    data_type: boolean
+  - name: order_line_quantity
+    config:
+      meta: {pii: false}
+    description: Order line quantity.
+    data_type: bigint
+  - name: current_quantity
+    config:
+      meta: {pii: false}
+    description: Source units excluding refunded and removed units; cancellation can retain unfulfilled units.
+    data_type: bigint
+  - name: unfulfilled_quantity
+    config:
+      meta: {pii: false}
+    description: Source units not yet fulfilled; null until revision-4 observation.
+    data_type: bigint
+  - name: non_fulfillable_quantity
+    config:
+      meta: {pii: false}
+    description: Source units that cannot be fulfilled, including refunded units; not an additional net-unit deduction.
+    data_type: bigint
+  - name: is_shipping_required
+    config:
+      meta: {pii: false}
+    description: Whether the source variant requires physical shipping; null until revision-4 observation.
+    data_type: boolean
+  - name: original_unit_price_shop_amount
+    description: Original unit price shop amount.
+    data_type: decimal(38, 9)
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+          model: stg_shopify_orders__orders
+          join:
+            shop_id: shop_id
+            order_id: order_id
+          test: shopify_orders_currencies_match
+  - name: original_unit_price_presentment_amount
+    description: Original unit price presentment amount.
+    data_type: decimal(38, 9)
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+          model: stg_shopify_orders__orders
+          join:
+            shop_id: shop_id
+            order_id: order_id
+          test: shopify_orders_currencies_match
+  - name: discounted_total_shop_amount
+    description: Discounted total shop amount.
+    data_type: decimal(38, 9)
+    config:
+      meta:
+        pii: false
+        currency:
+          column: shop_currency_code
+          model: stg_shopify_orders__orders
+          join:
+            shop_id: shop_id
+            order_id: order_id
+          test: shopify_orders_currencies_match
+  - name: discounted_total_presentment_amount
+    description: Discounted total presentment amount.
+    data_type: decimal(38, 9)
+    config:
+      meta:
+        pii: false
+        currency:
+          column: presentment_currency_code
+          model: stg_shopify_orders__orders
+          join:
+            shop_id: shop_id
+            order_id: order_id
+          test: shopify_orders_currencies_match
+unit_tests:
+- name: order_date_uses_pacific_time_across_dst
+  description: order_date is the reporting-zone date of processed_at, here Los Angeles, at midnight and
+    both daylight-saving transitions in 2026. Without processed_at it falls back to created_at and
+    records that it did.
+  model: stg_shopify_orders__orders
+  overrides:
+    env_vars: {ANALYTICS_REPORTING_TIME_ZONE: America/Los_Angeles}
+  given:
+  - input: source('shopify_orders', 'orders')
+    rows:
+    - order_id: before_midnight_pst
+      processed_at: '2026-01-15 07:59:59+00'
+      created_at: '2020-01-01 00:00:00+00'
+    - order_id: at_midnight_pst
+      processed_at: '2026-01-15 08:00:00+00'
+      created_at: '2020-01-01 00:00:00+00'
+    - order_id: before_spring_forward
+      processed_at: '2026-03-08 09:59:59+00'
+      created_at: '2020-01-01 00:00:00+00'
+    - order_id: after_spring_forward
+      processed_at: '2026-03-08 10:00:00+00'
+      created_at: '2020-01-01 00:00:00+00'
+    - order_id: before_midnight_pdt
+      processed_at: '2026-07-01 06:59:59+00'
+      created_at: '2020-01-01 00:00:00+00'
+    - order_id: before_fall_back
+      processed_at: '2026-11-01 08:59:59+00'
+      created_at: '2020-01-01 00:00:00+00'
+    - order_id: before_midnight_after_fall_back
+      processed_at: '2026-11-02 07:59:59+00'
+      created_at: '2020-01-01 00:00:00+00'
+    - order_id: missing_processed_at
+      processed_at: null
+      created_at: '2026-07-01 06:30:00+00'
+  expect:
+    rows:
+    - order_id: before_midnight_pst
+      order_date: 2026-01-14
+      order_date_source: processed_at
+    - order_id: at_midnight_pst
+      order_date: 2026-01-15
+      order_date_source: processed_at
+    - order_id: before_spring_forward
+      order_date: 2026-03-08
+      order_date_source: processed_at
+    - order_id: after_spring_forward
+      order_date: 2026-03-08
+      order_date_source: processed_at
+    - order_id: before_midnight_pdt
+      order_date: 2026-06-30
+      order_date_source: processed_at
+    - order_id: before_fall_back
+      order_date: 2026-11-01
+      order_date_source: processed_at
+    - order_id: before_midnight_after_fall_back
+      order_date: 2026-11-01
+      order_date_source: processed_at
+    - order_id: missing_processed_at
+      order_date: 2026-06-30
+      order_date_source: created_at
+- name: orders_get_configured_reporting_market
+  description: A shipping country listed in separate_reporting_markets reports as itself; every other or
+    missing country reports in home_reporting_market.
+  model: stg_shopify_orders__orders
+  overrides:
+    vars: {home_reporting_market: GB, separate_reporting_markets: [CA, IE]}
+  given:
+  - input: source('shopify_orders', 'orders')
+    rows:
+    - {order_id: '1', shipping_address_country_code: CA}
+    - {order_id: '2', shipping_address_country_code: IE}
+    - {order_id: '3', shipping_address_country_code: US}
+    - {order_id: '4', shipping_address_country_code: null}
+  expect:
+    rows:
+    - {order_id: '1', reporting_market: CA, is_home_reporting_market: false}
+    - {order_id: '2', reporting_market: IE, is_home_reporting_market: false}
+    - {order_id: '3', reporting_market: GB, is_home_reporting_market: true}
+    - {order_id: '4', reporting_market: GB, is_home_reporting_market: true}

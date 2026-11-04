@@ -1,0 +1,9 @@
+name: layer_invalid
+version: "0.1.0"
+config-version: 2
+profile: layer_fixture
+model-paths: [models]
+seed-paths: [seeds]
+snapshot-paths: [snapshots]
+analysis-paths: [analyses]
+test-paths: [tests]
