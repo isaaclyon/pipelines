@@ -191,9 +191,9 @@
       "rejects": 0,
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T19:30:00-06:00",
+      "window_end": "2026-10-01T01:30:00+00:00",
       "window_field": "updated_at",
-      "window_start": "2026-09-30T19:00:00-06:00"
+      "window_start": "2026-10-01T01:00:00+00:00"
      },
      {
       "_dlt_id": "<masked>",
@@ -214,9 +214,9 @@
       "rejects": 1,
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T19:00:00-06:00",
+      "window_end": "2026-10-01T01:00:00+00:00",
       "window_field": "updated_at",
-      "window_start": "2026-09-30T18:00:00-06:00"
+      "window_start": "2026-10-01T00:00:00+00:00"
      },
      {
       "_dlt_id": "<masked>",
@@ -237,9 +237,9 @@
       "rejects": 1,
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T19:00:00-06:00",
+      "window_end": "2026-10-01T01:00:00+00:00",
       "window_field": "updated_at",
-      "window_start": "2026-09-30T18:30:00-06:00"
+      "window_start": "2026-10-01T00:30:00+00:00"
      },
      {
       "_dlt_id": "<masked>",
@@ -260,9 +260,9 @@
       "rejects": 0,
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T20:00:00-06:00",
+      "window_end": "2026-10-01T02:00:00+00:00",
       "window_field": "updated_at",
-      "window_start": "2026-09-30T18:38:00-06:00"
+      "window_start": "2026-10-01T00:38:00+00:00"
      },
      {
       "_dlt_id": "<masked>",
@@ -283,9 +283,9 @@
       "rejects": 0,
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T20:00:00-06:00",
+      "window_end": "2026-10-01T02:00:00+00:00",
       "window_field": "updated_at",
-      "window_start": "1969-12-31T17:00:00-07:00"
+      "window_start": "1970-01-01T00:00:00+00:00"
      }
     ]
    },
@@ -987,7 +987,7 @@
       "_observed_at": "<masked>",
       "_query_version": "d3a8918d20b8",
       "account_state": "ENABLED",
-      "created_at": "2026-08-31T18:00:00-06:00",
+      "created_at": "2026-09-01T00:00:00+00:00",
       "customer_id": "gid://shopify/Customer/2",
       "customer_note": "Prefers email",
       "default_address_id": "gid://shopify/MailingAddress/200",
@@ -996,7 +996,7 @@
       "email_marketing_opt_in_level": "SINGLE_OPT_IN",
       "email_marketing_source_location_id": null,
       "email_marketing_state": "SUBSCRIBED",
-      "email_marketing_updated_at": "2026-09-30T18:00:00-06:00",
+      "email_marketing_updated_at": "2026-10-01T00:00:00+00:00",
       "email_open_tracking_level": "OPTED_IN",
       "first_name": "Ada",
       "is_data_sale_opted_out": false,
@@ -1019,9 +1019,9 @@
       "sms_marketing_opt_in_level": "SINGLE_OPT_IN",
       "sms_marketing_source_location_id": "gid://shopify/Location/1",
       "sms_marketing_state": "SUBSCRIBED",
-      "sms_marketing_updated_at": "2026-09-30T18:00:00-06:00",
+      "sms_marketing_updated_at": "2026-10-01T00:00:00+00:00",
       "tax_id": "TAX-1",
-      "updated_at": "2026-09-30T19:10:00-06:00",
+      "updated_at": "2026-10-01T01:10:00+00:00",
       "whatsapp_marketing_collected_from": null,
       "whatsapp_marketing_opt_in_level": null,
       "whatsapp_marketing_source_location_id": null,
@@ -1038,7 +1038,7 @@
       "_observed_at": "<masked>",
       "_query_version": "d3a8918d20b8",
       "account_state": "ENABLED",
-      "created_at": "2026-08-31T18:00:00-06:00",
+      "created_at": "2026-09-01T00:00:00+00:00",
       "customer_id": "gid://shopify/Customer/3",
       "customer_note": "Prefers email",
       "default_address_id": null,
@@ -1047,7 +1047,7 @@
       "email_marketing_opt_in_level": "SINGLE_OPT_IN",
       "email_marketing_source_location_id": null,
       "email_marketing_state": "SUBSCRIBED",
-      "email_marketing_updated_at": "2026-09-30T18:00:00-06:00",
+      "email_marketing_updated_at": "2026-10-01T00:00:00+00:00",
       "email_open_tracking_level": "OPTED_IN",
       "first_name": "Ada",
       "is_data_sale_opted_out": false,
@@ -1070,9 +1070,9 @@
       "sms_marketing_opt_in_level": "SINGLE_OPT_IN",
       "sms_marketing_source_location_id": "gid://shopify/Location/1",
       "sms_marketing_state": "SUBSCRIBED",
-      "sms_marketing_updated_at": "2026-09-30T18:00:00-06:00",
+      "sms_marketing_updated_at": "2026-10-01T00:00:00+00:00",
       "tax_id": "TAX-1",
-      "updated_at": "2026-09-30T18:40:00-06:00",
+      "updated_at": "2026-10-01T00:40:00+00:00",
       "whatsapp_marketing_collected_from": null,
       "whatsapp_marketing_opt_in_level": null,
       "whatsapp_marketing_source_location_id": null,
@@ -1089,7 +1089,7 @@
       "_observed_at": "<masked>",
       "_query_version": "d3a8918d20b8",
       "account_state": "ENABLED",
-      "created_at": "2026-08-31T18:00:00-06:00",
+      "created_at": "2026-09-01T00:00:00+00:00",
       "customer_id": "gid://shopify/Customer/4",
       "customer_note": "Prefers email",
       "default_address_id": "gid://shopify/MailingAddress/400",
@@ -1098,7 +1098,7 @@
       "email_marketing_opt_in_level": "SINGLE_OPT_IN",
       "email_marketing_source_location_id": null,
       "email_marketing_state": "SUBSCRIBED",
-      "email_marketing_updated_at": "2026-09-30T18:00:00-06:00",
+      "email_marketing_updated_at": "2026-10-01T00:00:00+00:00",
       "email_open_tracking_level": "OPTED_IN",
       "first_name": "Ada",
       "is_data_sale_opted_out": false,
@@ -1121,9 +1121,9 @@
       "sms_marketing_opt_in_level": "SINGLE_OPT_IN",
       "sms_marketing_source_location_id": "gid://shopify/Location/1",
       "sms_marketing_state": "SUBSCRIBED",
-      "sms_marketing_updated_at": "2026-09-30T18:00:00-06:00",
+      "sms_marketing_updated_at": "2026-10-01T00:00:00+00:00",
       "tax_id": "TAX-1",
-      "updated_at": "2026-09-30T19:15:00-06:00",
+      "updated_at": "2026-10-01T01:15:00+00:00",
       "whatsapp_marketing_collected_from": null,
       "whatsapp_marketing_opt_in_level": null,
       "whatsapp_marketing_source_location_id": null,
@@ -1140,7 +1140,7 @@
       "_observed_at": "<masked>",
       "_query_version": "d3a8918d20b8",
       "account_state": "ENABLED",
-      "created_at": "2026-08-31T18:00:00-06:00",
+      "created_at": "2026-09-01T00:00:00+00:00",
       "customer_id": "gid://shopify/Customer/1",
       "customer_note": "Prefers email",
       "default_address_id": "gid://shopify/MailingAddress/11",
@@ -1149,7 +1149,7 @@
       "email_marketing_opt_in_level": "SINGLE_OPT_IN",
       "email_marketing_source_location_id": null,
       "email_marketing_state": "SUBSCRIBED",
-      "email_marketing_updated_at": "2026-09-30T18:00:00-06:00",
+      "email_marketing_updated_at": "2026-10-01T00:00:00+00:00",
       "email_open_tracking_level": "OPTED_IN",
       "first_name": "Ada",
       "is_data_sale_opted_out": false,
@@ -1172,9 +1172,9 @@
       "sms_marketing_opt_in_level": "SINGLE_OPT_IN",
       "sms_marketing_source_location_id": "gid://shopify/Location/1",
       "sms_marketing_state": "SUBSCRIBED",
-      "sms_marketing_updated_at": "2026-09-30T18:00:00-06:00",
+      "sms_marketing_updated_at": "2026-10-01T00:00:00+00:00",
       "tax_id": "TAX-1",
-      "updated_at": "2026-09-30T18:05:00-06:00",
+      "updated_at": "2026-10-01T00:05:00+00:00",
       "whatsapp_marketing_collected_from": null,
       "whatsapp_marketing_opt_in_level": null,
       "whatsapp_marketing_source_location_id": null,
@@ -1392,14 +1392,14 @@
       "_dlt_list_idx": 0,
       "_dlt_parent_id": "<masked>",
       "_dlt_root_id": "<masked>",
-      "created_at": "2026-09-30T18:00:00-06:00",
+      "created_at": "2026-10-01T00:00:00+00:00",
       "customer_id": "gid://shopify/Customer/1",
       "key": "birthday",
       "metafield_id": "gid://shopify/Metafield/1",
       "namespace": "custom",
       "shop_id": "gid://shopify/Shop/1",
       "type": "single_line_text_field",
-      "updated_at": "2026-09-30T18:00:00-06:00",
+      "updated_at": "2026-10-01T00:00:00+00:00",
       "value": "value-1"
      }
     ]
@@ -1572,7 +1572,7 @@
       "rejected_at": "<masked>",
       "run_id": "reextract-1",
       "shop_id": "gid://shopify/Shop/1",
-      "updated_at": "2026-09-30T18:10:00-06:00"
+      "updated_at": "2026-10-01T00:10:00+00:00"
      }
     ]
    }
@@ -1650,9 +1650,9 @@
       "rejects": 0,
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T19:00:00-06:00",
+      "window_end": "2026-10-01T01:00:00+00:00",
       "window_field": "updated_at",
-      "window_start": "2026-09-30T18:00:00-06:00"
+      "window_start": "2026-10-01T00:00:00+00:00"
      }
     ]
    },
@@ -2020,9 +2020,9 @@
       "query_version": "d921d92881f5b6e3",
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T19:00:00-06:00",
+      "window_end": "2026-10-01T01:00:00+00:00",
       "window_field": "updated_at",
-      "window_start": "2026-09-30T18:00:00-06:00"
+      "window_start": "2026-10-01T00:00:00+00:00"
      }
     ]
    },
@@ -2293,9 +2293,9 @@
       "query_version": "d921d92881f5b6e3",
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T19:00:00-06:00",
+      "window_end": "2026-10-01T01:00:00+00:00",
       "window_field": "updated_at",
-      "window_start": "2026-09-30T18:00:00-06:00"
+      "window_start": "2026-10-01T00:00:00+00:00"
      },
      {
       "_dlt_id": "<masked>",
@@ -2317,9 +2317,9 @@
       "query_version": "d921d92881f5b6e3",
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T18:00:00-06:00",
+      "window_end": "2026-10-01T00:00:00+00:00",
       "window_field": "created_at",
-      "window_start": "2026-09-28T18:00:00-06:00"
+      "window_start": "2026-09-29T00:00:00+00:00"
      },
      {
       "_dlt_id": "<masked>",
@@ -2341,9 +2341,9 @@
       "query_version": "d921d92881f5b6e3",
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T19:00:00-06:00",
+      "window_end": "2026-10-01T01:00:00+00:00",
       "window_field": "updated_at",
-      "window_start": "2026-09-30T18:30:00-06:00"
+      "window_start": "2026-10-01T00:30:00+00:00"
      },
      {
       "_dlt_id": "<masked>",
@@ -2365,9 +2365,9 @@
       "query_version": "d921d92881f5b6e3",
       "shop_id": "gid://shopify/Shop/1",
       "status": "complete",
-      "window_end": "2026-09-30T19:30:00-06:00",
+      "window_end": "2026-10-01T01:30:00+00:00",
       "window_field": "updated_at",
-      "window_start": "2026-09-30T18:38:00-06:00"
+      "window_start": "2026-10-01T00:38:00+00:00"
      }
     ]
    },
@@ -2496,7 +2496,7 @@
       "cancel_reason": null,
       "cancelled_at": null,
       "closed_at": null,
-      "created_at": "2026-09-29T18:00:00-06:00",
+      "created_at": "2026-09-30T00:00:00+00:00",
       "currency_code": "USD",
       "current_subtotal_price_presentment_amount": "10.000000000",
       "current_subtotal_price_presentment_currency": "USD",
@@ -2522,7 +2522,7 @@
       "original_total_price_shop_currency": "USD",
       "phone": null,
       "presentment_currency_code": "USD",
-      "processed_at": "2026-09-29T18:00:00-06:00",
+      "processed_at": "2026-09-30T00:00:00+00:00",
       "shipping_address_address1": null,
       "shipping_address_address2": null,
       "shipping_address_city": null,
@@ -2565,7 +2565,7 @@
       "total_tax_shop_currency": "USD",
       "transactions_count": 1,
       "transactions_count_precision": "EXACT",
-      "updated_at": "2026-09-30T18:05:00-06:00"
+      "updated_at": "2026-10-01T00:05:00+00:00"
      },
      {
       "_api_version": "2026-10",
@@ -2593,7 +2593,7 @@
       "cancel_reason": null,
       "cancelled_at": null,
       "closed_at": null,
-      "created_at": "2026-09-29T18:00:00-06:00",
+      "created_at": "2026-09-30T00:00:00+00:00",
       "currency_code": "USD",
       "current_subtotal_price_presentment_amount": "10.000000000",
       "current_subtotal_price_presentment_currency": "USD",
@@ -2619,7 +2619,7 @@
       "original_total_price_shop_currency": "USD",
       "phone": null,
       "presentment_currency_code": "USD",
-      "processed_at": "2026-09-29T18:00:00-06:00",
+      "processed_at": "2026-09-30T00:00:00+00:00",
       "shipping_address_address1": null,
       "shipping_address_address2": null,
       "shipping_address_city": null,
@@ -2662,7 +2662,7 @@
       "total_tax_shop_currency": "USD",
       "transactions_count": 1,
       "transactions_count_precision": "EXACT",
-      "updated_at": "2026-09-30T19:10:00-06:00"
+      "updated_at": "2026-10-01T01:10:00+00:00"
      },
      {
       "_api_version": "2026-10",
@@ -2690,7 +2690,7 @@
       "cancel_reason": null,
       "cancelled_at": null,
       "closed_at": null,
-      "created_at": "2026-09-29T18:00:00-06:00",
+      "created_at": "2026-09-30T00:00:00+00:00",
       "currency_code": "USD",
       "current_subtotal_price_presentment_amount": "10.000000000",
       "current_subtotal_price_presentment_currency": "USD",
@@ -2716,7 +2716,7 @@
       "original_total_price_shop_currency": "USD",
       "phone": null,
       "presentment_currency_code": "USD",
-      "processed_at": "2026-09-29T18:00:00-06:00",
+      "processed_at": "2026-09-30T00:00:00+00:00",
       "shipping_address_address1": null,
       "shipping_address_address2": null,
       "shipping_address_city": null,
@@ -2759,7 +2759,7 @@
       "total_tax_shop_currency": "USD",
       "transactions_count": 1,
       "transactions_count_precision": "EXACT",
-      "updated_at": "2026-09-30T19:15:00-06:00"
+      "updated_at": "2026-10-01T01:15:00+00:00"
      },
      {
       "_api_version": "2026-10",
@@ -2787,7 +2787,7 @@
       "cancel_reason": null,
       "cancelled_at": null,
       "closed_at": null,
-      "created_at": "2026-09-29T18:00:00-06:00",
+      "created_at": "2026-09-30T00:00:00+00:00",
       "currency_code": "USD",
       "current_subtotal_price_presentment_amount": "7.250000000",
       "current_subtotal_price_presentment_currency": "USD",
@@ -2813,7 +2813,7 @@
       "original_total_price_shop_currency": "USD",
       "phone": null,
       "presentment_currency_code": "USD",
-      "processed_at": "2026-09-29T18:00:00-06:00",
+      "processed_at": "2026-09-30T00:00:00+00:00",
       "shipping_address_address1": null,
       "shipping_address_address2": null,
       "shipping_address_city": null,
@@ -2856,7 +2856,7 @@
       "total_tax_shop_currency": "USD",
       "transactions_count": 1,
       "transactions_count_precision": "EXACT",
-      "updated_at": "2026-09-30T18:40:00-06:00"
+      "updated_at": "2026-10-01T00:40:00+00:00"
      }
     ]
    },
@@ -3070,7 +3070,7 @@
       "amount_presentment_currency": "USD",
       "amount_shop_amount": "10.000000000",
       "amount_shop_currency": "USD",
-      "created_at": "2026-09-30T18:00:00-06:00",
+      "created_at": "2026-10-01T00:00:00+00:00",
       "error_code": null,
       "gateway": "manual",
       "kind": "SALE",
@@ -3091,7 +3091,7 @@
       "amount_presentment_currency": "USD",
       "amount_shop_amount": "10.000000000",
       "amount_shop_currency": "USD",
-      "created_at": "2026-09-30T18:00:00-06:00",
+      "created_at": "2026-10-01T00:00:00+00:00",
       "error_code": null,
       "gateway": "manual",
       "kind": "SALE",
@@ -3112,7 +3112,7 @@
       "amount_presentment_currency": "USD",
       "amount_shop_amount": "10.000000000",
       "amount_shop_currency": "USD",
-      "created_at": "2026-09-30T18:00:00-06:00",
+      "created_at": "2026-10-01T00:00:00+00:00",
       "error_code": null,
       "gateway": "manual",
       "kind": "SALE",
@@ -3133,7 +3133,7 @@
       "amount_presentment_currency": "USD",
       "amount_shop_amount": "10.000000000",
       "amount_shop_currency": "USD",
-      "created_at": "2026-09-30T18:00:00-06:00",
+      "created_at": "2026-10-01T00:00:00+00:00",
       "error_code": null,
       "gateway": "manual",
       "kind": "SALE",
@@ -3167,7 +3167,7 @@
       "rejected_at": "<masked>",
       "run_id": "lookback-1",
       "shop_id": "gid://shopify/Shop/1",
-      "updated_at": "2026-09-30T18:10:00-06:00"
+      "updated_at": "2026-10-01T00:10:00+00:00"
      },
      {
       "_dlt_id": "<masked>",
@@ -3177,7 +3177,7 @@
       "rejected_at": "<masked>",
       "run_id": "reextract-1",
       "shop_id": "gid://shopify/Shop/1",
-      "updated_at": "2026-09-30T18:10:00-06:00"
+      "updated_at": "2026-10-01T00:10:00+00:00"
      }
     ]
    }

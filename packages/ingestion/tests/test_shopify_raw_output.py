@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Callable, Mapping
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -58,7 +58,10 @@ Metadata = Mapping[str, str | int | float | None]
 
 
 def _value(value: object) -> object:
-    if isinstance(value, datetime | date):
+    # DuckDB returns timestamps in the machine's time zone.
+    if isinstance(value, datetime):
+        return value.astimezone(UTC).isoformat()
+    if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, Decimal):
         return str(value)
