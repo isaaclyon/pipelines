@@ -70,7 +70,6 @@ DBT_ENVIRONMENT = {
     "scripts/platform",
     "scripts/platform.d/check.sh",
     "scripts/ci_docs.py",
-    ".github/workflows/check.yml",
 }
 DBT_CHECK_ORDER = ("none", "changed", "all")
 

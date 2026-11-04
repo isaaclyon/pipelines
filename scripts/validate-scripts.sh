@@ -1,5 +1,5 @@
 #!/bin/sh
-# Shared offline validation used by GitHub CI and platform ci verify.
+# Shared offline validation used by platform ci verify.
 # Run from the repository root.
 set -eu
 

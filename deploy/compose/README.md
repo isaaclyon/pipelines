@@ -99,17 +99,9 @@ a 2 GiB memory limit; metrics runs after both finish. Every package's status is
 collected, so one failure cannot hide another. Output is grouped by package.
 Focused checks still run only the selected package.
 
-GitHub CI first checks documentation and routing, and validates shell scripts in
-a parallel job. It then runs selected package checks on separate runners
-alongside a runtime integration job. Each package job uses `ci check PACKAGE`;
-the integration job builds the four distinct runtime images together, then uses
-`ci up --no-build` and `ci smoke`. Integration runs on pull requests and on
-pushes to `main`.
-Compose remains the source of stages, arguments, and tags. The webserver image
-also serves the daemon; transformations supplies the dbt runtime. Dependency
-layers precede source copies, and runtime images do not inherit development tooling. The native builder avoids remote cache export
-and image-transfer overhead; separate runners trade repeated downloads for earlier
-package feedback and concurrent integration coverage.
+GitHub runs only a secret scan (`.github/workflows/secret-scan.yml`); every
+other check runs locally. `scripts/ci_docs.py BASE HEAD` reports which checks a
+commit range needs:
 
 | Changed paths | Required lanes |
 | --- | --- |
@@ -129,17 +121,12 @@ The router chooses `DBT_CHECKS` for that check:
 | Other dbt project or package files, dependencies, the check image, or check scripts | All |
 | Missing history | All |
 
-A push to `main` runs all dbt project tests after any dbt-affecting change. A PR
-in changed mode extracts the base commit's `packages/transformations` into
-`DBT_BASE_PROJECT`. Locally, `DBT_CHECKS=changed DBT_BASE_PROJECT=<base checkout
-of packages/transformations> ./scripts/platform ci check transformations` runs
-the same selection; the default is all.
+To run only the changed dbt tests, extract the base commit's
+`packages/transformations` and run
+`DBT_CHECKS=changed DBT_BASE_PROJECT=<base checkout of packages/transformations> ./scripts/platform ci check transformations`.
+The default is all.
 
-Mixed changes take the union of required lanes; renames consider both paths. PRs
-and main pushes use the same rules. The final `offline` result requires every
-selected lane to succeed, including all selected matrix jobs; package failures do
-not cancel other package checks. New PR commits cancel superseded runs. Main runs
-are independent. Integration cleanup runs after failures and cancellation.
+Mixed changes take the union of required lanes; renames consider both paths.
 
 Dagster code-location and daemon checks run every 60 seconds after each check
 finishes, with three consecutive failures marking a service unhealthy. These
@@ -160,24 +147,18 @@ Local commands build by default.
 Only use `--no-build` after building the current checkout; local tags do not prove
 freshness. The package command requires selected prebuilt images and disables pulls.
 
-Measure complete GitHub runs, including image loading, package execution,
-startup, and cleanup. Persistent image caches should only be introduced when
-their transfer, export, and builder lifecycle costs improve the complete gate.
-Do not claim a speed improvement from an early failure.
-
 On macOS, Docker's credential helper must be on the shell path. If pulls fail
 with `docker-credential-desktop` missing, add Docker Desktop's
 `/Applications/Docker.app/Contents/Resources/bin` to the path.
 
 On Linux, set `DOCKER_SOCKET_GID` to the group that owns `/var/run/docker.sock`
 (use `stat -c '%g' /var/run/docker.sock`). The control-plane containers use this
-supplementary group to launch runs as non-root users. GitHub Actions sets it
-automatically from the runner's socket before running Compose commands.
+supplementary group to launch runs as non-root users.
 
 ## Local validation before pushing
 
-Run relevant checks locally and fix failures before pushing to save GitHub
-Actions minutes and shorten the feedback loop. For package changes, start with
+Run relevant checks locally and fix failures before pushing; GitHub does not run
+them. For package changes, start with
 `./scripts/platform ci check ingestion` (or `transformations` / `metrics`).
 For container, dependency, deployment, or orchestration changes, run the full
 flow from the repository root:
@@ -186,9 +167,9 @@ flow from the repository root:
 ./scripts/platform ci verify
 ```
 
-ShellCheck must be installed on the host, as it is on the GitHub runner.
+ShellCheck must be installed on the host.
 Shared script lint and regression checks live in `scripts/validate-scripts.sh`,
-called by both this command and GitHub CI. This includes CI routing tests.
+called by this command. This includes CI routing tests.
 The command runs lint, configuration validation, package checks, startup, and
 smoke tests. It detects the Linux Docker socket group unless already set, prints
 service logs, and removes services on exit while preserving the failing exit
@@ -197,17 +178,17 @@ Compose services publish no ports and use the `analytics-ci` project by default,
 which retains its named volumes. Set `ANALYTICS_PROJECT` to a distinct name for
 simultaneous CI stacks; cleanup removes that project's services and named volumes.
 The separate synthetic local Cube lifecycle check also runs here and in the
-metrics CI lane. It uses a worktree-specific container/image and an automatically
+metrics check. It uses a worktree-specific container/image and an automatically
 assigned loopback port, then stops its service even on failure.
 
-GitHub CI remains the clean Linux/AMD64 confirmation. Local checks use the Docker
-host's native architecture, so an ARM64 Mac does not verify AMD64 behavior.
+Local checks use the Docker host's native architecture, so an ARM64 Mac does not
+verify AMD64 behavior.
 Report any checks that could not run. Documentation-only changes need path,
 link, and instruction-symlink checks rather than starting the stack.
 
-## Documentation-only CI
+## Documentation-only changes
 
-The `offline` GitHub check always reports a result. Changes confined to recognized
+Changes confined to recognized
 documentation paths check local Markdown link targets and tracked symlinks without
 building images or starting services. The allowlist covers Markdown under `docs/`,
 canonical agent instructions, package/deployment READMEs and instruction guides,
@@ -223,7 +204,7 @@ check, not a complete Markdown renderer or external link crawler.
 
 Run the routing regression tests with `python3 scripts/test_ci_docs.py` and check
 a commit range with `python3 scripts/ci_docs.py BASE HEAD`. These lightweight
-Git-based checks use the runner's Python standard library and Git; package checks
+Git-based checks use the host's Python standard library and Git; package checks
 continue to run in their isolated containers.
 
 ## Persistent state

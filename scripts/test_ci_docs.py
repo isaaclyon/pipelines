@@ -106,7 +106,6 @@ class RoutingTests(unittest.TestCase):
             (["scripts/platform"], "all"),
             (["scripts/platform.d/check.sh"], "all"),
             (["scripts/ci_docs.py"], "all"),
-            ([".github/workflows/check.yml"], "all"),
             ([f"{dbt}/models/orders.sql", "packages/transformations/uv.lock"], "all"),
             # An unknown diff runs everything.
             ([], "all"),
@@ -132,7 +131,7 @@ class RoutingTests(unittest.TestCase):
             ".agents/skills/tool/run.py",
             "docs/tool.py",
             "unknown.md",
-            ".github/workflows/check.yml",
+            ".github/workflows/secret-scan.yml",
         ]:
             self.assertFalse(is_doc(path), path)
 

@@ -43,12 +43,11 @@ accepted decision or a scaffolding README describes completed functionality.
   `packages/metrics/package.json` defines the metrics check. Check the current
   deployment files for supported build and execution commands.
 - Before pushing, run relevant checks locally through `scripts/platform` and fix
-  failures to reduce remote CI iteration. Use focused package checks for package
-  changes; run `ci verify` for container, dependency,
-  deployment, or orchestration changes. Follow the
+  failures. GitHub runs only a secret scan, so local checks are the gate. Use
+  focused package checks for package changes; run `ci verify` for container,
+  dependency, deployment, or orchestration changes. Follow the
   [local CI procedure](../deploy/compose/README.md#local-validation-before-pushing).
-  GitHub CI remains the clean Linux/AMD64 confirmation. Report checks you could
-  not run.
+  Report checks you could not run.
 - For documentation-only changes, verify paths, links, and instruction symlinks.
   Report checks actually run and distinguish local validation from deployment.
 - Keep secrets out of source and output. Live integration and deployment commands
