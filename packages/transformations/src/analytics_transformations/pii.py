@@ -1,30 +1,42 @@
 """Require authored PII decisions, including disabled definitions.
 
 This is a declaration check, not a detector or lineage inference engine.
-There are no legacy exceptions: every declared model/source column is covered.
+There are no legacy exceptions: every declared column of a governed model,
+source, seed or snapshot (``governed_projects``: the root project and the
+toolkit package) carries a boolean ``config.meta.pii``.
+
+``source_fields.json`` is the reviewed inventory of toolkit source fields,
+keyed by the toolkit package, so it applies unchanged in a client project.
+A client's own sources are outside it: the client declares their columns, each
+with a decision, and reviews them in its repository. An undeclared column is
+not loaded by any staging model, so the per-column rule covers what it reads.
 """
 
 import json
 import sys
 from pathlib import Path
 
-from analytics_transformations.layer_dependencies import root_project
-from analytics_transformations.mart_contracts import mapping, read_json, sequence, text
+from analytics_transformations.layer_dependencies import (
+    TOOLKIT_PROJECT,
+    governed_projects,
+)
+from analytics_transformations.manifest_values import mapping, read_json, sequence, text
 
 
 def check_pii(data: object) -> None:
-    """Reject missing/non-boolean classifications and exposed restricted fields."""
+    """Reject missing or non-boolean PII classifications."""
     manifest = mapping(data)
-    project = root_project(data)
+    projects = governed_projects(data)
     resources = {
         **mapping(manifest.get("nodes", {})),
         **mapping(manifest.get("sources", {})),
-        **mapping(manifest.get("exposures", {})),
     }
     entries = list(resources.items())
     for key, values in mapping(manifest.get("disabled", {})).items():
         entries.extend((key, value) for value in sequence(values))
-    if project == "analytics":
+    if any(
+        mapping(value).get("package_name") == TOOLKIT_PROJECT for _, value in entries
+    ):
         inventory = mapping(read_json(Path(__file__).with_name("source_fields.json")))
         declared_sources = dict(entries)
         for key, names in inventory.items():
@@ -42,7 +54,7 @@ def check_pii(data: object) -> None:
             source = mapping(raw)
             if source.get("resource_type") != "source":
                 continue
-            if source.get("package_name") != project:
+            if source.get("package_name") != TOOLKIT_PROJECT:
                 continue
             extra = set(mapping(source.get("columns", {}))) - {
                 text(name) for name in sequence(inventory.get(key, []))
@@ -52,15 +64,9 @@ def check_pii(data: object) -> None:
                     f"{key}: add {', '.join(sorted(extra))} to source_fields.json "
                     "reviewed source inventory"
                 )
-    models = {
-        text(node["name"]): node
-        for _, raw in entries
-        if (node := mapping(raw)).get("resource_type") == "model"
-        and node.get("package_name") == project
-    }
     for key, value in entries:
         node = mapping(value)
-        if node.get("package_name") != project:
+        if node.get("package_name") not in projects:
             continue
         kind = node.get("resource_type")
         if kind in ("model", "source", "seed", "snapshot"):
@@ -73,49 +79,12 @@ def check_pii(data: object) -> None:
                 meta = mapping(config.get("meta", {}))
                 if type(meta.get("pii")) is not bool:
                     raise ValueError(f"{key}.{name}: declare boolean config.meta.pii")
-        elif kind == "exposure":
-            meta = mapping(mapping(node.get("config", {})).get("meta", {}))
-            fields = mapping(meta.get("cube_fields", {}))
-            if not fields:
-                continue
-            classifications = mapping(meta.get("cube_pii", {}))
-            if fields.keys() != classifications.keys():
-                raise ValueError(f"{key}: declare cube_pii for every Cube field")
-            for name, pii in classifications.items():
-                if type(pii) is not bool:
-                    raise ValueError(f"{name}: declare boolean PII status")
-                if pii:
-                    raise ValueError(
-                        f"{name}: restricted PII cannot be exposed in Cube"
-                    )
-            direct = mapping(meta.get("cube_direct_columns", {}))
-            if fields.keys() != direct.keys():
-                raise ValueError(
-                    f"{key}: declare cube_direct_columns for every Cube field"
-                )
-            # Direct aliases name the same field, not a derived classification.
-            # Aggregates and expressions keep their independent author decision.
-            for name, reference in direct.items():
-                if reference is None:
-                    continue
-                model, _, column = text(reference).partition(".")
-                declared = mapping(mapping(models.get(model, {})).get("columns", {}))
-                field = mapping(declared.get(column, {}))
-                config = mapping(field.get("config", {}))
-                source_meta = mapping(config.get("meta", {}))
-                if (
-                    name not in classifications
-                    or source_meta.get("pii") is not classifications[name]
-                ):
-                    raise ValueError(
-                        f"{name}: direct column classification differs from {reference}"
-                    )
 
 
 def source_inventory(data: object) -> dict[str, list[str]]:
-    """Propose a source-field inventory; never infer privacy or approve retirement."""
+    """Propose the toolkit's source-field inventory; never infer privacy or
+    approve retirement."""
     manifest = mapping(data)
-    project = root_project(data)
     entries = list(mapping(manifest.get("sources", {})).items())
     for key, values in mapping(manifest.get("disabled", {})).items():
         entries.extend((key, value) for value in sequence(values))
@@ -124,7 +93,7 @@ def source_inventory(data: object) -> dict[str, list[str]]:
         node = mapping(raw)
         if (
             node.get("resource_type") == "source"
-            and node.get("package_name") == project
+            and node.get("package_name") == TOOLKIT_PROJECT
         ):
             inventory.setdefault(key, set()).update(mapping(node.get("columns", {})))
     return {key: sorted(names) for key, names in sorted(inventory.items())}

@@ -27,7 +27,7 @@ models:
     - not_null:
         name: stg_shopify_customers_customers_shop_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: customer_id
     config:
       meta: {pii: false}
@@ -39,7 +39,7 @@ models:
     - not_null:
         name: stg_shopify_customers_customers_customer_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: legacy_id
     config:
       meta: {pii: false}
@@ -359,7 +359,7 @@ models:
     - not_null:
         name: stg_shopify_customers_addresses_shop_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: customer_id
     config:
       meta: {pii: false}
@@ -371,7 +371,7 @@ models:
     - not_null:
         name: stg_shopify_customers_addresses_customer_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: address_id
     config:
       meta: {pii: false}
@@ -383,7 +383,7 @@ models:
     - not_null:
         name: stg_shopify_customers_addresses_address_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: first_name
     config:
       meta: {pii: true}
@@ -517,7 +517,7 @@ models:
     - not_null:
         name: stg_shopify_customers_tags_shop_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: customer_id
     config:
       meta: {pii: false}
@@ -529,7 +529,7 @@ models:
     - not_null:
         name: stg_shopify_customers_tags_customer_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: tag_position
     config:
       meta: {pii: false}
@@ -541,7 +541,7 @@ models:
     - not_null:
         name: stg_shopify_customers_tags_tag_position_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: tag
     config:
       meta: {pii: false}
@@ -575,7 +575,7 @@ models:
     - not_null:
         name: stg_shopify_customers_tax_exemptions_shop_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: customer_id
     config:
       meta: {pii: false}
@@ -587,7 +587,7 @@ models:
     - not_null:
         name: stg_shopify_customers_tax_exemptions_customer_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: tax_exemption_position
     config:
       meta: {pii: false}
@@ -599,7 +599,7 @@ models:
     - not_null:
         name: stg_shopify_customers_tax_exemptions_tax_exemption_position_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: code
     config:
       meta: {pii: false}
@@ -633,7 +633,7 @@ models:
     - not_null:
         name: stg_shopify_customers_metafields_shop_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: customer_id
     config:
       meta: {pii: false}
@@ -645,7 +645,7 @@ models:
     - not_null:
         name: stg_shopify_customers_metafields_customer_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: metafield_id
     config:
       meta: {pii: false}
@@ -658,7 +658,7 @@ models:
     - not_null:
         name: stg_shopify_customers_metafields_metafield_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: metafield_namespace
     config:
       meta: {pii: false}
@@ -728,7 +728,7 @@ models:
     - not_null:
         name: stg_shopify_customers_company_contacts_shop_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: customer_id
     config:
       meta: {pii: false}
@@ -740,7 +740,7 @@ models:
     - not_null:
         name: stg_shopify_customers_company_contacts_customer_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: company_contact_id
     config:
       meta: {pii: false}
@@ -753,7 +753,7 @@ models:
     - not_null:
         name: stg_shopify_customers_company_contacts_company_contact_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: company_id
     config:
       meta: {pii: false}
@@ -788,7 +788,7 @@ models:
     - not_null:
         name: stg_shopify_customers_company_contacts_company_contact_position_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
 - name: stg_shopify_customers__field_access
   description: Current Shopify field access source values, without behavioral enrichment.
   config:
@@ -818,7 +818,7 @@ models:
     - not_null:
         name: stg_shopify_customers_field_access_shop_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: batch_id
     config:
       meta: {pii: false}
@@ -830,7 +830,7 @@ models:
     - not_null:
         name: stg_shopify_customers_field_access_batch_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: field_group
     config:
       meta: {pii: false}
@@ -842,7 +842,7 @@ models:
     - not_null:
         name: stg_shopify_customers_field_access_field_group_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: status
     config:
       meta: {pii: false}
@@ -881,7 +881,7 @@ models:
     - not_null:
         name: stg_shopify_customers_profile_access_shop_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: batch_id
     config:
       meta: {pii: false}
@@ -891,31 +891,31 @@ models:
     - not_null:
         name: stg_shopify_customers_profile_access_batch_id_not_null
         config:
-          enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+          enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
   - name: profile_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for profile: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: names_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for names: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: email_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for email: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: phone_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for phone: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: whatsapp_consent_access_status
     config:
       meta: {pii: false}
@@ -926,46 +926,46 @@ models:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for addresses: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: summaries_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for summaries: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: statistics_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for statistics: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: tags_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for tags: available, access_denied, unsupported, or
-      excluded. Missing evidence remains unknown in marts.'
+      excluded. Missing evidence remains unknown downstream.'
   - name: metafields_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for metafields: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: tax_id_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for tax id: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: company_contacts_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for company contacts: available, access_denied, unsupported,
-      or excluded. Missing evidence remains unknown in marts.'
+      or excluded. Missing evidence remains unknown downstream.'
   - name: external_identities_access_status
     config:
       meta: {pii: false}
     data_type: varchar
     description: 'Access result for external identities: available, access_denied,
-      unsupported, or excluded. Missing evidence remains unknown in marts.'
+      unsupported, or excluded. Missing evidence remains unknown downstream.'

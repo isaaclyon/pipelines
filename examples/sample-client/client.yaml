@@ -1,0 +1,9 @@
+# The sample client's settings, read by the toolkit's images
+# (ANALYTICS_CLIENT_CONFIG). Shopify orders has no schedule, so Dagster
+# starts no extraction for it.
+version: 1
+client: sample-client
+reporting_time_zone: America/New_York
+warehouse: motherduck
+sources:
+  shopify_orders:

@@ -1,18 +1,21 @@
 """dbt source freshness on raw Shopify orders, run as a Dagster asset check.
 
 The policy lives in the dbt source: the latest complete refresh's
-``window_end`` warns after 25 minutes and errors after 30.
+``window_end`` warns after 25 minutes and errors after 30. The check exists
+only when client.yaml enables ``shopify_orders``, and dbt runs through
+``analytics-dbt`` against the client's dbt project at ``DBT_PROJECT_DIR``.
 """
 
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import dagster as dg
+from analytics_client_config import load
 
-from analytics_transformations.mart_contracts import mapping, read_json, sequence
+from analytics_transformations.client_dbt import executable
+from analytics_transformations.manifest_values import mapping, read_json, sequence
 
 RAW_ORDERS = dg.AssetKey(["raw", "shopify", "shopify_orders_raw"])
 SOURCE = "source:shopify_orders.ingestion_batches"
@@ -37,13 +40,13 @@ def refresh_freshness() -> dg.AssetCheckResult:
 
 def source_freshness(source: str = SOURCE) -> tuple[str, float | None]:
     """Run ``dbt source freshness``; any failure to read is an error status."""
-    project = os.environ.get("DBT_PROJECT_DIR", "dbt")
+    project = os.environ["DBT_PROJECT_DIR"]
     with tempfile.TemporaryDirectory() as target:
         try:
             # A stale source exits nonzero, so the artifact decides the status.
             _ = subprocess.run(
                 [
-                    str(Path(sys.executable).with_name("dbt")),
+                    executable("analytics-dbt"),
                     # Skip listing the model schemas: they are never built under
                     # the fixed namespace, and Snowflake logs each listing as a
                     # failed statement.
@@ -94,7 +97,7 @@ validation_job = dg.define_asset_job(  # pyright: ignore[reportUnknownMemberType
     tags={"dagster/priority": "20", "dagster/max_retries": "0"},
 )
 # Checks raw freshness throughout the day, ahead of morning reporting.
-# This is not a substitute for published-answer freshness and coverage.
+# This is not a substitute for mart freshness and coverage.
 validation_schedule = dg.ScheduleDefinition(
     name="shopify_raw_validation_schedule",
     job=validation_job,
@@ -127,8 +130,12 @@ def validation_request(
     return dg.RunRequest()
 
 
-defs = dg.Definitions(
-    asset_checks=[refresh_freshness],
-    jobs=[validation_job],
-    schedules=[validation_schedule],
+defs = (
+    dg.Definitions(
+        asset_checks=[refresh_freshness],
+        jobs=[validation_job],
+        schedules=[validation_schedule],
+    )
+    if load(os.environ).enabled("shopify_orders")
+    else dg.Definitions()
 )

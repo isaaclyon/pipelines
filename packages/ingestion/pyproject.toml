@@ -3,6 +3,7 @@ name = "analytics_ingestion"
 requires-python = ">=3.12,<3.13"
 version = "0.1.0"
 dependencies = [
+    "analytics_client_config",
     "dagster==1.13.25",
     "dagster-docker==0.29.25",
     "dagster-postgres==0.29.25",
@@ -14,6 +15,9 @@ dependencies = [
     "google-auth==2.49.1",
     "requests==2.34.2",
 ]
+
+[tool.uv.sources]
+analytics_client_config = { path = "../client-config", editable = false }
 
 [dependency-groups]
 dev = [

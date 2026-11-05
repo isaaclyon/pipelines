@@ -1,10 +1,20 @@
 """Explicit classification is required; lineage never supplies a default."""
 
+from pathlib import Path
 from typing import cast
 
 import pytest
 
-from analytics_transformations.pii import check_pii
+from analytics_transformations import pii
+from analytics_transformations.manifest_values import (
+    mapping,
+    read_json,
+    sequence,
+    text,
+)
+from analytics_transformations.pii import check_pii, source_inventory
+
+TOOLKIT = "analytics_toolkit"
 
 
 def manifest(value: object) -> dict[str, object]:
@@ -78,123 +88,13 @@ def test_empty_column_inventory_fails() -> None:
         check_pii(data)
 
 
-def exposed(value: object) -> dict[str, object]:
-    data = manifest(False)
-    data["exposures"] = {
-        "exposure.pii_fixture.customers": {
-            "resource_type": "exposure",
-            "package_name": "pii_fixture",
-            "config": {
-                "meta": {
-                    "cube_fields": {"customers.count": ["derived.customer_count"]},
-                    "cube_pii": {"customers.count": value},
-                    "cube_direct_columns": {"customers.count": None},
-                }
-            },
-        }
-    }
-    return data
-
-
-def test_explicit_non_pii_exposure_passes() -> None:
-    check_pii(exposed(False))
-
-
-@pytest.mark.parametrize("value", [True, None, "false", 0])
-def test_restricted_or_unclassified_cube_exposure_fails(value: object) -> None:
-    with pytest.raises(ValueError, match="customers.count"):
-        check_pii(exposed(value))
-
-
-def test_exposure_requires_exact_field_classifications() -> None:
-    data = manifest(False)
-    data["exposures"] = {
-        "exposure.pii_fixture.customers": {
-            "resource_type": "exposure",
-            "package_name": "pii_fixture",
-            "config": {"meta": {"cube_fields": {"customers.count": []}}},
-        }
-    }
-    with pytest.raises(ValueError, match="every Cube field"):
-        check_pii(data)
-
-
-def test_direct_cube_alias_cannot_relabel_a_restricted_mart_column() -> None:
-    data = manifest(True)
-    data["exposures"] = {
-        "exposure.pii_fixture.customers": {
-            "resource_type": "exposure",
-            "package_name": "pii_fixture",
-            "config": {
-                "meta": {
-                    "cube_fields": {"customers.value": ["derived.customer_count"]},
-                    "cube_pii": {"customers.value": False},
-                    "cube_direct_columns": {
-                        "customers.value": "derived.customer_count",
-                    },
-                }
-            },
-        }
-    }
-    with pytest.raises(ValueError, match="customers.value.*classification"):
-        check_pii(data)
-
-
-def test_derived_cube_field_keeps_its_own_classification() -> None:
-    data = exposed(False)
-    data["nodes"] = manifest(True)["nodes"]
-    check_pii(data)
-
-
-def test_model_default_does_not_classify_a_new_field() -> None:
-    data = manifest(False)
-    data["nodes"] = {
-        "model.pii_fixture.new": {
-            "name": "new",
-            "resource_type": "model",
-            "package_name": "pii_fixture",
-            "config": {"meta": {"pii": False}},
-            "columns": {"email": {}},
-        }
-    }
-    with pytest.raises(ValueError, match="new.email.*boolean"):
-        check_pii(data)
-
-
-def test_direct_alias_map_cannot_be_omitted() -> None:
-    data = manifest(False)
-    data["exposures"] = {
-        "exposure.pii_fixture.customers": {
-            "resource_type": "exposure",
-            "package_name": "pii_fixture",
-            "config": {
-                "meta": {
-                    "cube_fields": {"customers.count": []},
-                    "cube_pii": {"customers.count": False},
-                }
-            },
-        }
-    }
-    with pytest.raises(ValueError, match="cube_direct_columns"):
-        check_pii(data)
-
-
-def test_source_declaration_removal_cannot_reduce_reviewed_coverage() -> None:
-    from pathlib import Path
-
-    from analytics_transformations import pii
-    from analytics_transformations.mart_contracts import (
-        mapping,
-        read_json,
-        sequence,
-        text,
-    )
-
+def _toolkit_sources() -> dict[str, object]:
+    """Every reviewed toolkit source, as the toolkit package declares it."""
     inventory = mapping(read_json(Path(pii.__file__).with_name("source_fields.json")))
-    sources: dict[str, object] = {
+    return {
         key: {
             "resource_type": "source",
-            "package_name": "analytics",
+            "package_name": TOOLKIT,
             "columns": {
                 text(name): {"config": {"meta": {"pii": False}}}
                 for name in sequence(columns)
@@ -202,12 +102,20 @@ def test_source_declaration_removal_cannot_reduce_reviewed_coverage() -> None:
         }
         for key, columns in inventory.items()
     }
-    data: dict[str, object] = {
-        "metadata": {"project_name": "analytics"},
-        "sources": sources,
-    }
+
+
+# The toolkit's own project, and a client project that installs it.
+ROOTS = pytest.mark.parametrize("root", [TOOLKIT, "client"])
+
+
+@ROOTS
+def test_source_declaration_removal_cannot_reduce_reviewed_coverage(
+    root: str,
+) -> None:
+    sources = _toolkit_sources()
+    data: dict[str, object] = {"metadata": {"project_name": root}, "sources": sources}
     check_pii(data)
-    key = "source.analytics.shopify_orders.orders"
+    key = "source.analytics_toolkit.shopify_orders.orders"
     source = mapping(sources[key])
     columns = mapping(source["columns"])
     del columns["email"]
@@ -219,64 +127,70 @@ def test_source_declaration_removal_cannot_reduce_reviewed_coverage() -> None:
         check_pii(data)
 
 
-def test_new_source_fields_must_join_reviewed_inventory() -> None:
-    from pathlib import Path
-
-    from analytics_transformations import pii
-    from analytics_transformations.mart_contracts import (
-        mapping,
-        read_json,
-        sequence,
-        text,
-    )
-
-    inventory = mapping(read_json(Path(pii.__file__).with_name("source_fields.json")))
-    sources: dict[str, object] = {
-        key: {
-            "resource_type": "source",
-            "package_name": "analytics",
-            "columns": {
-                text(name): {"config": {"meta": {"pii": False}}}
-                for name in sequence(columns)
-            },
-        }
-        for key, columns in inventory.items()
-    }
-    key = "source.analytics.new_source.new_table"
+@ROOTS
+def test_new_source_fields_must_join_reviewed_inventory(root: str) -> None:
+    sources = _toolkit_sources()
+    key = "source.analytics_toolkit.new_source.new_table"
     sources[key] = {
         "resource_type": "source",
-        "package_name": "analytics",
+        "package_name": TOOLKIT,
         "columns": {"new_field": {"config": {"meta": {"pii": False}}}},
     }
     with pytest.raises(ValueError, match="new_field.*source_fields.json"):
-        check_pii({"metadata": {"project_name": "analytics"}, "sources": sources})
+        check_pii({"metadata": {"project_name": root}, "sources": sources})
 
 
-def test_source_inventory_proposal_includes_disabled_sources_without_classifying() -> (
-    None
-):
-    from analytics_transformations.pii import source_inventory
+def test_client_sources_declare_pii_per_column_outside_the_inventory() -> None:
+    # The inventory reviews toolkit sources. A client's own source needs a
+    # boolean decision on every declared column, reviewed in its repository.
+    sources = _toolkit_sources()
+    columns: dict[str, object] = {"target": {"config": {"meta": {"pii": False}}}}
+    sources["source.client.sheets.targets"] = {
+        "resource_type": "source",
+        "package_name": "client",
+        "columns": columns,
+    }
+    data = {"metadata": {"project_name": "client"}, "sources": sources}
+    check_pii(data)
+    columns["owner_email"] = {"description": "Owner"}
+    with pytest.raises(ValueError, match="targets.owner_email.*boolean"):
+        check_pii(data)
+    columns.clear()
+    with pytest.raises(ValueError, match="targets.*declare columns"):
+        check_pii(data)
 
+
+def test_client_models_declare_pii_beside_toolkit_models() -> None:
     data = manifest(None)
+    data["metadata"] = {"project_name": "client"}
+    model = cast(dict[str, dict[str, object]], data["nodes"])[
+        "model.pii_fixture.derived"
+    ]
+    model["package_name"] = "client"
+    data["sources"] = _toolkit_sources()
+    with pytest.raises(ValueError, match="derived.customer_count.*boolean"):
+        check_pii(data)
+
+
+def test_source_inventory_proposes_toolkit_sources_including_disabled() -> None:
+    data = manifest(None)
+    data["metadata"] = {"project_name": "client"}
     data["disabled"] = {
-        "source.pii_fixture.retired": [
+        "source.analytics_toolkit.shop.retired": [
             {
                 "resource_type": "source",
-                "package_name": "pii_fixture",
+                "package_name": TOOLKIT,
                 "columns": {"phone": {}, "address": {}},
             }
         ],
-        "source.other.ignored": [
+        "source.client.sheets.ignored": [
             {
                 "resource_type": "source",
-                "package_name": "other",
+                "package_name": "client",
                 "columns": {"x": {}},
             }
         ],
     }
     assert source_inventory(data) == {
-        "source.pii_fixture.customers": ["email"],
-        "source.pii_fixture.retired": ["address", "phone"],
+        "source.analytics_toolkit.shop.retired": ["address", "phone"],
     }
-    with pytest.raises(ValueError, match="boolean"):
-        check_pii(data)

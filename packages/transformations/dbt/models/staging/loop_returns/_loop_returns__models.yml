@@ -1,6 +1,6 @@
 models:
 - name: stg_loop_returns__headers
-  description: Non-PII return-header evidence, empty when LOOP_RETURNS_ENABLED is false. No fallback to
+  description: Non-PII return-header evidence. No fallback to
     legacy data or inferred zero fees.
   config:
     meta:

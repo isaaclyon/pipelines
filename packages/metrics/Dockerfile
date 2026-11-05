@@ -1,14 +1,20 @@
 FROM cubejs/cube:v1.6.32@sha256:1c534c8e818e0235fcfa606d53d959fa6b7eb8344b06adc333f6a39f081e7786 AS base
 WORKDIR /cube/conf
 
+# The configuration's own runtime dependencies (package.json "dependencies"),
+# installed from the lockfile at build time; startup installs nothing.
+FROM base AS runtime-dependencies
+COPY packages/metrics/package.json packages/metrics/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+
 FROM base AS runtime
 # Run as UID 10001, the only reader of mounted remote secret files.
 RUN useradd --uid 10001 --user-group --no-create-home --home-dir /cube/conf analytics
+COPY --from=runtime-dependencies /cube/conf/node_modules ./node_modules
 COPY --chown=analytics:analytics packages/metrics/cube.js packages/metrics/package.json ./
 COPY --chown=analytics:analytics packages/metrics/model ./model
 COPY --chown=analytics:analytics packages/metrics/*.cjs ./
-# dbt owns published column metadata (ADR 0014); mart-columns.cjs reads it.
-COPY --chown=analytics:analytics packages/transformations/dbt/customer-mart-contracts.json ./mart-contracts.json
+# A client image adds its Cube definitions in /cube/conf/client/model.
 USER analytics
 
 FROM base AS check-dependencies
@@ -17,11 +23,9 @@ COPY --chown=node:node packages/metrics/package.json packages/metrics/package-lo
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 FROM check-dependencies AS checks
-COPY --from=runtime --chown=node:node /cube/conf/cube.js /cube/conf/*.cjs /cube/conf/mart-contracts.json ./
+COPY --from=runtime --chown=node:node /cube/conf/cube.js /cube/conf/*.cjs ./
 COPY --from=runtime --chown=node:node /cube/conf/model ./model
 USER node
 COPY --chown=node:node packages/metrics/tsconfig.json ./
 COPY --chown=node:node packages/metrics/tests ./tests
-# Generated from this package's model; tests/exposures.test.cjs keeps it current.
-COPY --chown=node:node packages/transformations/dbt/models/exposures/_cube__exposures.yml ./dbt-exposures.yml
 ENTRYPOINT ["npm", "run", "check"]

@@ -70,7 +70,7 @@ def _raw(path: Path) -> None:
 def _build(path: Path, target: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
-            "dbt",
+            "analytics-dbt",
             "build",
             "--select",
             *MODELS,

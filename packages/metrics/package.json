@@ -2,6 +2,9 @@
   "name": "analytics-metrics",
   "version": "0.1.0",
   "private": true,
+  "dependencies": {
+    "yaml": "2.8.3"
+  },
   "devDependencies": {
     "@types/node": "22.19.15",
     "typescript": "5.9.3"

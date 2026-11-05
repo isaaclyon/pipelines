@@ -1,0 +1,36 @@
+version: 2
+models:
+  - name: fct_observations
+    description: Synthetic fixture observations; never deployed as business data.
+    config:
+      meta:
+        owner: Analytics Platform
+        grain: One row per synthetic observation
+        key: [observation_id]
+    columns:
+      - name: observation_id
+        data_type: bigint
+        description: Stable synthetic observation identity.
+        config:
+          meta:
+            pii: false
+            identity: {kind: analytical, meaning: Stable synthetic fixture identity}
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - unique:
+              config:
+                severity: error
+      - name: observed_amount
+        data_type: decimal(18, 2)
+        description: Synthetic exact-decimal amount in USD.
+        config:
+          meta:
+            pii: false
+            currency: {column: currency_code}
+      - name: currency_code
+        config:
+          meta: {pii: false}
+        data_type: varchar
+        description: ISO currency of the synthetic observation.

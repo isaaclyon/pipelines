@@ -112,14 +112,14 @@ lessons that still shape the current design are kept here.
    cohort, with the full revision-2 shape, in about one minute with four readers
    and no throttling, against a four-minute gate. Each Snowflake load adds about
    90 seconds regardless of size, so refresh defaults to four readers
-   (`SHOPIFY_ORDERS_REFRESH_WORKERS`).
+   (`refresh_workers` under `shopify_orders` in `client.yaml`).
 2. **Shadow run.** The new pipeline ran beside the old one into a separate
    dataset. Parity passed on every compared window, kill tests during the read
    and the load recovered, and old orders edited during a run matched the
    source's latest version. Two findings carried forward:
    - **Seed gap.** Leave no gap between the last loaded instant and the refresh
-     seed (`SHOPIFY_ORDERS_SEED`); orders created in a gap and never edited are
-     otherwise missed until a re-extract.
+     seed (the `schedule.start` of `shopify_orders` in `client.yaml`); orders
+     created in a gap and never edited are otherwise missed until a re-extract.
    - **Queued-window race.** A run's `end` is fixed at launch, so a refresh
      queued behind another can report versions a later run already superseded.
 3. **Cutover.** Clone the raw dataset, stop the old schedules, seed the first

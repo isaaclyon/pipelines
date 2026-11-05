@@ -1,7 +1,7 @@
 """One manual, serialized Dagster job per kit source.
 
-The job exists only when the source is in ``ANALYTICS_SOURCES`` and its settings
-file (and, remotely, the Snowflake key) is readable. No schedule is registered.
+The job exists only when client.yaml lists the source and its settings file
+(and, remotely, the Snowflake key) is readable. No schedule is registered.
 """
 
 import os
@@ -9,13 +9,15 @@ from collections.abc import Callable, Mapping
 
 import dagster as dg
 
-from analytics_ingestion.kit.runtime import enabled, readable, settings_path, target
+from analytics_ingestion.client import ClientConfig
+from analytics_ingestion.kit.runtime import readable, settings_path, target
 
 Metadata = dict[str, str | int | list[str]]
 Run = Callable[[Mapping[str, str]], Metadata]
 
 
 def manual_capture(
+    config: ClientConfig,
     env: Mapping[str, str],
     *,
     source: str,
@@ -29,7 +31,7 @@ def manual_capture(
     tags: Mapping[str, str] | None = None,
 ) -> dg.Definitions:
     """``run`` receives the process environment and returns run metadata."""
-    if not enabled(env, source):
+    if not config.enabled(source):
         return dg.Definitions()
     files = [
         ("ANALYTICS_SOURCE_SECRETS_ROOT", settings_path(env, source)),

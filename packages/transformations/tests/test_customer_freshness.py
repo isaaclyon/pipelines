@@ -7,6 +7,7 @@ import duckdb
 import pytest
 
 from analytics_transformations.defs.shopify_validation import source_freshness
+from tests.client_files import write_client
 
 # Real dbt project nodes these tests execute (ADR 0026).
 pytestmark = pytest.mark.dbt(
@@ -43,7 +44,7 @@ def evidence(
         "DBT_PROJECT_DIR": str(DBT),
         "DBT_PROFILES_DIR": str(DBT),
         "SHOPIFY_CUSTOMERS_DATASET": "raw_customers",
-        "SHOPIFY_CUSTOMERS_ENABLED": "true",
+        **write_client(tmp_path, "shopify_customers"),
     }.items():
         monkeypatch.setenv(name, value)
 

@@ -3,6 +3,7 @@ name = "analytics_transformations"
 requires-python = ">=3.12,<3.13"
 version = "0.1.0"
 dependencies = [
+    "analytics_client_config",
     "dagster==1.13.25",
     "dagster-docker==0.29.25",
     "dagster-postgres==0.29.25",
@@ -14,7 +15,19 @@ dependencies = [
     "duckdb==1.5.6",
     "snowflake-connector-python==4.8.0",
     "dagster-dbt==0.29.25",
+    # analytics-check-client lints client model SQL in the runtime image.
+    "sqlfluff==4.4.0",
+    "sqlfluff-templater-dbt==4.4.0",
 ]
+
+[project.scripts]
+# Drop-in for dbt that adds the client settings from client.yaml.
+analytics-dbt = "analytics_transformations.client_dbt:main"
+# Offline check of a client's dbt project, run in its transformations image.
+analytics-check-client = "analytics_transformations.check_client:main"
+
+[tool.uv.sources]
+analytics_client_config = { path = "../client-config", editable = false }
 
 [dependency-groups]
 dev = [
@@ -23,8 +36,6 @@ dev = [
     "pytest==9.1.1",
     "pytest-xdist==3.8.0",
     "ruff==0.16.10",
-    "sqlfluff==4.4.0",
-    "sqlfluff-templater-dbt==4.4.0",
 ]
 
 [build-system]

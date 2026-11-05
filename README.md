@@ -2,16 +2,22 @@
 
 A container-first analytics platform using dlt for ingestion, Dagster for
 orchestration, dbt Core for transformations, Snowflake as the warehouse, and
-Cube Core for metrics. Single-user development follows local-first DuckDB and
-the same Cube definitions; Snowflake remains the shared release target.
+Cube Core for metrics. Single-user development loads and transforms data in
+local DuckDB files; Snowflake remains the shared release target.
 
 The repository includes source connectors (Shopify orders and customers, Loop
-Returns, Impact Radius, GoodDay inventory and Google Sheets), dbt models, Cube
-metrics, a local Docker Compose stack and independent package checks. The
-accepted [local-first lifecycle](docs/specs/20261101-local-first-development.md)
-is partly implemented. It ships only the local and CI targets; running it on a
-shared host needs your own deployment.
+Returns, Impact Radius, GoodDay inventory and Google Sheets), dbt staging
+models, a placeholder Cube model, a local Docker Compose stack and independent
+package checks. Marts and their Cube metrics arrive in Roadmap Phase 4. It ships
+only the local and CI targets; running it on a shared host needs your own
+deployment.
 
+The platform is becoming a reusable toolkit for small D2C brands, with one VM
+and one MotherDuck or Snowflake warehouse per client. The [roadmap](ROADMAP.md)
+describes the phases; some content below still describes the earlier
+single-brand setup until Phase 1 lands.
+
+- [Roadmap](ROADMAP.md)
 - [Architecture decisions](docs/adrs/README.md)
 - [Engineering standards](engineering-standards.md)
 - [Delivery policy](docs/delivery-policy.md) — outcomes, acceptance, focus, and tracking
@@ -30,7 +36,6 @@ packages/
 deploy/
   dagster/           # Control-plane configuration
   compose/           # Local and CI Compose configuration
-  secrets/           # Optional 1Password templates
 docs/
   adrs/              # Accepted architecture decisions
   specs/             # Implementation specifications
@@ -69,7 +74,7 @@ location loads, and Cube returns its model metadata to a token signed with
 `CUBEJS_API_SECRET`. Local and CI targets then launch `scaffold_check`
 in both code locations. Cube uses Snowflake configuration for metadata compilation
 but has no warehouse credentials in the offline scaffold. It does not serve
-fixture data. Publication and permissions require explicit development Snowflake
+fixture data. Snowflake behavior requires explicit development Snowflake
 acceptance; local smoke checks do not prove an end-to-end business pipeline.
 
 ```sh
@@ -82,28 +87,17 @@ acceptance; local smoke checks do not prove an end-to-end business pipeline.
 Run `local up` again after source or dependency changes to rebuild the installed
 packages.
 
-See [deployment and state](deploy/compose/README.md) for environment configuration
-and the current publication limitations.
+See [deployment and state](deploy/compose/README.md) for environment
+configuration.
 
 ## Configure for your business
 
-Business rules live in two places, so no brand detail is written into SQL:
-
-- **dbt project vars** in
-  [`packages/transformations/dbt/dbt_project.yml`](packages/transformations/dbt/dbt_project.yml):
-  the home and separately reported shipping markets, employee email domains,
-  and the order tag and discount-code patterns behind the channel and
-  characteristic flags (specialty, bulk, gifting, broadcast and others). Edit
-  the `vars` block, or override values for one run with `dbt --vars`.
-- **Environment variables** in your Compose env file
-  (`ANALYTICS_ENV_FILE`; `local` defaults to `deploy/compose/.env.local` when it
-  exists, otherwise `deploy/compose/.env.local.example`):
-  `ANALYTICS_REPORTING_TIME_ZONE` sets the calendar zone for order dates in
-  dbt and Cube (default `America/Los_Angeles`). Source connectors read their
-  own settings files; see the [ingestion README](packages/ingestion/README.md).
-
-Changing a classification rule changes published flag values on the next
-build, so review the mart descriptions and downstream reports with it.
+Each business keeps its own client repository; the
+[sample client](examples/sample-client/README.md) is the template. Its
+`client.yaml` names the sources to run, their schedules, the warehouse and the
+reporting time zone. Its `.env` holds passwords and the host folder of source
+settings files, one JSON file per system, such as `shopify.json`. See
+[settings each service reads](deploy/compose/README.md#settings-each-service-reads).
 
 ## Worktrunk worktrees
 
@@ -127,8 +121,10 @@ root and in `packages/ingestion`, `packages/transformations`, and
 Missing files are skipped, existing destination files are preserved, and copied
 files receive owner-only permissions. Symlinked source env files are rejected.
 
-It runs `uv sync --frozen` independently in both Python packages, the isolated
-`packages/transformations/lineage` CLI environment, and `deploy/dagster`, including
+It runs `uv sync --frozen` independently in each Python package
+(`packages/client-config`, `packages/ingestion` and `packages/transformations`),
+the isolated `packages/transformations/lineage` CLI environment, and
+`deploy/dagster`, including
 declared development dependencies, then `npm ci` in
 `packages/metrics`. Each Python project gets its own `.venv`; lockfiles stay fixed.
 To retry setup or prepare an existing checkout, run from its root:

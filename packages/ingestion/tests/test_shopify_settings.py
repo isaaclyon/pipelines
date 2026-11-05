@@ -17,13 +17,15 @@ from analytics_ingestion.shopify.source import build_pipeline as orders_pipeline
 
 
 def env(tmp_path: Path, **changes: str) -> dict[str, str]:
-    credentials = tmp_path / "shopify.json"
-    _ = credentials.write_text(
+    """Both Shopify sources read shopify.json from the settings folder."""
+    secrets = tmp_path / "secrets"
+    secrets.mkdir(exist_ok=True)
+    _ = (secrets / "shopify.json").write_text(
         json.dumps({"shop_domain": "example.myshopify.com", "access_token": "x" * 32})
     )
     return {
         "ANALYTICS_ENVIRONMENT": "local",
-        "SHOPIFY_CREDENTIALS_PATH": str(credentials),
+        "ANALYTICS_SOURCE_SECRETS_ROOT": str(secrets),
         "ANALYTICS_INGESTION_STATE_ROOT": str(tmp_path / "state"),
         **changes,
     }
@@ -82,10 +84,15 @@ def test_remote_key_path_must_be_absolute(tmp_path: Path) -> None:
         _ = settings_from_env(values)
 
 
-def test_unconfigured_local_credential_fails_closed(tmp_path: Path) -> None:
-    """Local Compose mounts an empty file when no credential path is set."""
-    empty = tmp_path / "empty"
-    _ = empty.write_bytes(b"")
+def test_missing_or_empty_settings_file_fails_closed(tmp_path: Path) -> None:
+    """Local Compose mounts an empty folder when no settings folder is set."""
+    values = env(tmp_path)
+    settings_file = tmp_path / "secrets" / "shopify.json"
+    _ = settings_file.write_bytes(b"")
+    with pytest.raises(ConfigurationError, match=f"{settings_file} is empty"):
+        _ = settings_from_env(values)
 
-    with pytest.raises(ConfigurationError):
-        _ = settings_from_env(env(tmp_path, SHOPIFY_CREDENTIALS_PATH=str(empty)))
+    settings_file.unlink()
+    for read in (settings_from_env, customer_settings_from_env):
+        with pytest.raises(ConfigurationError, match=f"{settings_file} is unreadable"):
+            _ = read(values)

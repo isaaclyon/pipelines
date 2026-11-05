@@ -14,10 +14,16 @@ x-python-environment: &python-environment
   ANALYTICS_ENVIRONMENT: ${ANALYTICS_ENVIRONMENT:?Select an environment}
   DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:?Set metadata password}
   DBT_TARGET: ${DBT_TARGET:?Select a dbt target}
-  # Calendar zone for order dates; Cube reads the same value.
-  ANALYTICS_REPORTING_TIME_ZONE: ${ANALYTICS_REPORTING_TIME_ZONE:-America/Los_Angeles}
   # Local/CI share DuckDB files. Remote topology overrides this capacity.
   DAGSTER_MAX_CONCURRENT_RUNS: "1"
+
+# The client's settings (ADR 0032), from the client repository in CLIENT_DIR.
+# scripts/platform sets CLIENT_DIR; it defaults to examples/sample-client.
+x-client-config: &client-config
+  type: bind
+  source: ${CLIENT_DIR:?Set the client repository folder}/client.yaml
+  target: /etc/analytics/client.yaml
+  read_only: true
 
 x-control: &control
   <<: *service
@@ -79,6 +85,7 @@ services:
       <<: *python-environment
       DAGSTER_CURRENT_IMAGE: ${INGESTION_IMAGE:-analytics-ingestion:local}
     volumes:
+      - *client-config
       - ingestion-state:/var/lib/analytics/ingestion
       - artifacts:/var/lib/analytics/artifacts
     depends_on:
@@ -92,17 +99,40 @@ services:
       start_period: 30s
       start_interval: 1s
 
-  transformations:
-    <<: *service
-    image: ${TRANSFORMATIONS_IMAGE:-analytics-transformations:local}
+  # The toolkit images that the client images build FROM. They never run
+  # here; building a client image builds them first (additional_contexts).
+  transformations-toolkit:
+    profiles: [toolkit]
+    image: analytics-transformations:local
     build:
       <<: *python-build
       args: {PROJECT_DIR: packages/transformations}
+
+  metrics-toolkit:
+    profiles: [toolkit]
+    image: analytics-metrics:local
+    build:
+      context: ../..
+      dockerfile: packages/metrics/Dockerfile
+      target: runtime
+
+  # Transformations and Cube run the client's images: the toolkit image plus
+  # the client's dbt project or Cube files, as in a client deployment.
+  transformations:
+    <<: *service
+    image: ${TRANSFORMATIONS_IMAGE:-analytics-client-transformations:local}
+    build:
+      context: ${CLIENT_DIR}
+      dockerfile: Dockerfile.transformations
+      args: {TOOLKIT_VERSION: local}
+      additional_contexts:
+        "analytics-transformations:local": "service:transformations-toolkit"
     command: ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4000", "-m", "analytics_transformations.definitions"]
     environment:
       <<: *python-environment
-      DAGSTER_CURRENT_IMAGE: ${TRANSFORMATIONS_IMAGE:-analytics-transformations:local}
+      DAGSTER_CURRENT_IMAGE: ${TRANSFORMATIONS_IMAGE:-analytics-client-transformations:local}
     volumes:
+      - *client-config
       - artifacts:/var/lib/analytics/artifacts
       - working:/var/lib/analytics/working
       - docs:/var/lib/analytics/docs
@@ -142,14 +172,15 @@ services:
 
   cube-api:
     <<: *service
-    image: analytics-metrics:local
+    image: analytics-client-metrics:local
     build:
-      context: ../..
-      dockerfile: packages/metrics/Dockerfile
-      target: runtime
+      context: ${CLIENT_DIR}
+      dockerfile: Dockerfile.metrics
+      args: {TOOLKIT_VERSION: local}
+      additional_contexts:
+        "analytics-metrics:local": "service:metrics-toolkit"
     environment:
       ANALYTICS_ENVIRONMENT: ${ANALYTICS_ENVIRONMENT}
-      ANALYTICS_REPORTING_TIME_ZONE: ${ANALYTICS_REPORTING_TIME_ZONE:-America/Los_Angeles}
       CUBEJS_DB_TYPE: ${CUBEJS_DB_TYPE:?Select a Cube backend}
       CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:?Set Cube API secret}
       CUBEJS_DEV_MODE: "false"
@@ -158,6 +189,7 @@ services:
       # worker until the first pre-aggregation needs them (ADR 0014).
       CUBEJS_CACHE_AND_QUEUE_DRIVER: memory
       CUBEJS_REFRESH_WORKER: "false"
+    volumes: [*client-config]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4000/readyz').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
       interval: 10s

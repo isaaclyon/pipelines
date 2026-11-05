@@ -41,20 +41,23 @@ from typing import cast
 from dbt.cli.main import dbtRunner
 from dbt.contracts.graph.manifest import Manifest
 
+from analytics_transformations.client_dbt import dbt_env
+from analytics_transformations.layer_dependencies import TOOLKIT_PROJECT
+from tests.client_files import ALL_SOURCES
+
 ROOT = Path(__file__).parents[1]
 PROJECT = ROOT / "dbt"
-PROJECT_NAME = "analytics"
+PROJECT_NAME = TOOLKIT_PROJECT
 MODES = ("all", "none", "changed")
-# Selection and state comparison need every optional source enabled.
-ENV = {
-    "DBT_TARGET": "local",
-    "DBT_NAMESPACE": "ci_selection",
-    "GOODDAY_INVENTORY_ENABLED": "true",
-    "LOOP_RETURNS_ENABLED": "true",
-    "SHOPIFY_CUSTOMERS_ENABLED": "true",
-    "GOVERNED_ORDER_METRICS_ENABLED": "true",
-    "ANALYTICS_ENVIRONMENT": "local",
-}
+# Selection and state comparison need every source enabled.
+ENV = dbt_env(
+    {
+        "ANALYTICS_CLIENT_CONFIG": str(ALL_SOURCES),
+        "DBT_TARGET": "local",
+        "DBT_NAMESPACE": "ci_selection",
+        "ANALYTICS_ENVIRONMENT": "local",
+    }
+)
 
 
 # Real-project nodes that dbt executed for the running test.

@@ -12,11 +12,12 @@ from analytics_transformations.layer_dependencies import (
     Violation,
     check,
     find_hard_coded_relations,
+    governed_projects,
     parse_manifest,
-    root_project,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "layer_dependencies"
+P = frozenset({"p"})
 
 
 def _parse_fixture(name: str, tmp_path: Path) -> Path:
@@ -49,7 +50,7 @@ def _parse_fixture(name: str, tmp_path: Path) -> Path:
 
 def _violations(manifest: Path) -> list[Violation]:
     data = cast(object, json.loads(manifest.read_text()))
-    return check(parse_manifest(data), root_project(data))
+    return check(parse_manifest(data), governed_projects(data))
 
 
 def test_permitted_layers_seeds_snapshots_and_exempt_resources_pass(
@@ -200,7 +201,7 @@ def test_semantic_models_read_marts_only() -> None:
         },
     }
 
-    assert check(parse_manifest(manifest), "p") == [
+    assert check(parse_manifest(manifest), P) == [
         Violation(
             "order_totals",
             "forbidden-dependency",
@@ -235,13 +236,58 @@ def test_installed_package_models_are_unchecked_staging_inputs() -> None:
         },
     }
 
-    assert check(parse_manifest(manifest), "p") == [
+    assert check(parse_manifest(manifest), P) == [
         Violation(
             "fct_orders",
             "forbidden-dependency",
             "reads package model orders; marts reads staging, intermediate, "
             "and mart models",
         )
+    ]
+
+
+def test_client_root_governs_its_models_and_the_toolkit_package() -> None:
+    toolkit = "analytics_toolkit"
+    manifest = {
+        "metadata": {"project_name": "client"},
+        "nodes": {
+            "model.analytics_toolkit.stg_shop__orders": _model(
+                "stg_shop__orders",
+                "models/staging/shop/stg_shop__orders.sql",
+                "source.analytics_toolkit.shop.orders",
+                package=toolkit,
+            ),
+            # A toolkit model breaks the rules in a client project too.
+            "model.analytics_toolkit.orders": _model(
+                "orders", "models/orders.sql", package=toolkit
+            ),
+            # Another package stays an unchecked staging input.
+            "model.vendor.orders": _model(
+                "orders", "models/orders.sql", package="vendor"
+            ),
+            "model.client.fct_orders": _model(
+                "fct_orders",
+                "models/marts/fct_orders.sql",
+                "model.analytics_toolkit.stg_shop__orders",
+                package="client",
+            ),
+            "model.client.fct_vendor_orders": _model(
+                "fct_vendor_orders",
+                "models/marts/fct_vendor_orders.sql",
+                "model.vendor.orders",
+                package="client",
+            ),
+        },
+    }
+
+    assert governed_projects(manifest) == {"client", toolkit}
+    assert governed_projects({"metadata": {"project_name": toolkit}}) == {toolkit}
+    assert [
+        (v.resource, v.rule)
+        for v in check(parse_manifest(manifest), governed_projects(manifest))
+    ] == [
+        ("fct_vendor_orders", "forbidden-dependency"),
+        ("orders", "unknown-layer"),
     ]
 
 
@@ -265,7 +311,7 @@ def test_exposures_reading_metrics_name_the_metric() -> None:
         },
     }
 
-    assert check(parse_manifest(manifest), "p") == [
+    assert check(parse_manifest(manifest), P) == [
         Violation(
             "board",
             "forbidden-dependency",
@@ -289,7 +335,7 @@ def test_exposures_reading_metrics_name_the_metric() -> None:
 )
 def test_descriptive_model_naming_is_reviewed_not_blocking(name: str) -> None:
     node = _model(name, f"models/intermediate/{name}.sql")
-    assert check(parse_manifest({"nodes": {"model.p.x": node}}), "p") == []
+    assert check(parse_manifest({"nodes": {"model.p.x": node}}), P) == []
 
 
 @pytest.mark.parametrize(
@@ -308,7 +354,7 @@ def test_objective_model_naming_accepts_meaningful_names(name: str) -> None:
             parse_manifest(
                 {"nodes": {"model.p.x": _model(name, f"models/{layer}/{name}.sql")}}
             ),
-            "p",
+            P,
         )
         == []
     )
@@ -345,7 +391,7 @@ def test_alias_grammar_versions_and_portable_limits(
     unique_id = "model.p.fct_orders" + (f".v{version}" if version else "")
     node = _physical_node(alias=alias, version=version)
     violations = check(
-        parse_manifest({"nodes": {unique_id: node}}), "p", namespace="ci_123"
+        parse_manifest({"nodes": {unique_id: node}}), P, namespace="ci_123"
     )
     assert (not violations) == valid
 
@@ -354,7 +400,7 @@ def test_version_must_match_manifest_identity() -> None:
     node = _physical_node(alias="fct_orders_v2", version=2)
     assert "model-version" in {
         v.rule
-        for v in check(parse_manifest({"nodes": {"model.p.fct_orders.v3": node}}), "p")
+        for v in check(parse_manifest({"nodes": {"model.p.fct_orders.v3": node}}), P)
     }
 
 
@@ -369,11 +415,11 @@ def test_physical_collisions_ignore_case_and_include_auxiliary_resources() -> No
         ),
     }
     assert "identifier-collision" in {
-        v.rule for v in check(parse_manifest({"nodes": nodes}), "p")
+        v.rule for v in check(parse_manifest({"nodes": nodes}), P)
     }
     nodes["seed.p.orders"]["database"] = "other"
     assert "identifier-collision" not in {
-        v.rule for v in check(parse_manifest({"nodes": nodes}), "p")
+        v.rule for v in check(parse_manifest({"nodes": nodes}), P)
     }
 
 
@@ -391,9 +437,9 @@ def test_namespaces_route_persisted_resources(kind: str, suffix: str) -> None:
         resource_type=kind, schema=f"ci_123_{suffix}", config={"store_failures": True}
     )
     resources = parse_manifest({"nodes": {f"{kind}.p.x": node}})
-    assert check(resources, "p", namespace="ci_123") == []
+    assert check(resources, P, namespace="ci_123") == []
     assert "resource-schema" in {
-        v.rule for v in check(resources, "p", namespace="developer")
+        v.rule for v in check(resources, P, namespace="developer")
     }
 
 
@@ -418,7 +464,7 @@ def test_generic_test_names_and_aliases_are_exempt_from_style(
         schema="ci_123_test_failures",
     )
     assert (
-        check(parse_manifest({"nodes": {"test.p.x": node}}), "p", namespace="ci_123")
+        check(parse_manifest({"nodes": {"test.p.x": node}}), P, namespace="ci_123")
         == []
     )
 
@@ -432,7 +478,7 @@ def test_generic_stored_failures_keep_portable_identifier_limits(alias: str) -> 
         alias=alias,
     )
     assert "identifier" in {
-        v.rule for v in check(parse_manifest({"nodes": {"test.p.x": node}}), "p")
+        v.rule for v in check(parse_manifest({"nodes": {"test.p.x": node}}), P)
     }
 
 
@@ -447,10 +493,10 @@ def test_generic_stored_failures_keep_schema_and_collision_checks() -> None:
     )
     second = {**first, "name": "SecondTest", "alias": "sharedfailure"}
     resources = parse_manifest({"nodes": {"test.p.x": first, "test.p.y": second}})
-    assert {v.rule for v in check(resources, "p", namespace="ci_123")} == {
+    assert {v.rule for v in check(resources, P, namespace="ci_123")} == {
         "identifier-collision"
     }
-    assert {v.rule for v in check(resources, "p", namespace="other")} == {
+    assert {v.rule for v in check(resources, P, namespace="other")} == {
         "identifier-collision",
         "resource-schema",
     }
@@ -468,9 +514,7 @@ def test_authored_test_names_are_reviewed_not_blocking(
         test_metadata=metadata,
         config={"store_failures": True},
     )
-    rules = {
-        v.rule for v in check(parse_manifest({"nodes": {f"{kind}.p.x": node}}), "p")
-    }
+    rules = {v.rule for v in check(parse_manifest({"nodes": {f"{kind}.p.x": node}}), P)}
     assert rules == set()
 
 
@@ -479,4 +523,4 @@ def test_ephemeral_and_unstored_tests_do_not_collide_or_require_schemas() -> Non
         "model.p.x": _physical_node(config={"materialized": "ephemeral"}),
         "test.p.x": _physical_node(resource_type="test"),
     }
-    assert check(parse_manifest({"nodes": nodes}), "p", namespace="developer") == []
+    assert check(parse_manifest({"nodes": nodes}), P, namespace="developer") == []

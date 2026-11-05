@@ -1,9 +1,9 @@
 {
-  "source.analytics.goodday._dlt_loads": [
+  "source.analytics_toolkit.goodday._dlt_loads": [
     "load_id",
     "status"
   ],
-  "source.analytics.goodday.inventory_by_item": [
+  "source.analytics_toolkit.goodday.inventory_by_item": [
     "_capture_id",
     "_dlt_load_id",
     "_row_number",
@@ -33,7 +33,7 @@
     "transfer_in_transit",
     "updated_at"
   ],
-  "source.analytics.goodday.inventory_captures": [
+  "source.analytics_toolkit.goodday.inventory_captures": [
     "_dlt_load_id",
     "capture_id",
     "captured_at",
@@ -41,14 +41,14 @@
     "row_count",
     "source_relation"
   ],
-  "source.analytics.loop_return_headers.loads": [
+  "source.analytics_toolkit.loop_return_headers.loads": [
     "inserted_at",
     "load_id",
     "schema_name",
     "schema_version_hash",
     "status"
   ],
-  "source.analytics.loop_return_headers.return_snapshots": [
+  "source.analytics_toolkit.loop_return_headers.return_snapshots": [
     "completed_at",
     "removed_count",
     "row_count",
@@ -57,7 +57,7 @@
     "snapshot_id",
     "window_count"
   ],
-  "source.analytics.loop_return_headers.returns": [
+  "source.analytics_toolkit.loop_return_headers.returns": [
     "created_at",
     "currency",
     "exchange_total",
@@ -72,14 +72,14 @@
     "updated_at",
     "upsell"
   ],
-  "source.analytics.shopify_customers.customer_field_access": [
+  "source.analytics_toolkit.shopify_customers.customer_field_access": [
     "batch_id",
     "checked_at",
     "field_group",
     "shop_id",
     "status"
   ],
-  "source.analytics.shopify_customers.customers": [
+  "source.analytics_toolkit.shopify_customers.customers": [
     "_api_version",
     "_batch_id",
     "_extraction_kind",
@@ -128,7 +128,7 @@
     "whatsapp_marketing_state",
     "whatsapp_marketing_updated_at"
   ],
-  "source.analytics.shopify_customers.customers__addresses": [
+  "source.analytics_toolkit.shopify_customers.customers__addresses": [
     "address_id",
     "address_line_1",
     "address_line_2",
@@ -152,7 +152,7 @@
     "shop_id",
     "time_zone"
   ],
-  "source.analytics.shopify_customers.customers__company_contacts": [
+  "source.analytics_toolkit.shopify_customers.customers__company_contacts": [
     "company_contact_id",
     "company_id",
     "company_location_id",
@@ -161,7 +161,7 @@
     "shop_id",
     "title"
   ],
-  "source.analytics.shopify_customers.customers__metafields": [
+  "source.analytics_toolkit.shopify_customers.customers__metafields": [
     "created_at",
     "customer_id",
     "key",
@@ -172,19 +172,19 @@
     "updated_at",
     "value"
   ],
-  "source.analytics.shopify_customers.customers__tags": [
+  "source.analytics_toolkit.shopify_customers.customers__tags": [
     "customer_id",
     "position",
     "shop_id",
     "tag"
   ],
-  "source.analytics.shopify_customers.customers__tax_exemptions": [
+  "source.analytics_toolkit.shopify_customers.customers__tax_exemptions": [
     "code",
     "customer_id",
     "position",
     "shop_id"
   ],
-  "source.analytics.shopify_customers.profile_evidence": [
+  "source.analytics_toolkit.shopify_customers.profile_evidence": [
     "api_version",
     "batch_id",
     "completed_at",
@@ -205,7 +205,7 @@
     "window_field",
     "window_start"
   ],
-  "source.analytics.shopify_customers.sweep_evidence": [
+  "source.analytics_toolkit.shopify_customers.sweep_evidence": [
     "api_version",
     "batch_id",
     "completed_at",
@@ -226,7 +226,7 @@
     "window_field",
     "window_start"
   ],
-  "source.analytics.shopify_orders.ingestion_batches": [
+  "source.analytics_toolkit.shopify_orders.ingestion_batches": [
     "anomalies",
     "api_version",
     "batch_id",
@@ -248,7 +248,7 @@
     "window_field",
     "window_start"
   ],
-  "source.analytics.shopify_orders.orders": [
+  "source.analytics_toolkit.shopify_orders.orders": [
     "_api_version",
     "_batch_id",
     "_content_digest",
@@ -343,7 +343,7 @@
     "transactions_count_precision",
     "updated_at"
   ],
-  "source.analytics.shopify_orders.orders__agreements": [
+  "source.analytics_toolkit.shopify_orders.orders__agreements": [
     "agreement_id",
     "happened_at",
     "order_id",
@@ -353,7 +353,7 @@
     "shop_id",
     "type"
   ],
-  "source.analytics.shopify_orders.orders__agreements__sales": [
+  "source.analytics_toolkit.shopify_orders.orders__agreements__sales": [
     "action_type",
     "additional_fee_id",
     "additional_fee_name",
@@ -390,7 +390,7 @@
     "total_tax_amount_shop_currency",
     "type"
   ],
-  "source.analytics.shopify_orders.orders__agreements__sales__taxes": [
+  "source.analytics_toolkit.shopify_orders.orders__agreements__sales__taxes": [
     "agreement_id",
     "amount_presentment_amount",
     "amount_presentment_currency",
@@ -409,7 +409,7 @@
     "shop_id",
     "title"
   ],
-  "source.analytics.shopify_orders.orders__discount_applications": [
+  "source.analytics_toolkit.shopify_orders.orders__discount_applications": [
     "allocation_method",
     "application_index",
     "code",
@@ -425,12 +425,12 @@
     "value_percentage",
     "value_type"
   ],
-  "source.analytics.shopify_orders.orders__discount_codes": [
+  "source.analytics_toolkit.shopify_orders.orders__discount_codes": [
     "code",
     "order_id",
     "shop_id"
   ],
-  "source.analytics.shopify_orders.orders__lines": [
+  "source.analytics_toolkit.shopify_orders.orders__lines": [
     "current_quantity",
     "discounted_total_presentment_amount",
     "discounted_total_presentment_currency",
@@ -455,7 +455,7 @@
     "variant_id",
     "variant_title"
   ],
-  "source.analytics.shopify_orders.orders__lines__discount_allocations": [
+  "source.analytics_toolkit.shopify_orders.orders__lines__discount_allocations": [
     "allocated_amount_presentment_amount",
     "allocated_amount_presentment_currency",
     "allocated_amount_shop_amount",
@@ -466,7 +466,7 @@
     "position",
     "shop_id"
   ],
-  "source.analytics.shopify_orders.orders__lines__tax_lines": [
+  "source.analytics_toolkit.shopify_orders.orders__lines__tax_lines": [
     "channel_liable",
     "line_item_id",
     "order_id",
@@ -479,7 +479,7 @@
     "shop_id",
     "title"
   ],
-  "source.analytics.shopify_orders.orders__refunds": [
+  "source.analytics_toolkit.shopify_orders.orders__refunds": [
     "created_at",
     "note",
     "order_id",
@@ -493,7 +493,7 @@
     "total_refunded_shop_currency",
     "updated_at"
   ],
-  "source.analytics.shopify_orders.orders__refunds__adjustments": [
+  "source.analytics_toolkit.shopify_orders.orders__refunds__adjustments": [
     "adjustment_id",
     "amount_presentment_amount",
     "amount_presentment_currency",
@@ -508,7 +508,7 @@
     "tax_amount_shop_amount",
     "tax_amount_shop_currency"
   ],
-  "source.analytics.shopify_orders.orders__refunds__duties": [
+  "source.analytics_toolkit.shopify_orders.orders__refunds__duties": [
     "amount_presentment_amount",
     "amount_presentment_currency",
     "amount_shop_amount",
@@ -519,7 +519,7 @@
     "refund_id",
     "shop_id"
   ],
-  "source.analytics.shopify_orders.orders__refunds__lines": [
+  "source.analytics_toolkit.shopify_orders.orders__refunds__lines": [
     "line_item_id",
     "order_id",
     "quantity",
@@ -535,7 +535,7 @@
     "total_tax_shop_amount",
     "total_tax_shop_currency"
   ],
-  "source.analytics.shopify_orders.orders__refunds__shipping_lines": [
+  "source.analytics_toolkit.shopify_orders.orders__refunds__shipping_lines": [
     "order_id",
     "refund_id",
     "refund_shipping_line_id",
@@ -550,13 +550,13 @@
     "tax_amount_shop_amount",
     "tax_amount_shop_currency"
   ],
-  "source.analytics.shopify_orders.orders__refunds__transactions": [
+  "source.analytics_toolkit.shopify_orders.orders__refunds__transactions": [
     "order_id",
     "refund_id",
     "shop_id",
     "transaction_id"
   ],
-  "source.analytics.shopify_orders.orders__shipping_lines": [
+  "source.analytics_toolkit.shopify_orders.orders__shipping_lines": [
     "code",
     "current_discounted_price_presentment_amount",
     "current_discounted_price_presentment_currency",
@@ -577,7 +577,7 @@
     "source",
     "title"
   ],
-  "source.analytics.shopify_orders.orders__shipping_lines__discount_allocations": [
+  "source.analytics_toolkit.shopify_orders.orders__shipping_lines__discount_allocations": [
     "allocated_amount_presentment_amount",
     "allocated_amount_presentment_currency",
     "allocated_amount_shop_amount",
@@ -588,7 +588,7 @@
     "shipping_line_id",
     "shop_id"
   ],
-  "source.analytics.shopify_orders.orders__shipping_lines__tax_lines": [
+  "source.analytics_toolkit.shopify_orders.orders__shipping_lines__tax_lines": [
     "channel_liable",
     "order_id",
     "position",
@@ -601,12 +601,12 @@
     "shop_id",
     "title"
   ],
-  "source.analytics.shopify_orders.orders__tags": [
+  "source.analytics_toolkit.shopify_orders.orders__tags": [
     "order_id",
     "shop_id",
     "tag"
   ],
-  "source.analytics.shopify_orders.orders__transactions": [
+  "source.analytics_toolkit.shopify_orders.orders__transactions": [
     "amount_presentment_amount",
     "amount_presentment_currency",
     "amount_shop_amount",

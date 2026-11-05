@@ -57,27 +57,6 @@ can overlap on Snowflake. Same-dataset ingestion remains exclusive through both
 queue admission and the owning package's recovery lock. See the
 [control-plane guide](../dagster/README.md) for the execution contract.
 
-
-## Publication groups
-The transformation run containers receive distinct order, customer, and inventory
-schema settings: `ANALYTICS_MARTS_SCHEMA`, `ANALYTICS_CUSTOMERS_MARTS_SCHEMA`, and
-`ANALYTICS_INVENTORY_MARTS_SCHEMA`. Customer and inventory schema settings default
-to blank so deployment cannot silently switch existing consumers. Customer and
-GoodDay feature flags still control model activation. GoodDay transforms read
-the `raw_goodday` schema that ingestion always writes.
-
-Cube receives the customer schema setting and uses that group's own marker and
-connection after migration. The ordinary Compose service supports Snowflake
-serving. The separate [bounded local command](../../packages/metrics/README.md#worktree-local-copy-and-serving)
-implements copy/export/serving for already validated orders marts under
-[ADR 0028](../../docs/adrs/0028-develop-locally-before-shared-snowflake-release.md);
-it does not run source refresh or dbt builds.
-No new publication schedule starts automatically. Prepublish and validate each
-group through a Dagster run before changing reader settings; follow the
-[publication migration procedure](../../packages/transformations/README.md#independent-jobs-and-migration).
-Do not point a group publisher at the old combined destination or drop that
-destination as part of deploy.
-
 ## Commands
 
 ```sh
@@ -94,11 +73,11 @@ git for dbt's runtime executable checks. It also includes a separately locked
 `/opt/lineage` environment for Colibri; incompatible SQL parser dependencies do
 not enter the Dagster/dbt environment. Ingestion does not install that tool.
 
-Publication diagnostics persist under `/var/lib/analytics/artifacts/dbt` on the
-existing artifacts volume, outside the docs and Cube mounts. Owner-only attempt
-directories retain raw logs and build evidence after run-container removal.
-See [retention and safe diagnostics](../../packages/transformations/README.md#retained-publication-diagnostics)
-for access and operator cleanup requirements.
+In the transformation image, dbt writes its artifacts to
+`/var/lib/analytics/artifacts/dbt` and its logs to
+`/var/lib/analytics/artifacts/dbt-logs`, on the artifacts volume. The docs site
+and Cube do not mount that volume. dbt errors can contain data values, so do not
+serve these files or copy them into tickets.
 
 The two Python package checks run concurrently, each in its own container with
 a 2 GiB memory limit; metrics runs after both finish. Every package's status is
@@ -191,9 +170,6 @@ status. Cleanup also removes the project's Dagster run containers. The `ci`
 Compose services publish no ports and use the `analytics-ci` project by default,
 which retains its named volumes. Set `ANALYTICS_PROJECT` to a distinct name for
 simultaneous CI stacks; cleanup removes that project's services and named volumes.
-The separate synthetic local Cube lifecycle check also runs here and in the
-metrics check. It uses a worktree-specific container/image and an automatically
-assigned loopback port, then stops its service even on failure.
 
 Local checks use the Docker host's native architecture, so an ARM64 Mac does not
 verify AMD64 behavior.
@@ -234,24 +210,93 @@ continue to run in their isolated containers.
 | docs | dbt documentation page for the docs site | Rerun the `dbt_docs` job |
 | docs-state | Caddy's state | Caddy recreates it on start |
 
-Startup initializes volume ownership. dbt creates its working file when needed;
-there is no published DuckDB file or bootstrap. `down` retains named volumes.
-Existing published volumes are no longer mounted and are not automatically deleted.
+Startup initializes volume ownership. dbt creates its working file when needed.
+`down` retains named volumes.
 
 Local/CI Cube compiles metadata with Snowflake configuration but no warehouse
 credentials. Scaffold smoke checks verify code loading, metadata and scaffold
 runs, not business serving. Deterministic DuckDB checks run in package containers.
-The [publication runner](../../packages/transformations/README.md) and permission
-acceptance run only against explicitly selected isolated development Snowflake
-schemas before shared activation. See
+Snowflake acceptance tests run only against explicitly selected, isolated
+development schemas before shared activation. See
 [ADR 0028](../../docs/adrs/0028-develop-locally-before-shared-snowflake-release.md).
 
-The approved [local-first design](../../docs/specs/20261101-local-first-development.md)
-requires per-worktree writable files, an analytical-only read-only Cube mount,
-loopback/non-fixture authentication and stop-refresh-validate-restart. Existing
-Compose commands do not implement it. New local consumers must first gain a
-tested default-off, local-only gate so shared deployments cannot reference
-unpublished fields.
+## Settings each service reads
+
+A deployment reads settings from three places:
+
+- **`client.yaml`** in the client repository (`CLIENT_DIR`): the sources to
+  run, their schedules, the warehouse, the reporting time zone and alerts.
+  These settings are not secret. `ingestion`, `transformations` and
+  `cube-api` mount the file read-only at `/etc/analytics/client.yaml`
+  (`ANALYTICS_CLIENT_CONFIG` names another path).
+- **The env file** (`ANALYTICS_ENV_FILE`): passwords, API secrets and the host
+  paths of secret files. It never enters Git or an image
+  ([ADR 0032](../../docs/adrs/0032-read-secrets-from-environment-files.md)).
+  The sample client's [`.env.example`](../../examples/sample-client/.env.example)
+  lists every value.
+- **Secret files** on the host, mounted read-only. Credential contents live
+  only in these files, never in environment values.
+
+### Set in your shell
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `CLIENT_DIR` | `examples/sample-client` | The client repository: its `client.yaml`, dbt project and Cube files |
+| `ANALYTICS_ENV_FILE` | See [above](#docker-compose-deployment) | The env file to read |
+| `ANALYTICS_PROJECT` | `analytics-<checkout folder>`; `analytics-ci` for `ci` | Compose project, volume and network name |
+
+`scripts/platform` sets `ANALYTICS_ENVIRONMENT` to the target (`local` or
+`ci`), `DBT_TARGET=local` and `CUBEJS_DB_TYPE`. On Linux it also sets
+`DOCKER_SOCKET_GID`. Do not set these yourself.
+
+### Set in the env file
+
+| Setting | Required | Read by | Meaning |
+| --- | --- | --- | --- |
+| `DAGSTER_POSTGRES_PASSWORD` | Yes | `postgres`, Dagster services and their runs | Password of Dagster's run-history database |
+| `CUBEJS_API_SECRET` | Yes | `cube-api` | Signs Cube API tokens; at least 32 random characters |
+| `COMPOSE_PROFILES` | No | Compose | `docs` starts the dbt documentation site |
+| `DOCS_SITE_ADDRESS` | With `docs` | `docs` | Address Caddy serves, such as `http://:8080` |
+| `DOCS_PASSWORD_HASH` | With `docs` | `docs` | Base64 bcrypt hash of the docs password; see [below](#dbt-documentation-site) |
+| `SOURCE_SETTINGS_HOST_DIR` | To load sources | `ingestion` (local) | Host folder of source settings files, one per system; see [live local loads](#live-local-loads-adr-0029) |
+| `SLACK_WEBHOOK_HOST_PATH` | With `alerts.slack` | `ingestion` (local) | Host file holding one Slack incoming-webhook URL |
+| `DAGSTER_PORT`, `CUBE_PORT`, `DOCS_PORT` | No | Local target | Host ports (defaults 3000, 4000 and 8080) |
+
+### Inside each container
+
+Run containers that Dagster starts for a code location receive that
+service's environment and mounts ([one configuration path](#one-configuration-path-for-code-locations-and-runs)).
+
+| Service | Environment | Mounts |
+| --- | --- | --- |
+| `permissions` | None | Every named volume, to give UID 10001 ownership once |
+| `postgres` | `POSTGRES_PASSWORD` from `DAGSTER_POSTGRES_PASSWORD` | `postgres` volume |
+| `ingestion` | `ANALYTICS_ENVIRONMENT`, `DAGSTER_POSTGRES_PASSWORD`, `DBT_TARGET`, `DAGSTER_MAX_CONCURRENT_RUNS`, `DAGSTER_CURRENT_IMAGE`. Local adds `SLACK_WEBHOOK_PATH` and `LOAD__WORKERS=1` | `client.yaml`; `ingestion-state` and `artifacts` volumes. Local adds the settings folder at `/run/secrets/sources` and the webhook file at `/run/secrets/slack_webhook` |
+| `transformations` | As `ingestion`, without the local additions. Local adds `DBT_RAW_ROOT` | `client.yaml`; `artifacts`, `working` and `docs` volumes. Local adds `ingestion-state`, read-only |
+| `webserver`, `daemon` | The shared Dagster values, and `ANALYTICS_NETWORK` | Docker socket; `artifacts` volume |
+| `cube-api` | `ANALYTICS_ENVIRONMENT`, `CUBEJS_DB_TYPE`, `CUBEJS_API_SECRET` and fixed Cube values | `client.yaml` |
+| `docs` | `DOCS_SITE_ADDRESS`, `DOCS_PASSWORD_HASH` | `Caddyfile`; `docs` volume, read-only; `docs-state` volume |
+
+### Read with defaults
+
+The packages read these settings too. The local and CI targets rely on the
+defaults; a shared Snowflake deployment sets them in its own Compose override.
+
+| Setting | Read by | Default | Meaning |
+| --- | --- | --- | --- |
+| `ANALYTICS_CLIENT_CONFIG` | `ingestion`, `transformations`, `cube-api` | `/etc/analytics/client.yaml` | Path of `client.yaml` |
+| `ANALYTICS_SOURCE_SECRETS_ROOT` | `ingestion` | `/run/secrets/sources` | Folder of source settings files |
+| `ANALYTICS_INGESTION_STATE_ROOT` | `ingestion` | `/var/lib/analytics/ingestion` | Durable state of every source |
+| `SHOPIFY_ORDERS_DATASET`, `SHOPIFY_CUSTOMERS_DATASET`, `LOOP_RETURNS_DATASET` | `ingestion` | `*_RAW` names | Raw Snowflake schema of each source |
+| `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_PRIVATE_KEY_PATH` | `ingestion`, `transformations` | None | Snowflake identity; the key is a mounted file |
+| `SNOWFLAKE_SCHEMA`, `DBT_STATEMENT_TIMEOUT_SECONDS` | `transformations` | See the [transformations guide](../../packages/transformations/README.md) | dbt's Snowflake target |
+| `DUCKDB_PATH` | `transformations` | `/var/lib/analytics/working/warehouse.duckdb` | dbt's local warehouse file |
+
+The toolkit sets the remaining values itself, such as
+`ANALYTICS_REPORTING_TIME_ZONE` and `ANALYTICS_ENABLED_SOURCES`, which it
+derives from `client.yaml`. The [ingestion](../../packages/ingestion/README.md)
+and [transformations](../../packages/transformations/README.md) guides describe
+each package's settings in full.
 
 ## Live local loads (ADR 0029)
 
@@ -260,36 +305,28 @@ in the ingestion-state volume, and local dbt reads those files
 ([ADR 0029](../../docs/adrs/0029-load-every-source-into-local-duckdb.md)).
 Nothing is scheduled. Launch each load by hand in the local Dagster UI.
 
-Keep credential files outside the checkout, readable only by you. Write them
-by hand with `umask 077`:
+Every source reads its credentials and settings from one folder of JSON
+files, one file per system: `shopify.json` (used by both Shopify orders and
+Shopify customers), `loop_returns.json`, `goodday.json`, `google_sheets.json`
+and `impact_radius.json`. The
+[ingestion guide](../../packages/ingestion/README.md) lists each file's keys.
 
-```sh
-mkdir -p ~/.config/analytics-platform/local && chmod 700 ~/.config/analytics-platform/local
-(umask 077; ${EDITOR:-vi} ~/.config/analytics-platform/local/shopify_credentials.json)
-```
-
-1Password is optional. If you keep credentials there, render a template with
-`op inject` instead; see [secret templates](../secrets/README.md).
-
-Sources built on the ingestion kit (GoodDay, Google Sheets and Impact Radius)
-share one settings folder instead. Each has one JSON file, `<source>.json`,
-holding its credentials and settings; the
-[ingestion guide](../../packages/ingestion/README.md#adding-a-source)
-lists each file's keys. Write them by hand with `umask 077`, or render the ones
-that have a template in `deploy/secrets/local/` with 1Password:
+Keep the folder outside the checkout, readable only by you. Put each file in
+place yourself: write it by hand, or render it from your own password manager
+outside the checkout. The repository holds no secret templates or secret-manager
+commands ([ADR 0032](../../docs/adrs/0032-read-secrets-from-environment-files.md)).
+Create the files with `umask 077`:
 
 ```sh
 mkdir -p ~/.config/analytics-platform/local/sources && chmod 700 ~/.config/analytics-platform/local/sources
-(umask 077; op inject -i deploy/secrets/local/impact_radius.json.tpl \
-    -o ~/.config/analytics-platform/local/sources/impact_radius.json)
+(umask 077; ${EDITOR:-vi} ~/.config/analytics-platform/local/sources/shopify.json)
 ```
 
 Copy `.env.local.example` to the ignored `deploy/compose/.env.local`, add the
-host paths and the kit sources to enable, then start the stack; the `local`
+folder and the kit sources to enable, then start the stack; the `local`
 target reads that file automatically:
 
 ```sh
-SHOPIFY_CREDENTIALS_HOST_PATH=/Users/<you>/.config/analytics-platform/local/shopify_credentials.json
 SOURCE_SETTINGS_HOST_DIR=/Users/<you>/.config/analytics-platform/local/sources
 ANALYTICS_SOURCES=impact_radius,google_sheets
 ```
@@ -298,19 +335,21 @@ ANALYTICS_SOURCES=impact_radius,google_sheets
 ./scripts/platform local up
 ```
 
-The ingestion service and its run containers mount each file, and the settings
-folder at `/run/secrets/sources`, read-only. An unset host path mounts an empty
-file or the empty `no-source-settings` folder, and that source's job fails
-before it reads anything. A kit source registers its job only when it is in
-`ANALYTICS_SOURCES`; a listed source without its settings file stops the
-ingestion code location from loading. The `ci` target removes these mounts and
-paths, so CI never receives live credentials. The settings folder and its files
+The ingestion service and its run containers mount the settings folder at
+`/run/secrets/sources`, read-only. An unset `SOURCE_SETTINGS_HOST_DIR` mounts
+the empty `no-source-settings` folder, and each source's job fails before it
+reads anything. A kit source registers its job only when it is in
+`ANALYTICS_SOURCES`; a listed kit source without its settings file stops the
+ingestion code location from loading. The `ci` target removes this mount, so CI
+never receives live credentials. The settings folder and its files
 must be readable by the run containers' user (UID 10001) through Docker's file
 sharing.
 
-| Source | Credentials | Job | Raw file under the state volume |
+| Source | Settings file | Job | Raw file under the state volume |
 | --- | --- | --- | --- |
-| Shopify orders | `SHOPIFY_CREDENTIALS_HOST_PATH` | `shopify_orders_dlt_load` | `shopify_orders/local/shopify_orders.duckdb` |
+| Shopify orders | `shopify.json` | `shopify_orders_dlt_load` | `shopify_orders/local/shopify_orders.duckdb` |
+| Shopify customers | `shopify.json` | `shopify_customers_dlt_load` | `shopify_customers/local/shopify_customers.duckdb` |
+| Loop Returns headers | `loop_returns.json` | `loop_returns_dlt_snapshot` | `loop_returns/local/loop_returns.duckdb` |
 | GoodDay inventory | `goodday.json` | `goodday_inventory_capture` | `goodday/local/goodday.duckdb` |
 | Google Sheets | `google_sheets.json` | `google_sheets_capture` | `google_sheets/local/google_sheets.duckdb` |
 | Impact Radius actions | `impact_radius.json` | `impact_radius_actions_load` | `impact_radius/local/impact_radius.duckdb` |
@@ -351,8 +390,9 @@ run loads it before reading its own window.
 GoodDay's `goodday.json` holds its BigQuery settings and a read-only
 service-account credential, as listed in the
 [GoodDay configuration](../../packages/ingestion/README.md#manual-execution-and-configuration).
-Each run is one billed BigQuery query with no per-query cost cap. Set `GOODDAY_INVENTORY_ENABLED=true` after the first
-load so local dbt builds the inventory models.
+Each run is one billed BigQuery query with no per-query cost cap. List
+`goodday` in the client's `client.yaml` after the first load so dbt builds the
+inventory models.
 
 `google_sheets.json` holds a service-account credential and the tabs to
 capture, as listed in the
@@ -363,8 +403,7 @@ capture per tab. No dbt models read these tables yet.
 Impact Radius reads the last three days of actions for the program in
 `impact_radius.json` and has no dbt models yet.
 
-After the loads, materialize the marts in the transformations code location,
-or build every enabled model from the checkout with
+After the loads, build every enabled model from the checkout with
 `./scripts/platform local dbt build`.
 Local `dbt` commands write the `local_*` schemas unless `DBT_NAMESPACE` is set;
 the `ci` target and Snowflake targets require an explicit namespace.

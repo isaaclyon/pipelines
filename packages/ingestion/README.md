@@ -14,6 +14,85 @@ strict typing, formatting, dependency compatibility, and blocked sibling imports
 The `scaffold_check` job verifies non-root execution in an isolated run directory
 without a Docker socket.
 
+## Client configuration
+
+Each client has one checked-in, non-secret `client.yaml`
+([ADR 0030](../../docs/adrs/0030-ship-a-toolkit-with-one-deployment-per-client.md)),
+parsed by the `analytics_client_config` package. The code location reads it
+when definitions load. Shopify customer loads and Loop Returns snapshots read
+it again when the run starts. The path is
+`ANALYTICS_CLIENT_CONFIG`, or the mounted `/etc/analytics/client.yaml`. A file
+that does not parse stops the code location from loading; the error names the
+file and the field.
+
+```yaml
+version: 1
+client: example-brand
+reporting_time_zone: America/Los_Angeles
+warehouse: snowflake
+sources:
+  shopify_orders:
+    schedule:
+      start: "2026-10-14T15:00:00Z"  # the first refresh's start
+      refresh: "*/5 * * * *"         # optional; the toolkit default otherwise
+    refresh_workers: 4
+  shopify_customers:
+    schedule:
+      start: "2026-10-14T15:00:00Z"
+    collect_tax_id: false
+    approved_metafields:
+      - {namespace: custom, key: loyalty_tier}
+  loop_returns:
+    shop_id: gid://shopify/Shop/1
+    history_start: "2024-06-01T00:00:00Z"
+    max_removed_rows: 0
+  goodday:
+  google_sheets:
+  impact_radius:
+alerts:
+  slack:
+    dagster_url: https://dagster.example.com
+```
+
+- **Sources.** A source registers its assets, jobs and schedules only when
+  `sources` lists it. A customer load or Loop Returns snapshot whose source is
+  no longer listed fails before it reads anything.
+- **Schedules.** A `schedule` block turns on a Shopify source's schedules, all
+  stopped at first; without one the source has none. Every schedule runs in
+  `reporting_time_zone`, the calendar dbt and Cube use for dates.
+- **Options.** Each source's section below describes its options.
+- **Alerts.** With `alerts.slack` set, the code location registers
+  `slack_run_failure_alert`, a run failure sensor that runs from the start and
+  watches every code location. Each message names the job, code location, run
+  ID and the first line of the error, and links `<dagster_url>/runs/<run ID>`
+  when `dagster_url` is set. A post that fails or gets a non-2xx response fails
+  the sensor tick, so Dagster shows it.
+
+`dg check defs` and `tests/test_definitions.py` load `tests/client.yaml`,
+which lists the sources whose definitions load without credential files.
+Other tests write their own file.
+
+Ingestion still reads these environment values and mounted files, because they
+differ by environment or hold secrets:
+
+| Setting | Meaning |
+| --- | --- |
+| `ANALYTICS_CLIENT_CONFIG` | Path of `client.yaml` (default `/etc/analytics/client.yaml`) |
+| `ANALYTICS_ENVIRONMENT` | `local` loads DuckDB under the state root; `development`/`production` load Snowflake; `ci` is refused |
+| `ANALYTICS_INGESTION_STATE_ROOT` | Durable state root shared by every source (default `/var/lib/analytics/ingestion`) |
+| `ANALYTICS_SOURCE_SECRETS_ROOT` | Folder of settings files, one per system, such as `shopify.json` (default `/run/secrets/sources`) |
+| `SLACK_WEBHOOK_PATH` | File holding the Slack incoming-webhook URL. Required when `alerts.slack` is set; not read otherwise |
+| `SHOPIFY_ORDERS_DATASET`, `SHOPIFY_CUSTOMERS_DATASET`, `LOOP_RETURNS_DATASET` | Raw schema names |
+| `SNOWFLAKE_*` | Account, user, role, database, warehouse and key path for Snowflake targets |
+
+The webhook URL is a secret, so it lives in a mounted file rather than an
+environment value: Dagster stores environment values as location metadata (see
+[one configuration path](../../deploy/compose/README.md#one-configuration-path-for-code-locations-and-runs)).
+The code location reads the file once, when definitions load. A missing,
+unreadable or empty file, or one without an `https://hooks.slack.com/` URL,
+stops the code location from loading. Errors name `SLACK_WEBHOOK_PATH` and
+the file, never the URL.
+
 ## Shopify orders
 
 `analytics_ingestion.shopify` loads raw Shopify orders, lines, refunds, payment
@@ -45,15 +124,16 @@ excluded.
 
 Configuration is explicit; nothing falls back to production.
 
-| Variable | Meaning |
+| Setting | Meaning |
 | --- | --- |
+| `sources.shopify_orders` in `client.yaml` | Lists the source; without it nothing registers |
+| `schedule.start` | The first refresh's start (instant with offset, whole seconds). Later refreshes resume from the dlt cursor. No `schedule` block means no schedules |
+| `schedule.refresh` | Refresh cron (default `*/5 * * * *`). Dagster must accept it, or the code location stops loading |
+| `refresh_workers` | Concurrent readers per scheduled run (default 4, at least 1). Four keep a refresh inside its tick at about four times the 2026-08-18 peak hour |
 | `ANALYTICS_ENVIRONMENT` | `local` loads DuckDB under the state root; `development`/`production` load Snowflake; `ci` is refused |
-| `SHOPIFY_CREDENTIALS_PATH` | JSON file with `shop_domain` (`<shop>.myshopify.com`) and `access_token` |
+| `shopify.json` in `ANALYTICS_SOURCE_SECRETS_ROOT` | `shop_domain` (`<shop>.myshopify.com`) and `access_token`. Shopify customers read the same file |
 | `ANALYTICS_INGESTION_STATE_ROOT` | Durable state root shared by every source (default `/var/lib/analytics/ingestion`) |
 | `SHOPIFY_ORDERS_DATASET` | Raw schema (default `SHOPIFY_ORDERS_RAW`) |
-| `SHOPIFY_ORDERS_SEED` | The first refresh's start (ISO instant with offset). Later refreshes resume from the dlt cursor. Unset means no schedules |
-| `SHOPIFY_REFRESH_CRON`, `SHOPIFY_REFRESH_TIMEZONE` | Refresh cron and IANA timezone (default `*/5 * * * *` in UTC). An invalid value stops the code location from loading |
-| `SHOPIFY_ORDERS_REFRESH_WORKERS` | Concurrent readers per refresh (default 4, at least 1). Four keep a refresh inside its tick at about four times the 2026-08-18 peak hour |
 | `SNOWFLAKE_*` | Account, user, role, database, warehouse and key path for Snowflake targets |
 
 The destination, state folder and crash recovery come from the shared kit
@@ -61,12 +141,12 @@ target (see [Adding a source](#adding-a-source)). dlt keeps the
 `shopify_orders_dlt_<environment>_<shop>` working directory under
 `<state root>/shopify_orders/<environment>/` and its cursor state in the
 destination. Keep the state volume: a load package
-left by a killed run waits there until the next run loads it. Remote Compose
-mounts the credential file from `SHOPIFY_CREDENTIALS_HOST_PATH`. Local Compose
-does the same for the developer's own credential, and writes
+left by a killed run waits there until the next run loads it. Local Compose
+mounts the developer's own settings folder and writes
 `<state root>/shopify_orders/local/shopify_orders.duckdb`, the file local dbt
 attaches; see [live local loads](../../deploy/compose/README.md#live-local-loads-adr-0029).
-An empty credential file fails the run before any read.
+A missing or empty `shopify.json` fails the run before any read; the error names
+the file, never its contents.
 
 ### Line fulfillment evidence
 Extraction revision 4 adds nullable source `unfulfilled_quantity`,
@@ -125,19 +205,18 @@ freshness can trust `window_end`.
 
 ### Scheduling
 
-With `SHOPIFY_ORDERS_SEED` set, the code location adds three schedules, all
-stopped at first:
-
-The reporting time zone is `ANALYTICS_REPORTING_TIME_ZONE` (default
-`America/Los_Angeles`), the same calendar dbt and Cube use for order dates.
+With a `schedule` block for `shopify_orders` in `client.yaml`, the code
+location adds three schedules, all stopped at first. All three run in the
+client's `reporting_time_zone`, the same calendar dbt and Cube use for order
+dates.
 
 | Schedule | Cadence | Run |
 | --- | --- | --- |
-| `shopify_orders_dlt_refresh_schedule` | `SHOPIFY_REFRESH_CRON` | `refresh` from the dlt cursor; the first reads from the seed. Priority 10 |
+| `shopify_orders_dlt_refresh_schedule` | `schedule.refresh` (default every five minutes) | `refresh` from the dlt cursor; the first reads from `schedule.start`. Priority 10 |
 | `shopify_orders_dlt_lookback_schedule` | 00:15 reporting time zone | `lookback` over the last 26 hours, cursor untouched, for orders Shopify indexed after the two-minute lag. Priority -5 |
 | `shopify_orders_reconcile_counts_schedule` | Sunday 07:00 reporting time zone | Count reconciliation, below. Priority -5 |
 
-Each run splits its window into `SHOPIFY_ORDERS_REFRESH_WORKERS` time slices
+Each scheduled run splits its window into `refresh_workers` time slices
 read concurrently. Readers hand each page to dlt as they read it, so a run's
 memory does not grow with its window; when an order is read twice, the merge
 keeps the newest `updated_at`. A failure anywhere discards the run's extract
@@ -212,12 +291,17 @@ reports coverage and access evidence.
 
 ### Customer configuration
 
-| Variable | Meaning |
+| Setting | Meaning |
 | --- | --- |
+| `sources.shopify_customers` in `client.yaml` | Lists the source; without it nothing registers |
+| `schedule.start` | First refresh start (instant with offset, whole seconds). No `schedule` block means no schedules |
+| `schedule.refresh` | Refresh cron (default `*/15 * * * *`), in the reporting time zone |
+| `collect_tax_id` | Collect `taxSettings.taxId` (default `false`); see [field groups](#field-groups-and-access) |
+| `approved_metafields` | Exact `{namespace, key}` pairs whose values are collected (default none) |
 | `SHOPIFY_CUSTOMERS_DATASET` | Raw schema (default `SHOPIFY_CUSTOMERS_RAW`) |
-| `SHOPIFY_CUSTOMERS_CREDENTIALS_PATH` | Optional credential limited to customer scopes; default is `SHOPIFY_CREDENTIALS_PATH` |
-| `SHOPIFY_CUSTOMERS_SEED` | First refresh start (ISO instant with offset). Unset means no schedules |
-| `SHOPIFY_CUSTOMERS_REFRESH_CRON` | Refresh cron (default `*/15 * * * *`, timezone `SHOPIFY_REFRESH_TIMEZONE`) |
+
+Runs read `collect_tax_id` and `approved_metafields` from `client.yaml` when
+they start, so a change applies to the next run.
 
 Customers are their own kit source, `shopify_customers`. Local runs load
 `<state root>/shopify_customers/local/shopify_customers.duckdb`, which local dbt
@@ -279,17 +363,18 @@ is not valid for the pinned API version) and `excluded`.
 | `addresses`, `tags`, `metafields` | Complete connections, paginated to the last page |
 | `summaries` | `numberOfOrders`, `amountSpent`, `lastOrder.id` |
 | `statistics` | `predictedSpendTier`, `rfmGroup`, where available |
-| `tax_id` | Conditional: `taxSettings.taxId`, only after a reporting purpose is approved and `SHOPIFY_CUSTOMERS_TAX_ID_ENABLED=true`; otherwise `excluded` |
+| `tax_id` | Conditional: `taxSettings.taxId`, only after a reporting purpose is approved and `collect_tax_id: true`; otherwise `excluded` |
 | `company_contacts` | Conditional B2B: contact, company and role-assignment locations |
 | `external_identities` | `excluded`: Multipass and identity-provider identifiers have no demonstrated linking need |
 
-Metafield values are excluded by default. Set
-`SHOPIFY_CUSTOMERS_APPROVED_METAFIELDS='[["custom","loyalty_tier"]]'` only after
+Metafield values are excluded by default. List a pair such as
+`{namespace: custom, key: loyalty_tier}` under `approved_metafields` only after
 approval of each exact namespace/key pair and its reporting purpose. The inventory
 records accessible namespace/key/type counts even when values are excluded.
 Namespaces starting with `secret`, `$app:`, `multipass`, `password` or `token`
 remain excluded even when listed. Wildcards are rejected. After an approval
-change, run a complete sweep before publication to replace existing child rows.
+change, run a complete sweep before dbt builds on the change, to replace existing
+child rows.
 The `field_group_access` asset check warns while any group is denied or
 unsupported. Before enabling the source, run a read-only probe that verifies
 `read_customers` and every enabled group, and check that a 50-customer query's
@@ -340,7 +425,7 @@ ops:
 
 | Schedule | Cadence | Run |
 | --- | --- | --- |
-| `shopify_customers_dlt_refresh_schedule` | `SHOPIFY_CUSTOMERS_REFRESH_CRON` | `refresh`; skips while a customer run is active |
+| `shopify_customers_dlt_refresh_schedule` | `schedule.refresh` (default every 15 minutes) | `refresh`; skips while a customer run is active |
 | `shopify_customers_dlt_sweep_schedule` | 01:30 reporting time zone | `sweep` |
 | `shopify_customers_reconcile_schedule` | 04:30 reporting time zone | Deletion confirmation |
 
@@ -392,7 +477,7 @@ Coverage evidence counts unresolved rejects even when duplicate reject events
 are suppressed. A customer that disappears during child pagination makes the
 coverage `partial`; transformation freshness checks require `complete` coverage.
 Tax IDs remain excluded until a reporting purpose is approved and
-`SHOPIFY_CUSTOMERS_TAX_ID_ENABLED=true` is set explicitly.
+`collect_tax_id: true` is set explicitly in `client.yaml`.
 
 Confirmed-unavailable purges delete children before the root in one transaction
 per batch. An interrupted purge retains the root as a retry candidate, even
@@ -407,8 +492,8 @@ interrupted-purge candidate set remains subject to the deletion limit.
 
 ## Loop Returns headers
 `analytics_ingestion.loop_returns` provides the manual
-`loop_returns_dlt_snapshot` job. Definition discovery registers it automatically.
-It has no schedule. The job selects a full-history header snapshot in six-hour
+`loop_returns_dlt_snapshot` job. The code location registers it when
+`client.yaml` lists `loop_returns`. It has no schedule. The job selects a full-history header snapshot in six-hour
 creation-time windows. Each completed window commits to an unpublished candidate
 dataset using dlt merge and native source state. Only a complete, validated
 candidate replaces the maintained snapshot.
@@ -423,11 +508,8 @@ IDs, a new empty snapshot after a nonempty snapshot, and removals above the
 configured count limit. The guard reads destination rows, not a second ID
 inventory in dlt state. A destination with another shop is rejected. A local
 advisory lock also prevents concurrent runs that share the state root.
-The job retains its `loop-returns` exclusive-resource tag and also shares
-`analytics/publication-input=development-marts` with order-group publication. The second
-queue limit prevents a snapshot replacement between fact builds and availability
-capture. Deploy both code locations and the coordinator, then drain older
-untagged runs before relying on this isolation.
+The job carries the `loop-returns` exclusive-resource tag, so the run queue
+serializes Loop writers.
 
 ### Recovery, progress and limits
 
@@ -483,7 +565,7 @@ It refuses production and future days. It uses
 `<LOOP_RETURNS_DATASET>_trial_YYYYMMDD` plus that dataset's `_candidate` schema and
 separate `loop_recovery_trial/YYYYMMDD` working state inside the Loop state folder. It never materializes the
 maintained Loop asset or changes its dataset, and has no schedule. It retains the
-same exclusive/input-lock tags and five-minute worker limit as the normal job.
+same exclusive-resource tag and five-minute worker limit as the normal job.
 
 To verify recovery after release, launch the trial through development Dagster,
 wait for a `window_committed` log, cancel that run, and verify it has stopped.
@@ -494,19 +576,23 @@ full-history job or expand the range as part of this trial. DuckDB recovery chec
 pass locally. A trial validates only its one day, not historical throughput or
 reporting freshness.
 
-Required configuration:
+Required configuration in `client.yaml`, under `sources.loop_returns`:
+
+- `shop_id`: Shopify Shop GID for this source.
+- `history_start`: offset-aware whole-second instant where the snapshot
+  starts; no default.
+- `max_removed_rows`: maximum removed IDs per snapshot; default 0.
+  Review confirmed upstream deletions before setting a positive allowance.
+
+Required environment:
 
 - `ANALYTICS_ENVIRONMENT`: explicit `local`, `development`, or `production`; `ci`
   is refused. Local runs load `<state root>/loop_returns/local/loop_returns.duckdb`.
-- `LOOP_RETURNS_CREDENTIALS_PATH`: JSON file with `api_key`; never commit it.
-- `LOOP_RETURNS_SHOPIFY_SHOP_ID`: Shopify Shop GID for this source.
+- `loop_returns.json` in `ANALYTICS_SOURCE_SECRETS_ROOT`: JSON object with
+  `api_key`; never commit it.
 - `ANALYTICS_INGESTION_STATE_ROOT`: absolute durable state root shared by every
   source; defaults to `/var/lib/analytics/ingestion`.
 - `LOOP_RETURNS_DATASET`: separate header dataset; default as above.
-- `LOOP_RETURNS_HISTORY_START`: offset-aware whole-second timestamp; default
-  `2024-06-01T00:00:00+00:00`.
-- `LOOP_RETURNS_MAX_REMOVED_ROWS`: maximum removed IDs per snapshot; default 0.
-  Review confirmed upstream deletions before setting a positive allowance.
 - Development and production also require explicit `SNOWFLAKE_ACCOUNT`,
   `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_DATABASE`,
   `SNOWFLAKE_WAREHOUSE`, and `SNOWFLAKE_PRIVATE_KEY_PATH`.
@@ -535,24 +621,27 @@ verified dlt connector, then dlt's declarative REST API source, then custom code
 The shared kit in `analytics_ingestion.kit` supplies everything else. GoodDay,
 Google Sheets and Impact Radius use all of it. Shopify orders, Shopify customers
 and Loop Returns use its target and write policy, and keep their own credential
-files and on/off settings. A new source named `<source>` needs:
+files and `client.yaml` options. A new source named `<source>` needs:
 
 - A source module that reads its settings with `kit.runtime.read_settings`,
   picks its destination with `kit.runtime.target`, and runs a dlt pipeline from
   `Target.pipeline`, and writes only through `kit.writes.open_writes` (see
   [Write policy](#write-policy)). Snapshot sources can use `kit.capture.capture`,
   which appends rows plus one evidence row per capture.
-- A `defs/<source>.py` that calls `kit.dagster.manual_capture`. It builds one
-  asset under `raw/<source>/`, one manual job with no schedule, the
-  `analytics/exclusive-resource` tag, no automatic retry, and a run time limit.
+- A `defs/<source>.py` that calls `kit.dagster.manual_capture` with the client
+  configuration. It builds one asset under `raw/<source>/`, one manual job with
+  no schedule, the `analytics/exclusive-resource` tag, no automatic retry, and
+  a run time limit.
+- The source name in the client configuration's `SOURCE_NAMES`, in
+  `packages/client-config`.
 - Offline fixture tests. CI never reads a live source.
 
 No deployment file changes. These conventions replace per-source settings:
 
 | Convention | Value |
 | --- | --- |
-| On/off | List `<source>` in `ANALYTICS_SOURCES`, comma-separated. Unlisted sources register no job |
-| Settings | One JSON object, `<source>.json`, in `ANALYTICS_SOURCE_SECRETS_ROOT` (default `/run/secrets/sources`). It holds credentials and plain settings. Errors name the file, never its contents |
+| On/off | List `<source>` under `sources` in `client.yaml`. Unlisted sources register no job |
+| Settings | One JSON object, `<source>.json`, in `ANALYTICS_SOURCE_SECRETS_ROOT` (default `/run/secrets/sources`). It holds credentials and plain settings. Errors name the file, never its contents. Shopify and Loop Returns use the same folder: `shopify.json` and `loop_returns.json` |
 | State | `<ANALYTICS_INGESTION_STATE_ROOT>/<source>/<environment>/` (default root `/var/lib/analytics/ingestion`) |
 | Local raw file | `<source>.duckdb` in that state folder, the file local dbt attaches |
 | Remote destination | Snowflake from the `SNOWFLAKE_*` settings, unless the source is local-only |
@@ -583,7 +672,7 @@ and then through the `Writes.run` it returns, never through dlt's
 ## Impact Radius actions
 `impact_radius.source.load_actions(env)` reads the Impact v14 `Actions` list
 with dlt's declarative REST API source. It is local-only and has no dbt models
-yet. With `impact_radius` in `ANALYTICS_SOURCES`, the code location registers
+yet. With `impact_radius` listed in `client.yaml`, the code location registers
 the manual `impact_radius_actions_load` job, which run monitoring stops after
 900 seconds.
 
@@ -684,7 +773,7 @@ access to a shared pipeline and destination. Imports and definition checks make
 no network calls. Tests call `capture_inventory(pipeline, snapshot)` with
 an isolated DuckDB pipeline, not the live entrypoint.
 
-List `goodday` in `ANALYTICS_SOURCES` to register the job. It uses the
+List `goodday` in `client.yaml` to register the job. It uses the
 [kit conventions](#adding-a-source); `goodday.json` holds:
 
 | Key | Meaning |
@@ -727,23 +816,6 @@ report before activation. Run fixture parity and recovery checks in development
 Snowflake before claiming remote acceptance; ordinary offline tests prove only
 the local loading contract. No maximum business data age is promised yet.
 
-### Publication coordination
-Every maintained writer, including reconciliation, carries its consistency
-group's `analytics/publication-input` tag in addition to its exclusive-resource
-tag. Orders and Loop use `development-marts`; customers use
-`development-customers`; inventory uses `development-inventory`. Each publisher
-shares only its group's limit for the whole run. This serializes contributing
-writers with their publisher without making unrelated groups wait. Successful
-manual, scheduled and reconciliation runs trigger only their enabled group's
-success sensor. Sensors ship stopped; extraction schedules do not change.
-
-New sources apply the shared tag to their own writers and add a source-neutral
-publication entry. Map the dbt source to its ingestion asset in the transformation
-`CandidateTranslator` for model lineage. They do not modify another source's
-module or the coordinator.
-See the [publication contract and migration](../transformations/README.md#development-publication)
-before deployment. Direct calls outside Dagster must provide equivalent isolation.
-
 ## Google Sheets captures
 
 The `google_sheets` source captures one or more spreadsheet tabs as retained
@@ -753,7 +825,7 @@ catalog. It runs only on the `local` target
 ([ADR 0029](../../docs/adrs/0029-load-every-source-into-local-duckdb.md)).
 Development and production reject it, and CI uses fixtures only.
 
-With `google_sheets` in `ANALYTICS_SOURCES`, the code location registers the
+With `google_sheets` listed in `client.yaml`, the code location registers the
 manual `google_sheets_capture` job, which materializes
 `raw/google_sheets/google_sheets_raw`. It uses the
 [kit conventions](#adding-a-source). It has no schedule, does not retry, and
@@ -846,7 +918,7 @@ fails safely; do not assume fixture success proves that source representation.
   case changes. Other cells retain display text without date interpretation. Empty cells are nullable. Columns in `text_columns` must
   have a string-valued source cell, never numeric coercion. Duplicate or blank
   keys in populated rows remain raw evidence; downstream business-key checks
-  decide publication validity.
+  decide whether they are valid.
   Entirely empty selected rows are not captured. Excluded-only rows do not create
   membership. Formula results are observations, not source formula history.
 

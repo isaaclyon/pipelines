@@ -11,7 +11,13 @@ from ci_docs import is_doc, select_dbt_checks, select_lanes
 
 class RoutingTests(unittest.TestCase):
     def test_lane_selection(self) -> None:
-        all_packages = ["ingestion", "transformations", "metrics"]
+        all_lanes = [
+            "ingestion",
+            "transformations",
+            "metrics",
+            "client-config",
+            "sample-client",
+        ]
         cases: list[tuple[list[str], tuple[list[str], bool]]] = [
             (["README.md"], ([], False)),
             (["packages/ingestion/tests/test_source.py"], (["ingestion"], False)),
@@ -21,19 +27,9 @@ class RoutingTests(unittest.TestCase):
             ),
             (
                 ["packages/transformations/dbt/models/orders.sql"],
-                (["transformations"], True),
+                (["transformations", "sample-client"], True),
             ),
-            (["packages/metrics/cube.js"], (["metrics"], True)),
-            # Metrics checks that this generated file matches the Cube model.
-            (
-                ["packages/transformations/dbt/models/exposures/_cube__exposures.yml"],
-                (["transformations", "metrics"], True),
-            ),
-            # The Cube model reads its column metadata from this snapshot.
-            (
-                ["packages/transformations/dbt/customer-mart-contracts.json"],
-                (["transformations", "metrics"], True),
-            ),
+            (["packages/metrics/cube.js"], (["metrics", "sample-client"], True)),
             (["packages/ingestion/uv.lock"], (["ingestion"], True)),
             (
                 [
@@ -44,12 +40,23 @@ class RoutingTests(unittest.TestCase):
             ),
             (
                 ["packages/ingestion/tests/test_source.py", "packages/metrics/cube.js"],
-                (["ingestion", "metrics"], True),
+                (["ingestion", "metrics", "sample-client"], True),
             ),
-            (["scripts/check-python.sh"], (all_packages, True)),
-            (["deploy/compose/ci.yaml"], (all_packages, True)),
-            (["unknown"], (all_packages, True)),
-            ([], (all_packages, True)),
+            # The transformations tests also check the sample client's project.
+            (
+                ["examples/sample-client/dbt/models/marts/fct_orders__daily.sql"],
+                (["transformations", "sample-client"], True),
+            ),
+            (["examples/sample-client/README.md"], ([], False)),
+            (
+                ["packages/client-config/tests/test_config.py"],
+                (["client-config"], False),
+            ),
+            (["packages/client-config/src/x.py"], (all_lanes, True)),
+            (["scripts/check-python.sh"], (all_lanes, True)),
+            (["deploy/compose/ci.yaml"], (all_lanes, True)),
+            (["unknown"], (all_lanes, True)),
+            ([], (all_lanes, True)),
         ]
         for paths, expected in cases:
             self.assertEqual(select_lanes(paths), expected, paths)
@@ -86,7 +93,6 @@ class RoutingTests(unittest.TestCase):
             ([f"{dbt}/dbt_project.yml"], "all"),
             ([f"{dbt}/profiles.yml"], "all"),
             ([f"{dbt}/packages.yml"], "all"),
-            ([f"{dbt}/mart-contracts.json"], "all"),
             (["packages/transformations/tests/fixtures/rows.csv"], "all"),
             (
                 [
@@ -119,6 +125,8 @@ class RoutingTests(unittest.TestCase):
             "REVIEW.md",
             "docs/adrs/example.md",
             "packages/metrics/README.md",
+            "examples/sample-client/README.md",
+            "examples/sample-client/dbt/README.md",
             ".agents/AGENTS.md",
             ".agents/instructions/scripts/AGENTS.md",
         ]:
@@ -253,7 +261,9 @@ class RoutingTests(unittest.TestCase):
             model.write_text("select 2\n")
             result = route(base)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn('packages=["transformations"]', result.stdout)
+            self.assertIn(
+                'packages=["transformations", "sample-client"]', result.stdout
+            )
             self.assertIn("dbt_checks=changed", result.stdout)
             git("checkout", "--", ".")
             (root / "packages/ingestion/src").mkdir(parents=True)
@@ -282,7 +292,9 @@ class RoutingTests(unittest.TestCase):
             result = route()
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(
-                'packages=["ingestion", "transformations", "metrics"]', result.stdout
+                'packages=["ingestion", "transformations", "metrics", "client-config", '
+                '"sample-client"]',
+                result.stdout,
             )
             self.assertIn("dbt_checks=all", result.stdout)
             self.assertEqual(route("a", "b", "c").returncode, 2)

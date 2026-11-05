@@ -35,6 +35,5 @@ trap 'exit 143' TERM
 sh scripts/validate-scripts.sh || exit $?
 ./scripts/platform ci config --quiet || exit $?
 ./scripts/platform ci check || exit $?
-./scripts/test-local-cube.sh || exit $?
 ./scripts/platform ci up || exit $?
 ./scripts/platform ci smoke || exit $?

@@ -1,0 +1,23 @@
+# Release image names and provenance labels (ADR 0036). Only
+# `scripts/platform local release` uses this file, on an export of one commit.
+x-release-labels: &release-labels
+  org.opencontainers.image.title: analytics-toolkit
+  org.opencontainers.image.version: ${TOOLKIT_VERSION:?Set the toolkit version}
+  org.opencontainers.image.revision: ${TOOLKIT_REVISION:?Set the source commit}
+
+services:
+  webserver:
+    image: analytics-control-plane:${TOOLKIT_VERSION:?Set the toolkit version}
+    build: {labels: *release-labels}
+  daemon:
+    image: analytics-control-plane:${TOOLKIT_VERSION:?Set the toolkit version}
+    build: {labels: *release-labels}
+  ingestion:
+    image: analytics-ingestion:${TOOLKIT_VERSION:?Set the toolkit version}
+    build: {labels: *release-labels}
+  transformations:
+    image: analytics-transformations:${TOOLKIT_VERSION:?Set the toolkit version}
+    build: {labels: *release-labels}
+  cube-api:
+    image: analytics-metrics:${TOOLKIT_VERSION:?Set the toolkit version}
+    build: {labels: *release-labels}

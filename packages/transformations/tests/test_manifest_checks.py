@@ -3,22 +3,23 @@
 import copy
 import os
 import shutil
+import subprocess
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
 import pytest
 
-from analytics_transformations.dbt_execution import project_manifest
 from analytics_transformations.manifest_checks import check_manifest
+from analytics_transformations.manifest_values import read_json
 
-# The synthetic publication project with copies of the real macros (ADR 0026).
+# The synthetic sample project with copies of the real macros (ADR 0026).
 pytestmark = pytest.mark.dbt(files=("dbt/macros",))
 ROOT = Path(__file__).parents[1]
-STAGING = "model.publication_fixture.stg_fixture__observations"
-MART = "model.publication_fixture.fct_observations"
-# project_manifest parses with this namespace.
-NAMESPACE = "dagster"
+STAGING = "model.sample_fixture.stg_fixture__observations"
+MART = "model.sample_fixture.fct_observations"
+NAMESPACE = "check"
 
 type Manifest = dict[str, dict[str, dict[str, object]]]
 
@@ -27,13 +28,30 @@ type Manifest = dict[str, dict[str, dict[str, object]]]
 def parsed(tmp_path_factory: pytest.TempPathFactory) -> Manifest:
     root = tmp_path_factory.mktemp("manifest-checks")
     project = root / "project"
-    _ = shutil.copytree(ROOT / "tests/fixtures/publication", project)
+    _ = shutil.copytree(ROOT / "tests/fixtures/sample", project)
     _ = shutil.copytree(ROOT / "dbt/macros", project / "macros")
     env = dict(os.environ) | {
-        "DBT_TARGET_PATH": str(root / "target"),
+        "DBT_TARGET": "local",
+        "DBT_NAMESPACE": NAMESPACE,
         "DUCKDB_PATH": str(root / "fixture.duckdb"),
     }
-    return cast(Manifest, project_manifest(project, ROOT / "dbt", env))
+    _ = subprocess.run(
+        [
+            str(Path(sys.executable).with_name("dbt")),
+            "parse",
+            "--project-dir",
+            str(project),
+            "--profiles-dir",
+            str(ROOT / "dbt"),
+            "--target-path",
+            str(root / "target"),
+            "--no-partial-parse",
+        ],
+        env=env,
+        check=True,
+        timeout=120,
+    )
+    return cast(Manifest, read_json(root / "target" / "manifest.json"))
 
 
 def _config(node: dict[str, object]) -> dict[str, object]:
@@ -52,8 +70,8 @@ def _layer(data: Manifest) -> None:
     data["nodes"][STAGING]["original_file_path"] = "models/other/stg.sql"
 
 
-def _contract(data: Manifest) -> None:
-    cast(dict[str, object], _meta(data["nodes"][MART])["publication"])["key"] = []
+def _key(data: Manifest) -> None:
+    _meta(data["nodes"][MART])["key"] = []
 
 
 def _declaration(data: Manifest) -> None:
@@ -81,7 +99,7 @@ def test_fixture_passes_every_check(parsed: Manifest) -> None:
     ("breakage", "message"),
     [
         (_layer, "unknown-layer"),
-        (_contract, "grain key"),
+        (_key, "key must name"),
         (_declaration, "owner and grain"),
         (_column_description, "column description"),
         (_documentation, "schema_description"),

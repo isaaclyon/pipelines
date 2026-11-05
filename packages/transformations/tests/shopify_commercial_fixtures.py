@@ -1,4 +1,4 @@
-"""Typed empty raw children for publication fixtures with older order evidence."""
+"""Typed empty raw children for fixtures with older order evidence."""
 
 import duckdb
 

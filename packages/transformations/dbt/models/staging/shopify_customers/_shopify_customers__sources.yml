@@ -42,12 +42,12 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant Shopify created the customer.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: updated_at
       config:
         meta: {pii: false}
       description: UTC instant Shopify last changed the customer.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: locale
       config:
         meta: {pii: false}
@@ -117,7 +117,7 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant email consent last changed. Null unless the email field group was available.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: email_marketing_source_location_id
       config:
         meta: {pii: false}
@@ -156,7 +156,7 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant SMS consent last changed. Null unless the phone field group was available.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: sms_marketing_source_location_id
       config:
         meta: {pii: false}
@@ -186,7 +186,7 @@ sources:
         meta: {pii: false}
       description: UTC instant WhatsApp consent last changed. Null unless the whatsapp_consent field group
         was available.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: whatsapp_marketing_source_location_id
       config:
         meta: {pii: false}
@@ -243,7 +243,7 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant ingestion read the customer.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: _extraction_kind
       config:
         meta: {pii: false}
@@ -469,12 +469,12 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant the metafield was created.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: updated_at
       config:
         meta: {pii: false}
       description: UTC instant the metafield last changed.
-      data_type: timestamp
+      data_type: timestamp with time zone
   - name: customers__company_contacts
     description: Source-shaped customers__company_contacts; available fields and legitimate nulls are
       distinguished by customer_field_access.
@@ -542,7 +542,7 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant the run checked access.
-      data_type: timestamp
+      data_type: timestamp with time zone
   - name: profile_evidence
     identifier: customer_batch_evidence
     description: Completed customer incremental profile window; empty successful windows count.
@@ -559,133 +559,95 @@ sources:
     columns: &id001
     - config:
         meta: {pii: false}
-      config:
-        meta: {pii: false}
       name: shop_id
       description: Shopify global ID of the shop the row was read from.
       data_type: text
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: batch_id
       description: Dagster run ID of the customer ingestion run.
       data_type: text
     - config:
         meta: {pii: false}
-      config:
-        meta: {pii: false}
       name: kind
       description: 'Run kind: refresh, lookback, reextract or sweep.'
       data_type: text
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: window_field
       description: 'Customer timestamp the window filters: updated_at.'
       data_type: text
     - config:
         meta: {pii: false}
-      config:
-        meta: {pii: false}
       name: window_start
       description: Inclusive UTC start of the covered window.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: window_end
       description: Exclusive UTC end of the covered window; freshness reads it.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: status
       description: Run status; complete, since only successful runs write rows.
       data_type: text
     - config:
         meta: {pii: false}
-      config:
-        meta: {pii: false}
       name: completeness
       description: complete, or partial when customers changed during the read and were skipped.
       data_type: text
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: is_full_sweep
       description: Whether the run read every customer.
       data_type: bool
     - config:
         meta: {pii: false}
-      config:
-        meta: {pii: false}
       name: observed_started_at
       description: UTC instant extraction started.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: observed_finished_at
       description: UTC instant extraction finished.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: completed_at
       description: UTC instant the run recorded this evidence after its load.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: customers_observed
       description: Complete customers the run read and loaded.
       data_type: bigint
     - config:
         meta: {pii: false}
-      config:
-        meta: {pii: false}
       name: rejects
       description: Customers still rejected after the run, including older rejects.
       data_type: bigint
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: pages
       description: Source pages the run read.
       data_type: bigint
     - config:
         meta: {pii: false}
-      config:
-        meta: {pii: false}
       name: load_ids
       description: Comma-separated dlt load IDs the run committed.
       data_type: text
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: api_version
       description: Shopify Admin API version the run used.
       data_type: text
     - config:
         meta: {pii: false}
-      config:
-        meta: {pii: false}
       name: query_version
       description: Fingerprint of the GraphQL query documents used.
       data_type: text
     - config:
-        meta: {pii: false}
-      config:
         meta: {pii: false}
       name: extraction_revision
       description: Raw contract revision of the run's parser.
@@ -707,4 +669,4 @@ sources:
           and rejects = 0
     columns: *id001
   config:
-    enabled: '{{ env_var(''SHOPIFY_CUSTOMERS_ENABLED'', ''false'') == ''true'' }}'
+    enabled: '{{ ''shopify_customers'' in env_var(''ANALYTICS_ENABLED_SOURCES'').split('','') }}'

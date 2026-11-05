@@ -4,7 +4,8 @@ Date: 2026-10-07
 
 ## Status
 
-Accepted.
+Superseded on 2026-11-04 by [0031](0031-serve-each-client-from-motherduck-or-snowflake.md).
+Previously accepted.
 
 ## Context
 

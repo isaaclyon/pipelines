@@ -5,6 +5,7 @@ Date: 2026-10-07
 ## Status
 
 Accepted. Local serving equivalence is superseded by [0025](0025-use-duckdb-for-deterministic-tests.md).
+Extended by [0034](0034-serve-dashboards-with-metabase-through-cube.md) for Metabase dashboards.
 
 ## Context
 
@@ -80,3 +81,7 @@ customers switch would need a second implementation in Python. It also copies
 all dbt column `meta` into Cube's `/meta` output. A checked-in snapshot keeps
 the Cube image offline and matched to the same commit's marts; Cube does not
 fetch a manifest at runtime.
+
+[Roadmap](../../ROADMAP.md) Phase 1 removed `mart-columns.cjs`, `publication.cjs`
+and the mart-contract snapshots, together with the marts they served, under
+[ADR 0037](0037-build-marts-in-place-in-the-serving-warehouse.md).

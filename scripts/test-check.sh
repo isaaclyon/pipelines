@@ -6,11 +6,27 @@ fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 # The checked repository; traces and stubs stay outside it, so they are not changes.
 repo="$fixture/repo"
-mkdir -p "$repo/scripts" "$repo/packages/transformations/dbt/models" "$fixture/bin"
+mkdir -p "$repo/scripts" "$repo/packages/transformations/dbt/models" \
+    "$repo/examples/sample-client" "$fixture/bin"
 printf '#!/bin/sh\nexit 0\n' > "$repo/scripts/check-versions.sh"
 cp scripts/ci_docs.py "$repo/scripts/"
 printf 'select 1\n' > "$repo/packages/transformations/dbt/models/orders.sql"
 printf '# Guide\n' > "$repo/README.md"
+# The sample client's check: it runs alone, after every package check.
+cat > "$repo/examples/sample-client/check" <<'SH'
+#!/bin/sh
+touch "$CHECK_STATE/sample-client.started"
+printf '%s\n' "$TOOLKIT_VERSION" > "$CHECK_STATE/sample-client.version"
+if [ "${EXPECT_PARALLEL:-0}" = 1 ]; then
+    test -f "$CHECK_STATE/metrics-check.finished" || exit 94
+    test -f "$CHECK_STATE/client-config-check.finished" || exit 95
+fi
+touch "$CHECK_STATE/sample-client.finished"
+case ":${FAIL_SERVICES:-}:" in
+    *":sample-client:"*) exit 42 ;;
+esac
+SH
+chmod +x "$repo/examples/sample-client/check"
 git_fixture() {
     git -C "$repo" -c user.email=ci@example.invalid -c user.name='CI test' \
         -c commit.gpgsign=false "$@" >/dev/null
@@ -35,7 +51,7 @@ run_check() (
     # shellcheck disable=SC2317,SC2329
     compose() {
         printf '%s\n' "$*" >> "$CHECK_TRACE"
-        shift 2 # --profile checks
+        while [ "$1" = --profile ]; do shift 2; done
         case "$1" in
             config)
                 shift 2 # config --images
@@ -90,16 +106,20 @@ reset_fixture() {
 
 reset_fixture
 EXPECT_PARALLEL=1 run_check --no-build
-test "$(find "$CHECK_STATE" -name '*.finished' | wc -l)" -eq 3
+test "$(find "$CHECK_STATE" -name '*.finished' | wc -l)" -eq 5
 if grep -q ' build' "$CHECK_TRACE"; then exit 1; fi
+# The sample client runs on the toolkit images built from this checkout.
+grep -qx local "$CHECK_STATE/sample-client.version"
+grep -q 'config --images .*transformations-toolkit metrics-toolkit' "$CHECK_TRACE"
 
-for failures in ingestion-check transformations-check ingestion-check:transformations-check metrics-check; do
+for failures in ingestion-check transformations-check ingestion-check:transformations-check \
+    metrics-check sample-client; do
     reset_fixture
     if EXPECT_PARALLEL=1 FAIL_SERVICES="$failures" run_check --no-build; then
         echo "Lost failure: $failures" >&2
         exit 1
     fi
-    test "$(find "$CHECK_STATE" -name '*.finished' | wc -l)" -eq 3
+    test "$(find "$CHECK_STATE" -name '*.finished' | wc -l)" -eq 5
 done
 
 reset_fixture
@@ -115,6 +135,13 @@ fi
 if grep -q ' run ' "$CHECK_TRACE"; then exit 1; fi
 
 reset_fixture
+if MISSING_IMAGE=metrics-toolkit run_check sample-client --no-build; then
+    echo 'Missing toolkit image unexpectedly passed' >&2
+    exit 1
+fi
+test ! -e "$CHECK_STATE/sample-client.started"
+
+reset_fixture
 if BUILD_FAILURE=1 run_check; then
     echo 'Build failure unexpectedly passed' >&2
     exit 1
@@ -124,6 +151,11 @@ if grep -q ' run ' "$CHECK_TRACE"; then exit 1; fi
 reset_fixture
 run_check metrics --no-cache
 grep -q 'build metrics-check --no-cache' "$CHECK_TRACE"
+reset_fixture
+run_check sample-client --no-cache
+grep -q -- '--profile toolkit build transformations-toolkit metrics-toolkit --no-cache' "$CHECK_TRACE"
+test -f "$CHECK_STATE/sample-client.finished"
+test "$(find "$CHECK_STATE" -name '*.started' | wc -l)" -eq 1
 # Without a base, every package and every dbt test runs (ADR 0026), and only
 # the dbt package check receives the dbt selection.
 reset_fixture
@@ -135,7 +167,9 @@ grep -q 'run --rm --no-deps --pull never -T ingestion-check' "$CHECK_TRACE"
 reset_fixture
 printf 'select 2\n' > "$repo/packages/transformations/dbt/models/orders.sql"
 run_check --base "$base" --no-build
-test "$(find "$CHECK_STATE" -name '*.started' | wc -l)" -eq 1
+# The model is in the toolkit image, so the sample client runs too.
+test "$(find "$CHECK_STATE" -name '*.started' | wc -l)" -eq 2
+test -f "$CHECK_STATE/sample-client.finished"
 grep -q -- '-e DBT_CHECKS=changed -e DBT_BASE_PROJECT=/base -v .*:/base:ro transformations-check' "$CHECK_TRACE"
 grep -qx 'select 1' "$CHECK_STATE/base/dbt/models/orders.sql"
 test ! -e "$(cat "$CHECK_STATE/base-path")"

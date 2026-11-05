@@ -81,8 +81,8 @@ before incorporating them into the owning package.
    execute representative fixtures in DuckDB. Under ADR 0028, development
    Snowflake execution remains required before shared activation but is deferred
    during local-only development. Report it as outstanding, never passed by local
-   results; follow the publication/release boundary before merging changes that
-   can run automatically in shared environments.
+   results. Get that Snowflake check before merging changes that can run
+   automatically in shared environments.
 
 ## Configuration and state
 

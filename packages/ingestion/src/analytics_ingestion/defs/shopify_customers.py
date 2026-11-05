@@ -2,28 +2,32 @@
 
 The load job reads an explicit ``[start, end)`` window (or a full sweep) into
 the customer dataset; the reconcile job confirms deletions after a sweep.
-Setting ``SHOPIFY_CUSTOMERS_SEED`` adds the refresh, nightly sweep and daily
-reconcile schedules. Both jobs share one exclusive resource,
-independent of orders. Freshness thresholds belong to transformations; this
-module only reports coverage and access evidence.
+Nothing registers unless client.yaml lists ``shopify_customers``; its
+``schedule`` block adds the refresh, nightly sweep and daily reconcile
+schedules, and its ``collect_tax_id`` and ``approved_metafields`` options
+apply to every load. Both jobs share one exclusive resource, independent of
+orders. Freshness thresholds belong to transformations; this module only
+reports coverage and access evidence.
 """
 
 import os
-from collections.abc import Mapping
 from datetime import UTC, datetime
 
 import dagster as dg
 from pydantic import Field
 
+from analytics_ingestion.client import (
+    ClientConfig,
+    ShopifyCustomers,
+    client_config,
+    not_listed,
+)
 from analytics_ingestion.shopify.customer_reconcile import (
     MAX_CANDIDATES,
     CustomerReconcileReport,
     reconcile_customers,
 )
-from analytics_ingestion.shopify.customer_settings import (
-    customer_metafields_from_env,
-    customer_settings_from_env,
-)
+from analytics_ingestion.shopify.customer_settings import customer_settings_from_env
 from analytics_ingestion.shopify.customer_source import (
     CustomerKind,
     CustomersRun,
@@ -48,17 +52,14 @@ UNCONFIRMED_CHECK = "no_unconfirmed_absence"
 RECONCILE_JOB_NAME = "shopify_customers_reconcile"
 EXCLUSIVE = {
     "analytics/exclusive-resource": "shopify-customers",
-    "analytics/publication-input": "development-customers",
     "dagster/retry_on_asset_or_op_failure": "false",
 }
 MAX_CANDIDATES_LIMIT = 5000
 SCHEDULES = ScheduleSpec(
-    source="customers",
+    source="shopify_customers",
     job=JOB_NAME,
     op=OP_NAME,
     reconcile_job=RECONCILE_JOB_NAME,
-    seed_variable="SHOPIFY_CUSTOMERS_SEED",
-    refresh_cron_variable="SHOPIFY_CUSTOMERS_REFRESH_CRON",
     refresh_cron="*/15 * * * *",
     # The sweep also refreshes summaries that do not advance updatedAt, and
     # covers what a 26-hour lookback would, so customers have no lookback.
@@ -88,14 +89,16 @@ class ShopifyCustomersReconcileConfig(dg.Config):
 
 
 class ShopifyCustomersDltResource(dg.ConfigurableResource):  # pyright: ignore[reportMissingTypeArgument]
-    """Loads one run with settings from the runtime environment."""
+    """Loads one run with settings from the runtime environment and the
+    collection options from client.yaml."""
 
     def load(self, run: CustomersRun) -> RunReport:
+        options = _options()
         return load_customers(
             customer_settings_from_env(os.environ),
             run,
-            collect_tax_id=os.environ.get("SHOPIFY_CUSTOMERS_TAX_ID_ENABLED") == "true",
-            approved_metafields=customer_metafields_from_env(os.environ),
+            collect_tax_id=options.collect_tax_id,
+            approved_metafields=options.approved_metafields,
         )
 
     def reconcile(
@@ -184,6 +187,13 @@ def shopify_customer_source_status(  # pyright: ignore[reportUnknownParameterTyp
     )
 
 
+def _options() -> ShopifyCustomers:
+    options = client_config().sources.shopify_customers
+    if options is None:
+        raise ConfigurationError(not_listed("shopify_customers"))
+    return options
+
+
 def _run(run_id: str, config: ShopifyCustomersDltConfig) -> CustomersRun:
     kinds: dict[str, CustomerKind] = {
         "refresh": "refresh",
@@ -214,14 +224,25 @@ RECONCILE_JOB = dg.define_asset_job(  # pyright: ignore[reportUnknownMemberType,
 )
 
 
-def build_schedules(env: Mapping[str, str]) -> list[dg.ScheduleDefinition]:
+def build_schedules(config: ClientConfig) -> list[dg.ScheduleDefinition]:
     """Refresh, nightly sweep and daily reconcile, or none."""
-    return source_schedules(env, SCHEDULES)
+    customers = config.sources.shopify_customers
+    if customers is None:
+        return []
+    return source_schedules(SCHEDULES, customers.schedule, config.reporting_time_zone)
 
 
-defs = dg.Definitions(
-    assets=[shopify_customers_raw, shopify_customer_source_status],
-    jobs=[JOB, RECONCILE_JOB],
-    schedules=build_schedules(os.environ),
-    resources={"shopify_customers": ShopifyCustomersDltResource()},
-)
+def build_definitions(config: ClientConfig) -> dg.Definitions:
+    if not config.enabled("shopify_customers"):
+        return dg.Definitions()
+    return dg.Definitions(
+        assets=[shopify_customers_raw, shopify_customer_source_status],
+        jobs=[JOB, RECONCILE_JOB],
+        schedules=build_schedules(config),
+        resources={"shopify_customers": ShopifyCustomersDltResource()},
+    )
+
+
+@dg.definitions
+def defs() -> dg.Definitions:
+    return build_definitions(client_config())

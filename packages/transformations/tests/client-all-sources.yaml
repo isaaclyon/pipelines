@@ -1,0 +1,15 @@
+# Every source the dbt project gates enabled, so the manifest checks and test
+# selection see every model (scripts/check-python.sh, tests/dbt_selection.py).
+version: 1
+client: check-all-sources
+reporting_time_zone: America/New_York
+warehouse: motherduck
+sources:
+  goodday:
+  google_sheets:
+  impact_radius:
+  loop_returns:
+    shop_id: gid://shopify/Shop/1
+    history_start: 2024-01-01T00:00:00Z
+  shopify_customers:
+  shopify_orders:

@@ -8,8 +8,8 @@ meaning. Temporal value tests establish conversion correctness separately.
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from analytics_transformations.layer_dependencies import root_project
-from analytics_transformations.mart_contracts import (
+from analytics_transformations.layer_dependencies import governed_projects
+from analytics_transformations.manifest_values import (
     check_blocking,
     identifier,
     mapping,
@@ -241,14 +241,17 @@ def _column(
 
 
 def check_column_declarations(data: object) -> None:
-    """Validate this project's model columns in a parsed dbt manifest."""
+    """Validate governed model columns in a parsed dbt manifest."""
     manifest = mapping(data)
     nodes = {
         key: mapping(value) for key, value in mapping(manifest.get("nodes")).items()
     }
-    project = root_project(data)
+    projects = governed_projects(data)
     for model_id, node in nodes.items():
-        if node.get("resource_type") != "model" or node.get("package_name") != project:
+        if (
+            node.get("resource_type") != "model"
+            or node.get("package_name") not in projects
+        ):
             continue
         try:
             columns = _columns(node)

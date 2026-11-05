@@ -13,6 +13,10 @@ For single-user local experiments, this also supersedes
 every data change run through Dagster. Shared-environment rules remain unchanged.
 Implementation is specified separately; this decision does not claim a local
 serving command already exists.
+On 2026-11-04, [0031](0031-serve-each-client-from-motherduck-or-snowflake.md)
+replaced the Snowflake serving target with a per-client MotherDuck or Snowflake
+warehouse, and [0036](0036-upgrade-clients-one-at-a-time-on-pinned-toolkit-versions.md)
+replaced the reference to 0020 release compatibility. Local DuckDB rules remain.
 
 ## Context
 

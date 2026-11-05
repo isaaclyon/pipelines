@@ -4,7 +4,8 @@ Date: 2026-10-08
 
 ## Status
 
-Proposed.
+Superseded on 2026-11-04 by [0032](0032-read-secrets-from-environment-files.md)
+before acceptance. Previously proposed.
 
 ## Context
 

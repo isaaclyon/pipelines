@@ -107,7 +107,7 @@ async function checkDocsSite() {
     // The lineage page carries third-party analytics code; the policy blocks
     // every connection it could make even if its opt-out were ignored.
     assert.match(page.headers.get('content-security-policy') ?? '', /connect-src 'none'/);
-    assert.match(await page.text(), path === '/' ? /fct_orders/ : /colibriTelemetry = false/);
+    assert.match(await page.text(), path === '/' ? /stg_shopify_orders__orders/ : /colibriTelemetry = false/);
   }
 }
 

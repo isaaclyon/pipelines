@@ -2,7 +2,7 @@
 
 One asset represents a completed capture of every configured tab. No schedule
 or automatic source access is registered; list ``google_sheets`` in
-ANALYTICS_SOURCES to enable it.
+client.yaml to enable it.
 """
 
 import os
@@ -10,13 +10,15 @@ from collections.abc import Mapping
 
 import dagster as dg
 
+from analytics_ingestion.client import ClientConfig, client_config
 from analytics_ingestion.google_sheets.runtime import load_google_sheets
 from analytics_ingestion.google_sheets.spec import SOURCE
 from analytics_ingestion.kit.dagster import manual_capture
 
 
-def build_definitions(env: Mapping[str, str]) -> dg.Definitions:
+def build_definitions(config: ClientConfig, env: Mapping[str, str]) -> dg.Definitions:
     return manual_capture(
+        config,
         env,
         source=SOURCE,
         asset="google_sheets_raw",
@@ -32,4 +34,6 @@ def build_definitions(env: Mapping[str, str]) -> dg.Definitions:
     )
 
 
-defs = build_definitions(os.environ)
+@dg.definitions
+def defs() -> dg.Definitions:
+    return build_definitions(client_config(), os.environ)

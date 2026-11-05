@@ -15,12 +15,7 @@ cat > "$verify_fixture/scripts/platform" <<'SH'
 echo "$2" >> "$VERIFY_TRACE"
 [ "$2" != smoke ] || exit 42
 SH
-cat > "$verify_fixture/scripts/test-local-cube.sh" <<'SH'
-#!/bin/sh
-echo local-cube >> "$VERIFY_TRACE"
-exit "${VERIFY_CUBE_STATUS:-0}"
-SH
-chmod +x "$verify_fixture/scripts/platform" "$verify_fixture/scripts/test-local-cube.sh"
+chmod +x "$verify_fixture/scripts/platform"
 export VERIFY_TRACE="$verify_fixture/trace"
 export DOCKER_SOCKET_GID=0 ANALYTICS_PROJECT=verify-test
 run_verify() (
@@ -43,15 +38,8 @@ expect_cleanup() {
     printf 'logs --no-color\ndocker ps -aq --filter label=analytics/project=%s\n' "$ANALYTICS_PROJECT"
     printf 'docker rm -f run-1\n%s\n' "$1"
 }
-{ printf 'scripts\nconfig\ncheck\nlocal-cube\nup\nsmoke\n'; expect_cleanup 'down --volumes'; } > "$verify_fixture/expected"
+{ printf 'scripts\nconfig\ncheck\nup\nsmoke\n'; expect_cleanup 'down --volumes'; } > "$verify_fixture/expected"
 diff "$verify_fixture/expected" "$VERIFY_TRACE"
-: > "$VERIFY_TRACE"
-export VERIFY_CUBE_STATUS=44
-run_verify && verify_rc=0 || verify_rc=$?
-test "$verify_rc" = 44
-{ printf 'scripts\nconfig\ncheck\nlocal-cube\n'; expect_cleanup 'down --volumes'; } > "$verify_fixture/expected"
-diff "$verify_fixture/expected" "$VERIFY_TRACE"
-unset VERIFY_CUBE_STATUS
 : > "$VERIFY_TRACE"
 export VERIFY_SCRIPTS_STATUS=43
 run_verify && verify_rc=0 || verify_rc=$?

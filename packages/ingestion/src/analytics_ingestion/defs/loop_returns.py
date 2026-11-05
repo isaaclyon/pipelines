@@ -1,8 +1,9 @@
 """Manual Dagster job for the Loop Returns header snapshot.
 
-The job has no schedule. It shares the ``loop-returns`` exclusive tag so two
-snapshot runs never write at once. A second input-lock tag prevents
-replacement while enabled marts capture facts and evidence. Failed runs never retry.
+Nothing registers unless client.yaml lists ``loop_returns``; its shop, history
+start and removal allowance apply to every run. The job has no schedule. It
+shares the ``loop-returns`` exclusive tag so two snapshot runs never write at
+once. Failed runs never retry.
 """
 
 import json
@@ -16,6 +17,7 @@ from threading import Timer
 
 import dagster as dg
 
+from analytics_ingestion.client import ClientConfig, client_config, not_listed
 from analytics_ingestion.loop_returns.errors import (
     ConfigurationError,
     LoopIngestionError,
@@ -28,7 +30,6 @@ ASSET_KEY = dg.AssetKey(["raw", "loop_returns", "loop_returns_raw"])
 EXCLUSIVE_TAG = "analytics/exclusive-resource"
 EXCLUSIVE = {
     EXCLUSIVE_TAG: "loop-returns",
-    "analytics/publication-input": "development-marts",
     "dagster/retry_on_asset_or_op_failure": "false",
     "dagster/max_runtime": "300",
 }
@@ -86,7 +87,10 @@ class LoopReturnsDltResource(dg.ConfigurableResource):  # pyright: ignore[report
         restart_candidate: bool = False,
     ) -> LoadReport:
         with worker_limit():
-            settings = settings_from_env(os.environ)
+            source = client_config().sources.loop_returns
+            if source is None:
+                raise ConfigurationError(not_listed("loop_returns"))
+            settings = settings_from_env(os.environ, source)
             end = None
             if day is not None:
                 settings, end = trial_settings(settings, day)
@@ -172,14 +176,22 @@ def loop_returns_recovery_trial(
 # Dagster job metadata exposes permissive third-party types.
 @dg.job(  # pyright: ignore[reportUnknownMemberType]
     tags=EXCLUSIVE,
-    description="One-day development Loop recovery trial; no consumer publication.",
+    description="One-day development Loop recovery trial; maintained data unchanged.",
 )
 def loop_returns_dlt_recovery_trial() -> None:
     loop_returns_recovery_trial()
 
 
-defs = dg.Definitions(
-    assets=[loop_returns_raw],
-    jobs=[JOB, loop_returns_dlt_recovery_trial],
-    resources={"loop_returns": LoopReturnsDltResource()},
-)
+def build_definitions(config: ClientConfig) -> dg.Definitions:
+    if not config.enabled("loop_returns"):
+        return dg.Definitions()
+    return dg.Definitions(
+        assets=[loop_returns_raw],
+        jobs=[JOB, loop_returns_dlt_recovery_trial],
+        resources={"loop_returns": LoopReturnsDltResource()},
+    )
+
+
+@dg.definitions
+def defs() -> dg.Definitions:
+    return build_definitions(client_config())

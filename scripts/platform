@@ -46,6 +46,16 @@ fi
 
 export ANALYTICS_ENVIRONMENT="$target"
 
+# The client repository the stack runs (ADR 0032): its client.yaml, dbt project
+# and Cube files. Defaults to the sample client; a relative path starts at the
+# repository root.
+client_dir=${CLIENT_DIR:-examples/sample-client}
+if ! CLIENT_DIR=$(CDPATH='' cd -- "$client_dir" 2>/dev/null && pwd); then
+    echo "CLIENT_DIR: $client_dir is not a folder" >&2
+    exit 2
+fi
+export CLIENT_DIR
+
 case "$target" in
     local)
         # Each checkout gets its own stack and uses its local env file if present.

@@ -5,6 +5,8 @@ COPY --from=uv /uv /uvx /usr/local/bin/
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 ARG PROJECT_DIR
 WORKDIR /workspace/${PROJECT_DIR}
+# Path dependency of every Python project that reads client.yaml.
+COPY packages/client-config/ /workspace/packages/client-config/
 COPY ${PROJECT_DIR}/pyproject.toml ${PROJECT_DIR}/uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
 
@@ -30,6 +32,8 @@ COPY ${PROJECT_DIR}/ ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-editable
 COPY ruff.toml /workspace/ruff.toml
 COPY scripts/check-python.sh /workspace/scripts/check-python.sh
+# The transformations tests run analytics-check-client on the sample client.
+COPY examples/sample-client/ /workspace/examples/sample-client/
 RUN useradd --uid 10001 --create-home analytics && chown -R analytics /workspace
 ENV PATH="/opt/venv/bin:${PATH}"
 USER analytics
@@ -44,9 +48,14 @@ ENV COLIBRI_EXECUTABLE=/opt/lineage/bin/colibri
 COPY deploy/dagster/dagster.yaml deploy/dagster/workspace.yaml /opt/dagster/
 COPY deploy/dagster/check-concurrency.py /opt/dagster/
 COPY --chmod=755 scripts/container-entrypoint.sh /usr/local/bin/container-entrypoint
+# Transformations: the toolkit's dbt package (ANALYTICS_TOOLKIT_DBT), which a
+# client project installs, and the toolkit-owned dbt targets (DBT_PROFILES_DIR).
+# A client image adds its dbt project at DBT_PROJECT_DIR; this image alone has
+# none, so its dbt work fails until one is added.
 ENV PATH="/opt/venv/bin:${PATH}" \
     DAGSTER_HOME=/opt/dagster \
-    DBT_PROJECT_DIR=/opt/venv/lib/python3.12/site-packages/analytics_transformations/dbt \
+    ANALYTICS_TOOLKIT_DBT=/opt/venv/lib/python3.12/site-packages/analytics_transformations/dbt \
+    DBT_PROJECT_DIR=/opt/client/dbt \
     DBT_PROFILES_DIR=/opt/venv/lib/python3.12/site-packages/analytics_transformations/dbt \
     DBT_TARGET_PATH=/var/lib/analytics/artifacts/dbt \
     DBT_LOG_PATH=/var/lib/analytics/artifacts/dbt-logs

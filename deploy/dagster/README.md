@@ -22,25 +22,7 @@ resource value, including named jobs launched manually. Read-only checks and
 jobs with different resource values can use the remaining remote slot. Declare
 these tags in the owning package; instance configuration stays source-agnostic.
 Use the existing queue priorities to choose the next waiting run; running work
-is not preempted.
-
-`analytics/publication-input` adds an independent per-value queue limit.
-Writers and publishers share one limit per consistency group: orders and Loop
-use `development-marts`, customers use `development-customers`, and inventory
-uses `development-inventory`. Each limit protects source facts and evidence for
-the group's full publication run, including reconciliation and deletion repair.
-Unrelated groups can use the remaining remote slot. Adding a source requires its
-group's tag on writer jobs and an entry in the transformation publication input
-declaration. Map its dbt source to the ingestion asset in `CandidateTranslator`
-so model lineage links to the real writer. The coordinator remains source-neutral;
-smoke checks test admission in both directions.
-
-Deploy both code locations and the coordinator together. Pause writers and the
-old publication sensor and drain older queued/running jobs before relying on
-these limits; old run tags cannot provide the new isolation. Explicitly enable
-the desired group success sensors after verification. See the
-[publication contract and migration](../../packages/transformations/README.md#development-publication).
-Long snapshots can still violate the reporting deadline; serialization is not
+is not preempted. Long snapshots can still violate the reporting deadline; serialization is not
 a freshness guarantee.
 
 Dagster is the only entry point for Shopify loads, so the shared tag on its

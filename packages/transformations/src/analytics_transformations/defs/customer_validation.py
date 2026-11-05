@@ -1,8 +1,12 @@
-"""Transformation-owned customer profile and full-sweep freshness checks."""
+"""Transformation-owned customer profile and full-sweep freshness checks.
+
+They exist only when client.yaml enables ``shopify_customers``.
+"""
 
 import os
 
 import dagster as dg
+from analytics_client_config import load
 
 from analytics_transformations.defs.shopify_validation import (
     source_freshness,
@@ -57,14 +61,14 @@ validation_schedule = dg.ScheduleDefinition(
     execution_fn=lambda context: validation_request(context, JOB_NAME),
 )
 
-# Expand first: existing environments have no customer raw tables. Activation
-# follows initial extraction and grants, rather than breaking order publication.
+# A client enables the source after initial extraction and grants, so a client
+# without customer raw tables has no failing checks.
 defs = (
     dg.Definitions(
         asset_checks=[customer_profile_freshness, customer_sweep_freshness],
         jobs=[validation_job],
         schedules=[validation_schedule],
     )
-    if os.environ.get("SHOPIFY_CUSTOMERS_ENABLED", "false") == "true"
+    if load(os.environ).enabled("shopify_customers")
     else dg.Definitions()
 )

@@ -6,13 +6,11 @@ import pytest
 
 from analytics_ingestion.shopify.customer_model import metafield_is_collected
 from analytics_ingestion.shopify.customer_parse import ParsedCustomer, parse_customer
-from analytics_ingestion.shopify.customer_settings import customer_metafields_from_env
-from analytics_ingestion.shopify.errors import ConfigurationError, ContractError
+from analytics_ingestion.shopify.errors import ContractError
 from analytics_ingestion.shopify.jsonvalue import JsonObject, objects
 from tests.customer_fakes import address, customer, metafield
 
 PARAM = "?model_name=CustomerAddress"
-VAR = "SHOPIFY_CUSTOMERS_APPROVED_METAFIELDS"
 
 
 def parse(
@@ -81,34 +79,3 @@ def test_denied_prefix_wins_over_approval() -> None:
     assert not metafield_is_collected("$app:x", "k", frozenset({("$app:x", "k")}))
     assert metafield_is_collected("custom", "k", frozenset({("custom", "k")}))
     assert not metafield_is_collected("custom", "k")
-
-
-def test_env_parses_exact_pairs() -> None:
-    env = {VAR: '[["custom","loyalty_tier"],["a","b"]]'}
-    assert customer_metafields_from_env(env) == {("custom", "loyalty_tier"), ("a", "b")}
-
-
-@pytest.mark.parametrize("raw", [None, "", "  ", "[]"])
-def test_env_missing_or_empty_approves_nothing(raw: str | None) -> None:
-    env = {} if raw is None else {VAR: raw}
-    assert customer_metafields_from_env(env) == frozenset()
-
-
-@pytest.mark.parametrize(
-    "raw",
-    [
-        "not json SECRETVALUE",
-        '{"custom":"x"}',
-        '[["custom"]]',
-        '[["custom","*"]]',
-        '[["*","key"]]',
-        '[["custom",1]]',
-        '["custom.key"]',
-        '[["","k"]]',
-    ],
-)
-def test_env_malformed_or_wildcard_rejected_sanitized(raw: str) -> None:
-    with pytest.raises(ConfigurationError) as error:
-        customer_metafields_from_env({VAR: raw})
-    assert "SECRETVALUE" not in str(error.value)
-    assert "custom" not in str(error.value)

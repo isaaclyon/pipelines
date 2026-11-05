@@ -1,0 +1,52 @@
+version: 2
+models:
+  - name: fct_orders__daily
+    description: Non-test Shopify orders per reporting day, from the toolkit's
+      order staging. Days without orders have no row.
+    config:
+      meta:
+        grain: One row per reporting day with at least one non-test order
+        key: [order_date]
+    columns:
+      - name: order_date
+        data_type: date
+        description: Calendar date of the orders in the reporting time zone
+          (client.yaml reporting_time_zone).
+        config:
+          meta:
+            pii: false
+            temporal:
+              kind: derived_date
+              instant: first_ordered_at
+              timezone: "{{ env_var('ANALYTICS_REPORTING_TIME_ZONE') }}"
+        data_tests:
+          - not_null
+          - unique
+      - name: first_ordered_at
+        data_type: timestamp
+        description: UTC instant of the day's earliest non-test order.
+        config:
+          meta:
+            pii: false
+            temporal: {kind: instant, timezone: UTC}
+      - name: order_count
+        data_type: bigint
+        description: Non-test Shopify orders on the reporting day.
+        config:
+          meta: {pii: false}
+
+unit_tests:
+  - name: fct_orders__daily_counts_non_test_orders_per_day
+    description: Test orders are left out, and each day keeps its earliest order.
+    model: fct_orders__daily
+    given:
+      - input: ref('analytics_toolkit', 'stg_shopify_orders__orders')
+        rows:
+          - {order_date: 2026-03-01, ordered_at: "2026-03-01 14:00:00", is_test: false}
+          - {order_date: 2026-03-01, ordered_at: "2026-03-01 09:00:00", is_test: false}
+          - {order_date: 2026-03-01, ordered_at: "2026-03-01 08:00:00", is_test: true}
+          - {order_date: 2026-03-02, ordered_at: "2026-03-02 12:00:00", is_test: false}
+    expect:
+      rows:
+        - {order_date: 2026-03-01, first_ordered_at: "2026-03-01 09:00:00", order_count: 2}
+        - {order_date: 2026-03-02, first_ordered_at: "2026-03-02 12:00:00", order_count: 1}

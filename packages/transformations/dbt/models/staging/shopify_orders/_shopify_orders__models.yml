@@ -136,7 +136,7 @@ models:
         temporal:
           kind: derived_date
           instant: ordered_at
-          timezone: "{{ env_var('ANALYTICS_REPORTING_TIME_ZONE', 'America/Los_Angeles') }}"
+          timezone: "{{ env_var('ANALYTICS_REPORTING_TIME_ZONE') }}"
           test: shopify_orders_timezones_match
   - name: cancel_reason
     config:
@@ -173,7 +173,7 @@ models:
     config:
       meta: {pii: false}
     data_type: varchar
-    description: Shop currency for *_shop_amount columns. Tested to be USD, the reporting currency.
+    description: Shop currency for *_shop_amount columns.
   - name: presentment_currency_code
     config:
       meta: {pii: false}
@@ -182,7 +182,7 @@ models:
   - name: total_price_shop_amount
     data_type: decimal(38, 9)
     description: 'Shopify totalPriceSet at the latest observation: the order total including tax and shipping,
-      before later refunds. In shop currency (USD).'
+      before later refunds. In shop currency.'
     config:
       meta:
         pii: false
@@ -200,7 +200,7 @@ models:
   - name: current_total_price_shop_amount
     data_type: decimal(38, 9)
     description: 'Shopify currentTotalPriceSet: the order total after edits, returns and refunds. In shop
-      currency (USD).'
+      currency.'
     config:
       meta:
         pii: false
@@ -218,7 +218,7 @@ models:
   - name: original_total_price_shop_amount
     data_type: decimal(38, 9)
     description: 'Shopify originalTotalPriceSet: the order total at creation, before edits. Null for observations
-      before extraction revision 2. In shop currency (USD).'
+      before extraction revision 2. In shop currency.'
     config:
       meta:
         pii: false
@@ -236,7 +236,7 @@ models:
   - name: subtotal_price_shop_amount
     data_type: decimal(38, 9)
     description: 'Shopify subtotalPriceSet: line subtotal after discounts, before shipping and tax. In
-      shop currency (USD).'
+      shop currency.'
     config:
       meta:
         pii: false
@@ -254,7 +254,7 @@ models:
   - name: current_subtotal_price_shop_amount
     data_type: decimal(38, 9)
     description: 'Shopify currentSubtotalPriceSet: subtotal after edits, returns and refunds. In shop
-      currency (USD).'
+      currency.'
     config:
       meta:
         pii: false
@@ -271,7 +271,7 @@ models:
           column: presentment_currency_code
   - name: total_discounts_shop_amount
     data_type: decimal(38, 9)
-    description: 'Shopify totalDiscountsSet: total discounts applied to the order. In shop currency (USD).'
+    description: 'Shopify totalDiscountsSet: total discounts applied to the order. In shop currency.'
     config:
       meta:
         pii: false
@@ -288,7 +288,7 @@ models:
   - name: total_tax_shop_amount
     data_type: decimal(38, 9)
     description: 'Shopify totalTaxSet: tax charged on the order. Null for observations before extraction
-      revision 2. In shop currency (USD).'
+      revision 2. In shop currency.'
     config:
       meta:
         pii: false
@@ -305,7 +305,7 @@ models:
           column: presentment_currency_code
   - name: current_total_tax_shop_amount
     data_type: decimal(38, 9)
-    description: 'Shopify currentTotalTaxSet: tax after edits, returns and refunds. In shop currency (USD).'
+    description: 'Shopify currentTotalTaxSet: tax after edits, returns and refunds. In shop currency.'
     config:
       meta:
         pii: false
@@ -322,7 +322,7 @@ models:
   - name: total_shipping_price_shop_amount
     data_type: decimal(38, 9)
     description: 'Shopify totalShippingPriceSet: shipping charged, after shipping discounts. Null for
-      observations before extraction revision 2. In shop currency (USD).'
+      observations before extraction revision 2. In shop currency.'
     config:
       meta:
         pii: false
@@ -340,7 +340,7 @@ models:
   - name: total_refunded_shop_amount
     data_type: decimal(38, 9)
     description: 'Shopify totalRefundedSet: total amount refunded, including tax. A reconciliation input,
-      not a commercial refund measure. In shop currency (USD).'
+      not a commercial refund measure. In shop currency.'
     config:
       meta:
         pii: false
@@ -480,17 +480,6 @@ models:
       meta: {pii: false}
     data_type: varchar
     description: Shipping address ISO country code, as most recently recorded on the order.
-  - name: reporting_market
-    config:
-      meta: {pii: false}
-    data_type: varchar
-    description: The shipping country when it is listed in the separate_reporting_markets project var;
-      otherwise home_reporting_market, including when the country is missing.
-  - name: is_home_reporting_market
-    config:
-      meta: {pii: false}
-    data_type: boolean
-    description: True when reporting_market is the home_reporting_market project var.
   - name: shipping_address_phone
     config:
       meta: {pii: true}
@@ -765,22 +754,3 @@ unit_tests:
     - order_id: missing_processed_at
       order_date: 2026-06-30
       order_date_source: created_at
-- name: orders_get_configured_reporting_market
-  description: A shipping country listed in separate_reporting_markets reports as itself; every other or
-    missing country reports in home_reporting_market.
-  model: stg_shopify_orders__orders
-  overrides:
-    vars: {home_reporting_market: GB, separate_reporting_markets: [CA, IE]}
-  given:
-  - input: source('shopify_orders', 'orders')
-    rows:
-    - {order_id: '1', shipping_address_country_code: CA}
-    - {order_id: '2', shipping_address_country_code: IE}
-    - {order_id: '3', shipping_address_country_code: US}
-    - {order_id: '4', shipping_address_country_code: null}
-  expect:
-    rows:
-    - {order_id: '1', reporting_market: CA, is_home_reporting_market: false}
-    - {order_id: '2', reporting_market: IE, is_home_reporting_market: false}
-    - {order_id: '3', reporting_market: GB, is_home_reporting_market: true}
-    - {order_id: '4', reporting_market: GB, is_home_reporting_market: true}

@@ -12,6 +12,7 @@ from requests.adapters import HTTPAdapter
 
 from analytics_ingestion.defs.impact_radius import build_definitions
 from analytics_ingestion.impact_radius.source import load_actions
+from tests.client_files import listing
 
 # Impact rejects fractional seconds, so the window drops them.
 NOW = datetime(2026, 11, 2, 12, 0, 0, 123456, tzinfo=UTC)
@@ -193,11 +194,16 @@ def test_settings_are_checked_before_any_request(
     assert not impact.requests
 
 
-def test_job_is_manual_and_local_only(tmp_path: Path) -> None:
-    env = environment(tmp_path) | {"ANALYTICS_SOURCES": "impact_radius"}
-    definitions = build_definitions(env)
+def test_job_is_manual_and_local_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = listing(monkeypatch, tmp_path, "impact_radius")
+    env = environment(tmp_path)
+    definitions = build_definitions(config, env)
     job = definitions.resolve_job_def("impact_radius_actions_load")
     assert job.tags["analytics/exclusive-resource"] == "impact-radius"
     assert definitions.schedules is None
     with pytest.raises(ValueError, match="local target"):
-        _ = build_definitions(env | {"ANALYTICS_ENVIRONMENT": "development"})
+        _ = build_definitions(config, env | {"ANALYTICS_ENVIRONMENT": "development"})
+    unlisted = listing(monkeypatch, tmp_path, "goodday")
+    assert not build_definitions(unlisted, env).jobs

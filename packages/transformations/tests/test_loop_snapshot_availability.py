@@ -7,6 +7,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from tests.client_files import write_client
+
 # Real dbt project nodes these tests execute (ADR 0026).
 pytestmark = pytest.mark.dbt("+stg_loop_returns__snapshots")
 
@@ -38,52 +40,49 @@ def test_loop_availability_matches_committed_current_rows(tmp_path: Path) -> Non
                 case when shop_id = 'failed' then 1 else 0 end as status
             from raw_loop.return_snapshots where shop_id <> 'missing_load';
         """)
-    for enabled in (False, True):
-        result = subprocess.run(
-            [
-                "dbt",
-                "build",
-                "--quiet",
-                "--select",
-                "stg_loop_returns__snapshots",
-                "--indirect-selection",
-                "cautious",
-                "--project-dir",
-                str(ROOT / "dbt"),
-                "--profiles-dir",
-                str(ROOT / "dbt"),
-                "--target-path",
-                str(tmp_path / "target"),
-            ],
-            env={
-                **os.environ,
-                "DBT_TARGET": "local",
-                "DBT_NAMESPACE": "ci_loop",
-                "DUCKDB_PATH": str(raw),
-                "LOOP_RETURNS_DATASET": "raw_loop",
-                "LOOP_RETURNS_ENABLED": str(enabled).lower(),
-            },
-            capture_output=True,
-            text=True,
-            timeout=90,
-            check=False,
+    result = subprocess.run(
+        [
+            "analytics-dbt",
+            "build",
+            "--quiet",
+            "--select",
+            "stg_loop_returns__snapshots",
+            "--indirect-selection",
+            "cautious",
+            "--project-dir",
+            str(ROOT / "dbt"),
+            "--profiles-dir",
+            str(ROOT / "dbt"),
+            "--target-path",
+            str(tmp_path / "target"),
+        ],
+        env={
+            **os.environ,
+            **write_client(tmp_path, "loop_returns"),
+            "DBT_TARGET": "local",
+            "DBT_NAMESPACE": "ci_loop",
+            "DUCKDB_PATH": str(raw),
+            "LOOP_RETURNS_DATASET": "raw_loop",
+        },
+        capture_output=True,
+        text=True,
+        timeout=90,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    with duckdb.connect(str(raw), read_only=True) as db:
+        result_rows = db.execute(
+            "select shop_id, is_snapshot_complete "
+            "from ci_loop_staging.stg_loop_returns__snapshots"
+        ).fetchall()
+        assert dict(result_rows) == (
+            {
+                "valid": True,
+                "wrong_load": False,
+                "missing_load": False,
+                "failed": False,
+                "mismatch": False,
+                "empty": True,
+                "bad_time": False,
+            }
         )
-        assert result.returncode == 0, result.stdout + result.stderr
-        with duckdb.connect(str(raw), read_only=True) as db:
-            result_rows = db.execute(
-                "select shop_id, is_snapshot_complete "
-                "from ci_loop_staging.stg_loop_returns__snapshots"
-            ).fetchall()
-            assert dict(result_rows) == (
-                {
-                    "valid": True,
-                    "wrong_load": False,
-                    "missing_load": False,
-                    "failed": False,
-                    "mismatch": False,
-                    "empty": True,
-                    "bad_time": False,
-                }
-                if enabled
-                else {}
-            )

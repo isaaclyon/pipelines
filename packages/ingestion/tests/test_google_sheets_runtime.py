@@ -14,6 +14,7 @@ from analytics_ingestion.google_sheets.runtime import (
     credentials_from_info,
     load_google_sheets,
 )
+from tests.client_files import listing
 from tests.test_google_sheets import FIELDS, SHEET_ID, SPREADSHEET_ID, Sheet
 
 SHEET: dict[str, object] = {
@@ -110,13 +111,19 @@ def test_invalid_credential_does_not_leak() -> None:
     assert "private fixture" not in str(error.value)
 
 
-def test_disabled_source_registers_no_job(tmp_path: Path) -> None:
-    assert not build_definitions(environment(tmp_path)).jobs
+def test_unlisted_source_registers_no_job(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    unlisted = listing(monkeypatch, tmp_path, "goodday")
+    assert not build_definitions(unlisted, environment(tmp_path)).jobs
 
 
-def test_activation_requires_a_readable_settings_file(tmp_path: Path) -> None:
-    env = environment(tmp_path) | {"ANALYTICS_SOURCES": "google_sheets"}
-    definitions = build_definitions(env)
+def test_activation_requires_a_readable_settings_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = listing(monkeypatch, tmp_path, "google_sheets")
+    env = environment(tmp_path)
+    definitions = build_definitions(config, env)
     job = definitions.resolve_job_def("google_sheets_capture")
     assert job.tags["analytics/exclusive-resource"] == "google-sheets"
     assert job.tags["dagster/retry_on_asset_or_op_failure"] == "false"
@@ -124,16 +131,16 @@ def test_activation_requires_a_readable_settings_file(tmp_path: Path) -> None:
     assert definitions.schedules is None
     (tmp_path / "secrets" / "google_sheets.json").unlink()
     with pytest.raises(ValueError, match="google_sheets.json"):
-        _ = build_definitions(env)
+        _ = build_definitions(config, env)
 
 
-def test_remote_activation_is_refused(tmp_path: Path) -> None:
-    env = environment(tmp_path) | {
-        "ANALYTICS_SOURCES": "google_sheets",
-        "ANALYTICS_ENVIRONMENT": "development",
-    }
+def test_remote_activation_is_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = listing(monkeypatch, tmp_path, "google_sheets")
+    env = environment(tmp_path) | {"ANALYTICS_ENVIRONMENT": "development"}
     with pytest.raises(ValueError, match="local target"):
-        _ = build_definitions(env)
+        _ = build_definitions(config, env)
 
 
 def test_each_configured_tab_loads_its_own_tables(tmp_path: Path) -> None:

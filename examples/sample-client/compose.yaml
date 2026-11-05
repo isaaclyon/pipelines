@@ -1,0 +1,37 @@
+# This client's images and offline checks. Always pass the pin:
+#   docker compose --env-file toolkit.env build
+#   docker compose --env-file toolkit.env run --rm transformations-check
+# ./check does both. Each service builds one client image FROM the toolkit
+# image of the pinned version; running the service checks that image offline.
+# A deployment runs the same two images.
+name: sample-client
+
+x-check: &check
+  # Offline: no network, no secrets, and client.yaml only, read-only.
+  network_mode: none
+  volumes:
+    - ./client.yaml:/etc/analytics/client.yaml:ro
+
+services:
+  transformations-check:
+    <<: *check
+    image: sample-client-transformations:${TOOLKIT_VERSION:?Pass --env-file toolkit.env}
+    build:
+      context: .
+      dockerfile: Dockerfile.transformations
+      args: {TOOLKIT_VERSION: "${TOOLKIT_VERSION}"}
+    # dbt deps, parse, model checks, lint and a build on empty typed tables.
+    command: ["analytics-check-client"]
+    mem_limit: 2g
+
+  metrics-check:
+    <<: *check
+    image: sample-client-metrics:${TOOLKIT_VERSION:?Pass --env-file toolkit.env}
+    build:
+      context: .
+      dockerfile: Dockerfile.metrics
+      args: {TOOLKIT_VERSION: "${TOOLKIT_VERSION}"}
+    # Cube's startup checks: the reporting time zone, and the toolkit and
+    # client models compiled together without a database.
+    command: ["node", "/cube/conf/check-client.cjs"]
+    mem_limit: 1g

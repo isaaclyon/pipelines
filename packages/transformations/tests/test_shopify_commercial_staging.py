@@ -842,7 +842,7 @@ def _raw(path: Path) -> None:
 def _dbt(command: str, path: Path, target: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
-            "dbt",
+            "analytics-dbt",
             command,
             "--select",
             *MODELS,

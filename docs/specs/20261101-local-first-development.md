@@ -1,5 +1,11 @@
 # Local-first single-user analytics development
 
+> **Superseded in part.** [Roadmap](../../ROADMAP.md) Phase 1 removed the local
+> Cube serving command, the orders marts and the publication mechanism this
+> specification describes. Marts are now built in place under
+> [ADR 0037](../adrs/0037-build-marts-in-place-in-the-serving-warehouse.md).
+> Per-worktree DuckDB files and the deferred Snowflake checks still apply.
+
 ## Decision and boundary
 
 This specification implements the policy/design stage of
@@ -7,7 +13,7 @@ This specification implements the policy/design stage of
 The owner approves local DuckDB with the same Cube definitions until shared
 Snowflake use is needed. A later stage implements the remote-safe consumer gate
 and synthetic demo, and another adds a bounded copy/export/serve command for already built
-and validated orders marts; see the [owning procedure](../../packages/metrics/README.md#worktree-local-copy-and-serving).
+and validated orders marts.
 That command does not fetch sources or run dbt. The fuller refresh sequence below
 remains the contract for future integration. No real-data acceptance or shared
 Snowflake readiness is implied by its synthetic checks.

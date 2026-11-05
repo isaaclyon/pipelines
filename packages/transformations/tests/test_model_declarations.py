@@ -1,4 +1,4 @@
-"""Model declarations for staging and intermediate models, and test blocking."""
+"""Model declarations for every model, and test blocking."""
 
 from typing import cast
 
@@ -9,8 +9,7 @@ from analytics_transformations.model_declarations import (
     declarations,
 )
 
-MODEL = "model.analytics.stg_shop__orders"
-EXPOSURE = "exposure.analytics.cube_orders"
+MODEL = "model.fixture.stg_shop__orders"
 
 
 def _test(
@@ -22,12 +21,10 @@ def _test(
     blocking: object = True,
     model: str = MODEL,
 ) -> dict[str, object]:
-    meta: dict[str, object] = (
-        {} if blocking is None else {"publication_blocking": blocking}
-    )
+    meta: dict[str, object] = {} if blocking is None else {"blocking": blocking}
     node: dict[str, object] = {
         "resource_type": "test",
-        "package_name": "analytics",
+        "package_name": "fixture",
         "name": name,
         "depends_on": {"nodes": [model]},
         "config": {"severity": severity, "meta": meta},
@@ -55,11 +52,11 @@ def manifest(
             _test("unique_order_id", "unique", "order_id"),
         )
     return {
-        "metadata": {"project_name": "analytics"},
+        "metadata": {"project_name": "fixture"},
         "nodes": {
             MODEL: {
                 "resource_type": "model",
-                "package_name": "analytics",
+                "package_name": "fixture",
                 "name": "stg_shop__orders",
                 "original_file_path": "models/staging/shop/stg_shop__orders.sql",
                 "description": "Shop orders, one row per order.",
@@ -69,7 +66,7 @@ def manifest(
                     "shop_id": {"description": "Shop identity."},
                 },
             },
-            **{f"test.analytics.{t['name']}": t for t in tests},
+            **{f"test.fixture.{t['name']}": t for t in tests},
         },
     }
 
@@ -180,15 +177,22 @@ def test_warning_that_does_not_block_is_allowed() -> None:
     assert declarations(manifest(None, *manifest_tests(), extra))
 
 
-def test_marts_and_package_resources_are_out_of_scope() -> None:
+def test_marts_need_declarations() -> None:
     value = manifest()
     nodes = cast(dict[str, dict[str, object]], value["nodes"])
-    nodes["model.analytics.fct_orders"] = {
+    nodes["model.fixture.fct_orders"] = {
         "resource_type": "model",
-        "package_name": "analytics",
+        "package_name": "fixture",
         "original_file_path": "models/marts/fct_orders.sql",
         "config": {"meta": {}},
     }
+    with pytest.raises(ValueError, match="fct_orders: declare meta owner and grain"):
+        _ = declarations(value)
+
+
+def test_package_resources_are_out_of_scope() -> None:
+    value = manifest()
+    nodes = cast(dict[str, dict[str, object]], value["nodes"])
     nodes["model.other.stg_other__rows"] = {
         "resource_type": "model",
         "package_name": "other",
@@ -198,6 +202,23 @@ def test_marts_and_package_resources_are_out_of_scope() -> None:
     nodes["test.other.check"] = _test("check", None, blocking=None, model="x")
     nodes["test.other.check"]["package_name"] = "other"
     assert len(declarations(value)) == 1
+
+
+def test_client_root_governs_toolkit_package_models() -> None:
+    value = manifest()
+    value["metadata"] = {"project_name": "client"}
+    nodes = cast(dict[str, dict[str, object]], value["nodes"])
+    nodes["model.analytics_toolkit.stg_shop__lines"] = {
+        "resource_type": "model",
+        "package_name": "analytics_toolkit",
+        "original_file_path": "models/staging/shop/stg_shop__lines.sql",
+        "config": {"meta": {}},
+    }
+    with pytest.raises(ValueError, match="stg_shop__lines: declare meta owner"):
+        _ = declarations(value)
+    # The fixture's own package is now an ungoverned installed package.
+    del nodes["model.analytics_toolkit.stg_shop__lines"]
+    assert declarations(value) == ()
 
 
 def manifest_tests() -> tuple[dict[str, object], ...]:
@@ -215,30 +236,13 @@ def documented() -> dict[str, object]:
         "meta": {"schema_description": "Source-shaped staging views."},
     }
     value["sources"] = {
-        "source.analytics.shop.orders": {
+        "source.fixture.shop.orders": {
             "resource_type": "source",
-            "package_name": "analytics",
+            "package_name": "fixture",
             "source_description": "Raw shop data loaded by ingestion.",
             "description": "One row per raw order.",
         },
         "source.other.shop.orders": {"package_name": "other"},
-    }
-    value["exposures"] = {
-        EXPOSURE: {
-            "resource_type": "exposure",
-            "package_name": "analytics",
-            "description": "Cube view orders.",
-            "depends_on": {"nodes": [MODEL]},
-            "config": {
-                "meta": {
-                    "cube_fields": {
-                        "orders.shop": ["stg_shop__orders.shop_id"],
-                        "orders.count": [],
-                    }
-                }
-            },
-        },
-        "exposure.other.board": {"package_name": "other"},
     }
     return value
 
@@ -253,11 +257,10 @@ def test_documented_models_and_sources_pass() -> None:
         (("nodes", MODEL, "description"), "model description"),
         (("nodes", MODEL, "config", "meta", "schema_description"), "schema"),
         (
-            ("sources", "source.analytics.shop.orders", "source_description"),
+            ("sources", "source.fixture.shop.orders", "source_description"),
             "source description",
         ),
-        (("sources", "source.analytics.shop.orders", "description"), "table"),
-        (("exposures", EXPOSURE, "description"), "exposure description"),
+        (("sources", "source.fixture.shop.orders", "description"), "table"),
     ],
 )
 @pytest.mark.parametrize("blank", [None, " "])
@@ -284,24 +287,6 @@ def test_one_description_per_schema() -> None:
         "schema": "staging",
         "meta": {"schema_description": "A different meaning."},
     }
-    nodes["model.analytics.stg_shop__lines"] = other
+    nodes["model.fixture.stg_shop__lines"] = other
     with pytest.raises(ValueError, match="one schema_description"):
-        check_documentation(value)
-
-
-@pytest.mark.parametrize(
-    ("column", "message"),
-    [
-        ("stg_shop__orders.missing", "stg_shop__orders has no column missing"),
-        ("fct_orders.shop_id", "fct_orders is not in depends_on"),
-        ("shop_id", "name a column as <model>.<column>"),
-    ],
-)
-def test_exposure_cube_fields_name_declared_columns(column: str, message: str) -> None:
-    # Cube fields in generated exposures must read columns their marts declare.
-    value = documented()
-    exposure = cast(dict[str, dict[str, object]], value["exposures"])[EXPOSURE]
-    meta = cast(dict[str, dict[str, object]], exposure["config"])["meta"]
-    meta["cube_fields"] = {"orders.shop": [column]}
-    with pytest.raises(ValueError, match=f"orders.shop: {message}"):
         check_documentation(value)

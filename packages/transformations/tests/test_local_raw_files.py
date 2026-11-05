@@ -15,11 +15,12 @@ from typing import cast
 import duckdb
 import pytest
 
-from tests.test_goodday_inventory import write_inventory
+from tests.client_files import ALL_SOURCES, write_client
+from tests.goodday_fixtures import write_inventory
 
 # Real dbt project nodes these tests execute or parse (ADR 0026).
 pytestmark = pytest.mark.dbt(
-    "+fct_inventory__current",
+    "+stg_goodday__inventory_items",
     "stg_shopify_orders__orders",
     "+stg_shopify_orders__ingestion_batches",
     "+stg_shopify_orders__refund_duties",
@@ -33,7 +34,7 @@ SHOPIFY_FILE = Path("shopify_orders/local/shopify_orders.duckdb")
 def _dbt(*arguments: str, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
-            "dbt",
+            "analytics-dbt",
             *arguments,
             "--project-dir",
             str(ROOT / "dbt"),
@@ -55,7 +56,7 @@ def _local(tmp_path: Path, root: Path) -> dict[str, str]:
         "DBT_NAMESPACE": "ci_raw_files",
         "DUCKDB_PATH": str(tmp_path / "warehouse.duckdb"),
         "DBT_RAW_ROOT": str(root),
-        "GOODDAY_INVENTORY_ENABLED": "true",
+        **write_client(tmp_path / "client", "goodday", "shopify_orders"),
         "GOODDAY_DATASET": "goodday_raw",
     }
 
@@ -73,7 +74,7 @@ def test_local_build_reads_a_separate_raw_file_read_only(tmp_path: Path) -> None
         "--target-path",
         str(tmp_path / "target"),
         "--select",
-        "+fct_inventory__current",
+        "+stg_goodday__inventory_items",
         env=_local(tmp_path, root),
     )
 
@@ -81,14 +82,17 @@ def test_local_build_reads_a_separate_raw_file_read_only(tmp_path: Path) -> None
     assert raw.read_bytes() == before
     assert not (root / SHOPIFY_FILE).exists()
     with duckdb.connect(str(tmp_path / "warehouse.duckdb"), read_only=True) as db:
-        assert db.execute(
-            "select goodday_item_id from ci_raw_files_marts.fct_inventory__current"
-        ).fetchall() == [(2,)]
         # The warehouse holds no copy of raw tables.
         assert db.execute(
             "select count(*) from information_schema.schemata "
             "where schema_name = 'goodday_raw'"
         ).fetchone() == (0,)
+        # The staging view reads the raw file through its attachment.
+        _ = db.execute(f"attach '{raw}' as raw_goodday (read_only)")
+        assert db.execute(
+            "select item_id from ci_raw_files_staging.stg_goodday__inventory_items "
+            "order by item_id"
+        ).fetchall() == [(1,), (2,), (3,)]
 
 
 def test_missing_raw_file_fails_the_dependent_build_clearly(tmp_path: Path) -> None:
@@ -179,8 +183,7 @@ def test_remote_targets_ignore_local_raw_files(tmp_path: Path, dbt_target: str) 
         "SNOWFLAKE_ACCOUNT": "fixture",
         "SNOWFLAKE_USER": "fixture",
         "SNOWFLAKE_DATABASE": "FIXTURE_RAW",
-        "GOODDAY_INVENTORY_ENABLED": "true",
-        "SHOPIFY_CUSTOMERS_ENABLED": "true",
+        "ANALYTICS_CLIENT_CONFIG": str(ALL_SOURCES),
     }
     plain = _source_relations(tmp_path / "plain", env)
     attached = _source_relations(
@@ -194,7 +197,7 @@ def test_remote_targets_ignore_local_raw_files(tmp_path: Path, dbt_target: str) 
 def test_local_target_names_attached_files_only_when_configured(
     tmp_path: Path,
 ) -> None:
-    env = _local(tmp_path, tmp_path) | {"GOODDAY_INVENTORY_ENABLED": "true"}
+    env = _local(tmp_path, tmp_path)
     attached = _source_relations(tmp_path / "attached", env)
     plain = _source_relations(
         tmp_path / "plain", {k: v for k, v in env.items() if k != "DBT_RAW_ROOT"}

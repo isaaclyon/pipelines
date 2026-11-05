@@ -10,10 +10,10 @@ from tests.project_build import ProjectBuild
 pytestmark = pytest.mark.dbt("fqn:*", "source:*")
 
 
-def test_project_builds_through_the_publication_gates(
+def test_project_builds_through_the_model_gates(
     project_build: ProjectBuild,
 ) -> None:
-    """The build passed the publication gates and ran every kind of check."""
+    """The build passed the model gates and ran every kind of check."""
     results = json.loads((project_build.target / "run_results.json").read_text())  # pyright: ignore[reportAny] # dbt artifact read in a test.
     kinds = {
         str(result["unique_id"]).split(".")[0]  # pyright: ignore[reportAny]

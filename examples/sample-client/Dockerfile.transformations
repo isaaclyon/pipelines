@@ -1,0 +1,12 @@
+# The client's transformations image: the pinned toolkit image plus this
+# repository's dbt project, the dbt root project. compose.yaml passes the pin
+# from toolkit.env.
+ARG TOOLKIT_VERSION
+FROM analytics-transformations:${TOOLKIT_VERSION}
+
+COPY --chown=analytics:analytics dbt/ /opt/client/dbt/
+# Install the toolkit's dbt package now, so startup installs nothing
+# (ADR 0005). It is a local package inside the toolkit image, so this needs no
+# network. dbt's build-time logs stay out of the image.
+RUN DBT_LOG_PATH=/tmp/dbt-logs DBT_SEND_ANONYMOUS_USAGE_STATS=false \
+    dbt deps --project-dir "$DBT_PROJECT_DIR" && rm -rf /tmp/dbt-logs

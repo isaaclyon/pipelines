@@ -1,4 +1,4 @@
-"""Column declarations reject semantic gaps before candidate publication."""
+"""Column declarations reject semantic gaps before a build."""
 
 import pytest
 
@@ -207,7 +207,7 @@ def test_parent_currency_correctness_link() -> None:
     ["missing", "unrelated", "warn", "key_only", "mart", "bad_join", "bad_currency"],
 )
 def test_parent_currency_requires_real_correctness_link(change: str) -> None:
-    from analytics_transformations.mart_contracts import mapping
+    from analytics_transformations.manifest_values import mapping
 
     nodes = parent_currency_manifest()
     test = mapping(nodes["test.p.currencies_match"])

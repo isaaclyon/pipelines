@@ -1,0 +1,3 @@
+packages:
+  # The toolkit's dbt project, at the version the client's image pins.
+  - local: "{{ env_var('ANALYTICS_TOOLKIT_DBT') }}"

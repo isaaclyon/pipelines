@@ -29,14 +29,14 @@ A finding blocks the merge when the change:
   environment, or fall back to production;
 - loses, duplicates or silently drops source rows, or breaks replay or
   recovery from a failed load;
-- publishes a mart that has not passed its required error-severity tests, or
-  downgrades a correctness check to a warning without preserving its guarantee;
+- removes or skips a mart's required error-severity tests, or downgrades a
+  correctness check to a warning without preserving its guarantee;
 - changes shared models without portable implementations, treats local execution
   or compilation as proof of Snowflake compatibility, or activates shared serving
   without its deferred Snowflake checks under
   [ADR 0028](docs/adrs/0028-develop-locally-before-shared-snowflake-release.md);
-- merges local consumer changes that automatically deploy new references to
-  unpublished remote fields without a tested default-off/local-only gate;
+- makes a shared deployment reference mart columns that its serving schema
+  does not have yet;
 - imports another package's internals instead of its public API, or joins
   package dependencies or lockfiles;
 - changes a published contract (mart columns, Cube members, raw tables)
@@ -52,7 +52,7 @@ order: this repository, the language's standard library, current
 dependencies (dlt, dbt, Dagster, Cube), then well-known maintained libraries.
 Require a concrete prevented failure and a contributor-cost justification for
 new governance declarations or validators. Naming preferences are review guidance,
-not publication gates. Preserve privacy, layer boundaries and consumer contracts.
+not blocking checks. Preserve privacy, layer boundaries and consumer contracts.
 Flag new code that rebuilds features those tools offer, such as state,
 retries, pagination, incremental loading, schema handling, scheduling or test
 types. The finding should name the existing feature and the code it replaces.
@@ -70,20 +70,16 @@ Weigh findings by the harm each area can do:
 | Area | Failure |
 | --- | --- |
 | Ingestion (`packages/ingestion/`) | Rows are lost, duplicated or loaded twice after a retry |
-| Transformations (`packages/transformations/`) | A mart publishes wrong numbers or exposes restricted columns |
+| Transformations (`packages/transformations/`) | A mart holds wrong numbers or exposes restricted columns |
 | Metrics (`packages/metrics/`) | A Cube member returns a number that differs from its definition |
 | Deployment (`deploy/`, `scripts/`) | A command touches the wrong environment or leaks a secret |
 | Documentation (`docs/`, READMEs) | It describes behavior the code does not have |
 
 ## Generated and vendored files
 
-Review the generator and its check, not the output. Skim these only to confirm
-that they were regenerated:
-
-- lockfiles (`uv.lock`, `package-lock.json`), reviewed through the
-  dependency change that produced them;
-- `packages/transformations/dbt/models/exposures/_cube__exposures.yml`, from
-  `packages/metrics/exposures.cjs`.
+Review the generator and its check, not the output. Skim lockfiles (`uv.lock`,
+`package-lock.json`) only to confirm that they were regenerated, and review them
+through the dependency change that produced them.
 
 ## Tests and documentation
 

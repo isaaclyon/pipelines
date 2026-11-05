@@ -18,8 +18,9 @@ GitHub Issues works well. "Issue" below means an item in that tracker.
   Small steps can remain a checklist; do not create tickets for every action.
 - Track shared work once and link it as a dependency of each affected outcome.
   Reuse existing issues instead of duplicating them.
-- Scope the required entities, history, refresh needs, models, and metrics before
-  implementation. Do not ingest every table or expose every table in Cube by default.
+- Name the entities, history, models, and metrics the question needs, and refine
+  them as the work shows what is needed. Do not ingest every table or expose every
+  table in Cube by default.
 - Keep fixes and necessary platform work as concrete issues. State the current
   delivery blocker or risk they address; do not invent a business parent.
 
@@ -27,20 +28,18 @@ Use this outline for an outcome issue:
 
 ```text
 Question and intended user:
-Decision this answer supports:
-Named acceptance owner:
-Included / excluded:
-Required sources, entities, history, and freshness:
-Required models and metrics:
-Availability: ready by / time zone / reporting coverage / maximum data age:
-Availability: access surface and environment / late-data behavior / later revisions:
-Acceptance reference, comparison period, and agreed tolerance:
-Acceptance checks and evidence:
-Dependencies and implementation sub-issues:
+Acceptance owner:
+Required sources, models, and metrics:
+Availability:
+Acceptance reference (what the answer is compared against):
+Acceptance evidence:
+Sub-issues:
 ```
 
-Agree the scope and acceptance checks before work starts. Record acceptance
-results in the issue, including the environment and any agreed limitations.
+Fill in what is known and mark the rest "Not yet agreed". Work can start before
+every field is settled; settle them before acceptance. The acceptance owner can
+be the operator working with the client. Record acceptance results in the issue,
+including the environment and any known differences from the reference.
 Do not treat development acceptance as production availability.
 
 ## Availability for every question
@@ -48,7 +47,7 @@ Do not treat development acceptance as production availability.
 Every business-question specification and outcome issue has an explicit
 availability section: when the user can rely on the answer, not merely when a
 pipeline runs. Placeholders can say "Not yet agreed"; resolve the requirement
-before implementation. Do not invent a default deadline or imply real-time data.
+before acceptance. Do not invent a default deadline or imply real-time data.
 
 Record:
 
@@ -75,22 +74,19 @@ this section defines the business requirement, not a second scheduling policy.
 | Stage | Required evidence |
 | --- | --- |
 | Raw reliable | Required history and entities load; keys, updates, deletions, and coverage limits are defined; failed loads can recover; completeness and freshness evidence meet the agreed scope. |
-| Modeled | Meaning, row grain, and keys are clear; required correctness checks pass; results reconcile to the agreed reference; validated outputs are published in the agreed environment. |
+| Modeled | Meaning, row grain, and keys are clear; required correctness checks pass; results match the acceptance reference, or each difference is explained; outputs are built in the client's warehouse. |
 | Metrics available | Definitions are agreed; Cube queries return verified results; intended users have appropriate access; the agreed availability and freshness requirements are met. |
-| Accepted | The named acceptance owner confirms that the answer supports the intended decision, with evidence linked in the issue. |
+| Accepted | The acceptance owner confirms that the answer supports the intended decision, with evidence linked in the issue. |
 
 Apply the technical checks in engineering standards; these stages do not replace
 or weaken them. A merged connector is not an accepted business outcome.
 
-Under [ADR 0028](adrs/0028-develop-locally-before-shared-snowflake-release.md),
-single-user outcomes can reach modeled, metrics-available and accepted stages in
-an explicitly named local DuckDB/Cube environment. Record the local data copy,
-coverage and user-visible evidence. Shared Snowflake parity, publication,
-permissions and user readiness remain separate deferred release requirements;
-never mark them passed from local checks. Owner-approved local acceptance does
-not imply shared availability. Existing remote deployments must remain safe:
-consumer merge holds remain until their default-off/local-only gate is implemented
-and tested, not merely because the local-first policy is accepted.
+Work can be checked first in local DuckDB under
+[ADR 0028](adrs/0028-develop-locally-before-shared-snowflake-release.md). Local
+results never prove the client's MotherDuck or Snowflake warehouse
+([ADR 0031](adrs/0031-serve-each-client-from-motherduck-or-snowflake.md)); an
+outcome is accepted only when the client sees the answer from their own
+deployment.
 
 A sub-issue can finish when its own acceptance checks pass. For example, an
 ingestion sub-issue needs raw reliability, not a new metric. The parent remains

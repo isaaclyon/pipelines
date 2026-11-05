@@ -31,3 +31,12 @@
 {% macro default__local_date(utc_column, time_zone) %}
     {{ exceptions.raise_compiler_error('local_date has no implementation for ' ~ adapter.type()) }}
 {% endmacro %}
+
+{#-
+  Reporting dates use the client's zone from client.yaml, shared with Cube.
+  analytics-dbt sets the variable; it has no default, so a run without the
+  client configuration fails instead of using another client's calendar.
+-#}
+{% macro reporting_time_zone() %}
+    {{- return(env_var('ANALYTICS_REPORTING_TIME_ZONE')) -}}
+{% endmacro %}
