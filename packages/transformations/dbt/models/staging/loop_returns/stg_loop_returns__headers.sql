@@ -1,6 +1,5 @@
--- Keep this optional until the separate header snapshot passes live acceptance.
+-- Enabled when client.yaml lists loop_returns.
 -- No legacy table fallback is allowed. A missing feed is not a zero fee.
-{% if env_var('LOOP_RETURNS_ENABLED', 'false') == 'true' %}
 with headers as (
     select * from {{ source('loop_return_headers', 'returns') }}
 ),
@@ -30,7 +29,8 @@ select
     snapshots.snapshot_id,
     {{ utc_timestamp('snapshots.snapshot_end') }} as snapshot_ended_at,
     cast(
-        snapshots.snapshot_id is not null and coalesce(loads.status = 0, false) as boolean
+        snapshots.snapshot_id is not null
+        and coalesce(loads.status = 0, false) as boolean
     ) as is_snapshot_complete
 from headers
 left join snapshots
@@ -38,23 +38,3 @@ left join snapshots
         headers._dlt_load_id = snapshots._dlt_load_id
         and headers.shop_id = snapshots.shop_id
 left join loads on headers._dlt_load_id = loads.load_id
-{% else %}
-    select
-        cast(null as varchar) as shop_id,
-        cast(null as varchar) as return_id,
-        cast(null as varchar) as order_id,
-        cast(null as varchar) as return_state,
-        cast(null as timestamp) as created_at,
-        cast(null as timestamp) as updated_at,
-        cast(null as varchar) as currency_code,
-        cast(null as decimal(38, 9)) as return_total_amount,
-        cast(null as decimal(38, 9)) as refund_amount,
-        cast(null as decimal(38, 9)) as handling_fee_amount,
-        cast(null as decimal(38, 9)) as gift_card_amount,
-        cast(null as decimal(38, 9)) as exchange_total_amount,
-        cast(null as decimal(38, 9)) as upsell_amount,
-        cast(null as varchar) as snapshot_id,
-        cast(null as timestamp) as snapshot_ended_at,
-        cast(null as boolean) as is_snapshot_complete
-    where false
-{% endif %}

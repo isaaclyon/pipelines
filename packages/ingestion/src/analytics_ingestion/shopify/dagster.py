@@ -1,17 +1,17 @@
 """Dagster pieces both Shopify sources share (ADR 0024).
 
-Each source has a load job and a reconcile job. Setting its seed adds three
-schedules, all stopped at first:
+Each source has a load job and a reconcile job. A ``schedule`` block for the
+source in client.yaml adds three schedules, all stopped at first:
 
-* refresh, on a configurable cron in ``SHOPIFY_REFRESH_TIMEZONE``. It resumes
-  from the dlt cursor; the first run starts at the seed. A tick skips while a
-  load run is queued or running, since the next refresh resumes from the
-  cursor anyway. Priority 10.
+* refresh, on the toolkit cron unless ``schedule.refresh`` overrides it. It
+  resumes from the dlt cursor; the first run starts at ``schedule.start``. A
+  tick skips while a load run is queued or running, since the next refresh
+  resumes from the cursor anyway. Priority 10.
 * one nightly load run (orders look back, customers sweep). It queues rather
   than skips, since it runs once. Priority -5.
 * reconciliation, which also queues. Priority -5.
 
-The nightly and reconcile cadences follow the reporting time zone that dbt and
+Every cadence follows the client's reporting time zone, the calendar dbt and
 Cube use. ``ScheduleSpec`` lists everything that differs between the sources.
 """
 
@@ -21,6 +21,7 @@ from datetime import UTC, datetime, timedelta
 
 import dagster as dg
 
+from analytics_ingestion.client import Schedule
 from analytics_ingestion.shopify.errors import ConfigurationError
 from analytics_ingestion.shopify.load_cycle import CycleReport
 
@@ -71,14 +72,14 @@ class ScheduleSpec:
     Schedule names follow the jobs: ``<job without _load>_refresh_schedule``,
     ``<job without _load>_<nightly kind>_schedule`` and
     ``<reconcile job>_schedule``. A ``nightly_window`` of None starts the
-    nightly run at the seed, which a sweep ignores."""
+    nightly run at the schedule start, which a sweep ignores."""
 
+    # The source's name in client.yaml.
     source: str
     job: str
     op: str
     reconcile_job: str
-    seed_variable: str
-    refresh_cron_variable: str
+    # The toolkit default; ``Schedule.refresh`` overrides it.
     refresh_cron: str
     nightly_kind: str
     nightly_cron: str
@@ -87,21 +88,16 @@ class ScheduleSpec:
 
 
 def build_schedules(
-    env: Mapping[str, str],
     spec: ScheduleSpec,
+    schedule: Schedule | None,
+    time_zone: str,
     config: Mapping[str, object] | None = None,
 ) -> list[dg.ScheduleDefinition]:
-    """The three schedules, or none while the seed is unset. ``config`` adds
-    run config every scheduled load carries."""
-    seed = env.get(spec.seed_variable)
-    if not seed:
+    """The three schedules in ``time_zone``, or none without a schedule.
+    ``config`` adds run config every scheduled load carries."""
+    if schedule is None:
         return []
-    try:
-        _ = bound(seed)
-    except ValueError as error:
-        raise ConfigurationError(
-            f"{spec.seed_variable} must be an ISO instant: {error}"
-        ) from None
+    seed = schedule.start.isoformat()
     extra = dict(config or {})
 
     def load(kind: str, start: datetime | None, end: datetime) -> dg.RunRequest:
@@ -143,21 +139,23 @@ def build_schedules(
         refresh_schedule = dg.ScheduleDefinition(
             name=f"{prefix}_refresh_schedule",
             job_name=spec.job,
-            cron_schedule=env.get(spec.refresh_cron_variable) or spec.refresh_cron,
-            execution_timezone=env.get("SHOPIFY_REFRESH_TIMEZONE") or "UTC",
+            cron_schedule=schedule.refresh or spec.refresh_cron,
+            execution_timezone=time_zone,
             execution_fn=refresh,
             default_status=dg.DefaultScheduleStatus.STOPPED,
         )
     except dg.DagsterInvalidDefinitionError as error:
-        raise ConfigurationError(f"Invalid refresh schedule: {error}") from None
-    reporting_zone = env.get("ANALYTICS_REPORTING_TIME_ZONE") or "America/Los_Angeles"
+        raise ConfigurationError(
+            f"Invalid refresh schedule in client.yaml "
+            f"sources.{spec.source}.schedule.refresh: {error}"
+        ) from None
     return [
         refresh_schedule,
         dg.ScheduleDefinition(
             name=f"{prefix}_{spec.nightly_kind}_schedule",
             job_name=spec.job,
             cron_schedule=spec.nightly_cron,
-            execution_timezone=reporting_zone,
+            execution_timezone=time_zone,
             execution_fn=nightly,
             default_status=dg.DefaultScheduleStatus.STOPPED,
         ),
@@ -165,7 +163,7 @@ def build_schedules(
             name=f"{spec.reconcile_job}_schedule",
             job_name=spec.reconcile_job,
             cron_schedule=spec.reconcile_cron,
-            execution_timezone=reporting_zone,
+            execution_timezone=time_zone,
             execution_fn=reconcile,
             default_status=dg.DefaultScheduleStatus.STOPPED,
         ),

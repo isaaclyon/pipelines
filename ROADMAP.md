@@ -37,6 +37,12 @@ The first client is **Lola Blankets**. Lola serves from MotherDuck.
 - dbt holds only raw sources and staging models. Cube serves one placeholder
   model. Phase 1 removed the brand-specific marts, the publication mechanism
   and the 1Password templates.
+- Phase 2 split the toolkit from its clients. Each client repository keeps a
+  `client.yaml`, an `.env` file, its own dbt models and Cube files, and pins a
+  toolkit version. The sample client in `examples/sample-client` builds on the
+  toolkit images and passes its checks offline. Every source reads its
+  credentials from one folder of JSON files, one per system, such as
+  `shopify.json`.
 - There is no VM deployment, MotherDuck support, Metabase, Elementary or
   reverse ETL.
 
@@ -68,7 +74,7 @@ and staging models.
 **Done when** `./scripts/platform local check` passes with only raw and staging
 models, and no file mentions 1Password.
 
-### Phase 2: Split the toolkit from the client
+### Phase 2: Split the toolkit from the client (done)
 
 - Define the client config file: enabled sources, warehouse, schedules,
   reporting time zone and alert channels.

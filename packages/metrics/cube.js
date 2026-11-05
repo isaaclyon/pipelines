@@ -8,7 +8,12 @@ if (process.env.CUBEJS_DB_TYPE !== 'snowflake') {
   throw new Error('CUBEJS_DB_TYPE must be snowflake');
 }
 
+const { queryRewrite, reportingTimeZone } = require('./reporting-timezone.cjs');
+const timeZone = reportingTimeZone(process.env);
+const model = require('./model-repository.cjs').loadModel();
+
 module.exports = /** @satisfies {import('@cubejs-backend/server-core').CreateOptions} */ ({
-  schemaPath: 'model',
-  queryRewrite: require('./reporting-timezone.cjs').queryRewrite,
+  // The toolkit model and the client model, read and checked once at startup.
+  repositoryFactory: () => model,
+  queryRewrite: queryRewrite(timeZone),
 });

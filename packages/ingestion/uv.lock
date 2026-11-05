@@ -17,10 +17,30 @@ wheels = [
 ]
 
 [[package]]
+name = "analytics-client-config"
+version = "0.1.0"
+source = { directory = "../client-config" }
+dependencies = [
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pyyaml", specifier = "==6.0.3" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "basedpyright", specifier = "==1.40.2" },
+    { name = "pytest", specifier = "==9.1.1" },
+    { name = "ruff", specifier = "==0.16.10" },
+    { name = "types-pyyaml", specifier = "==6.0.12.20250915" },
+]
+
+[[package]]
 name = "analytics-ingestion"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "analytics-client-config" },
     { name = "dagster" },
     { name = "dagster-docker" },
     { name = "dagster-postgres" },
@@ -42,6 +62,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "analytics-client-config", directory = "../client-config" },
     { name = "dagster", specifier = "==1.13.25" },
     { name = "dagster-docker", specifier = "==0.29.25" },
     { name = "dagster-postgres", specifier = "==0.29.25" },

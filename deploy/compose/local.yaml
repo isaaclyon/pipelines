@@ -13,20 +13,20 @@ services:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4000/livez').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
 
   # ADR 0029: manual live loads into per-source raw DuckDB files. Credentials
-  # are the developer's own, put in place outside the checkout and
-  # mounted read-only. Unset paths mount an empty file and the job fails closed.
+  # are the developer's own, kept outside the checkout and mounted read-only.
   ingestion:
     environment:
-      SHOPIFY_CREDENTIALS_PATH: /run/secrets/shopify_credentials
-      # Kit sources: list a source here and put its settings file,
-      # <source>.json, in the mounted folder. Each job registers only then.
-      ANALYTICS_SOURCES: ${ANALYTICS_SOURCES:-}
+      # Read only when client.yaml turns on Slack alerts (alerts.slack).
+      SLACK_WEBHOOK_PATH: /run/secrets/slack_webhook
       # dlt loads DuckDB insert statements in parallel by default; one at a
       # time keeps a large live window inside the run's memory limit.
       LOAD__WORKERS: "1"
     volumes:
-      - ${SHOPIFY_CREDENTIALS_HOST_PATH:-/dev/null}:/run/secrets/shopify_credentials:ro
-      # Unset mounts an empty folder; enabled kit sources then fail closed.
+      # Unset mounts an empty file; Slack alerts then stop definitions loading.
+      - ${SLACK_WEBHOOK_HOST_PATH:-/dev/null}:/run/secrets/slack_webhook:ro
+      # Each source that client.yaml lists reads its settings file from this
+      # folder, such as shopify.json. Unset mounts an empty folder; those
+      # sources then fail before they read anything.
       - ${SOURCE_SETTINGS_HOST_DIR:-./no-source-settings}:/run/secrets/sources:ro
 
   transformations:
@@ -34,13 +34,23 @@ services:
       # ADR 0029: dbt attaches each source's raw DuckDB file from ingestion
       # state, read-only. Unset (CI, tests) reads the warehouse file alone.
       DBT_RAW_ROOT: /var/lib/analytics/ingestion
-      # Enable a source's models after loading its raw file.
-      GOODDAY_INVENTORY_ENABLED: ${GOODDAY_INVENTORY_ENABLED:-false}
     volumes:
       - type: volume
         source: ingestion-state
         target: /var/lib/analytics/ingestion
         read_only: true
+
+  client-config-check:
+    profiles: [checks]
+    image: analytics-client-config-check:local
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.python
+      target: checks
+      args: {PROJECT_DIR: packages/client-config}
+    environment: {FORBIDDEN_IMPORT: analytics_ingestion}
+    network_mode: none
+    mem_limit: 1g
 
   ingestion-check:
     profiles: [checks]

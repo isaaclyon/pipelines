@@ -1,8 +1,7 @@
 version: 2
 models:
 - name: stg_loop_returns__snapshots
-  description: Loop evidence independent of header rows, including successful empty snapshots. Disabled
-    feeds return no evidence. All snapshots are retained; only evidence matching the current headers can
+  description: Loop evidence independent of header rows, including successful empty snapshots. All snapshots are retained; only evidence matching the current headers can
     be complete.
   config:
     meta:

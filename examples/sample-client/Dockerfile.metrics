@@ -1,0 +1,7 @@
+# The client's metrics image: the pinned toolkit Cube image plus this
+# repository's Cube definitions, which Cube loads beside the toolkit's model.
+# compose.yaml passes the pin from toolkit.env.
+ARG TOOLKIT_VERSION
+FROM analytics-metrics:${TOOLKIT_VERSION}
+
+COPY --chown=analytics:analytics cube/model/ /cube/conf/client/model/

@@ -10,6 +10,7 @@ import pytest
 
 from analytics_transformations.defs import dbt_docs as module
 from analytics_transformations.manifest_values import mapping, sequence, text
+from tests.client_files import CHECK_CLIENT
 from tests.shopify_order_fixtures import GOOD_LINES, GOOD_ORDERS, write_raw
 
 # Docs and lineage cover the whole real dbt project (ADR 0026). dbt reports no
@@ -22,6 +23,7 @@ DBT = Path(__file__).parents[1] / "dbt"
 def _env(tmp_path: Path, **overrides: str) -> dict[str, str]:
     return {
         "ANALYTICS_ENVIRONMENT": "local",
+        "ANALYTICS_CLIENT_CONFIG": str(CHECK_CLIENT),
         "DBT_TARGET": "local",
         "DUCKDB_PATH": str(tmp_path / "warehouse.duckdb"),
         "DBT_PROJECT_DIR": str(DBT),
@@ -71,9 +73,9 @@ def test_build_writes_docs_and_column_lineage_pages(tmp_path: Path) -> None:
     assert "window.colibriTelemetry = false" in pages[1].read_text()
     traced = _lineage(pages[1])
     assert (
-        "source.analytics.shopify_orders.orders",
+        "source.analytics_toolkit.shopify_orders.orders",
         "source_name",
-        "model.analytics.stg_shopify_orders__orders",
+        "model.analytics_toolkit.stg_shopify_orders__orders",
         "source_name",
     ) in traced
 

@@ -40,7 +40,7 @@ esac
 test "$setup_permissions" = 600
 test "$(cat "$setup_destination/deploy/compose/.env.local")" = 'keep existing'
 test ! -e "$setup_destination/deploy/compose/.env.production"
-for setup_project in packages/ingestion packages/transformations \
+for setup_project in packages/client-config packages/ingestion packages/transformations \
     packages/transformations/lineage deploy/dagster; do
     printf 'uv sync --project %s --frozen %s/%s/.venv\n' \
         "$setup_project" "$setup_destination" "$setup_project"

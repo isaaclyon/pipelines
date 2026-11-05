@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from analytics_client_config import SOURCE_NAMES
 
 from tests import dbt_selection
 
@@ -145,17 +146,20 @@ def test_undeclared_nodes_include_sources_and_ignore_other_projects() -> None:
 
 
 @pytest.mark.dbt("fqn:*", "source:*")
-def test_selection_enables_every_optional_source() -> None:
+def test_selection_enables_every_source() -> None:
     """A disabled model has no dependencies, so selection would miss changes."""
-    flags = {
-        flag
+    gated = {
+        source
         for path in (ROOT / "dbt").rglob("*")
         if path.suffix in {".sql", ".yml"}
-        for flag in cast(
-            list[str], re.findall(r"env_var\('([A-Z_]+_ENABLED)'", path.read_text())
+        for source in cast(
+            list[str],
+            re.findall(
+                r"'([a-z_]+)' in env_var\('ANALYTICS_ENABLED_SOURCES'\)",
+                path.read_text().replace("''", "'"),
+            ),
         )
     }
-    assert flags
-    assert {flag: dbt_selection.ENV.get(flag) for flag in flags} == dict.fromkeys(
-        flags, "true"
-    )
+    assert gated == {"goodday", "loop_returns", "shopify_customers", "shopify_orders"}
+    enabled = dbt_selection.ENV["ANALYTICS_ENABLED_SOURCES"].split(",")
+    assert enabled == sorted(SOURCE_NAMES)

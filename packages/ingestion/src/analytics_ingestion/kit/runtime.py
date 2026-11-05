@@ -1,6 +1,6 @@
-"""Conventions every kit source shares: on/off list, settings file, destination.
+"""Conventions every kit source shares: settings file and destination.
 
-A source named ``<source>`` is enabled by listing it in ``ANALYTICS_SOURCES``.
+A source named ``<source>`` is enabled by listing it in client.yaml.
 Its credentials and plain settings live in one JSON object at
 ``<secrets root>/<source>.json``. The local target loads
 ``<state root>/<source>/local/<source>.duckdb``, which local dbt attaches
@@ -22,17 +22,6 @@ from dlt.pipeline.pipeline import Pipeline
 STATE_ROOT = "/var/lib/analytics/ingestion"
 SECRETS_ROOT = "/run/secrets/sources"
 NAME = re.compile(r"[a-z][a-z0-9_]*")
-
-
-def enabled(env: Mapping[str, str], source: str) -> bool:
-    """Whether ``source`` is in the comma-separated ``ANALYTICS_SOURCES`` list."""
-    raw = env.get("ANALYTICS_SOURCES", "").strip()
-    names = [name.strip() for name in raw.split(",")] if raw else []
-    if not all(NAME.fullmatch(name) for name in names):
-        raise ValueError(
-            "ANALYTICS_SOURCES must be comma-separated lowercase source names"
-        )
-    return source in names
 
 
 def _absolute(env: Mapping[str, str], name: str, default: str) -> Path:

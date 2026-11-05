@@ -11,8 +11,10 @@ name the same layer. Layers read only from the layers ADR 0022 allows:
 
 Staging model names follow ``stg_<source>__<entity>``. Snapshots read sources
 only. Exposures and semantic models read marts only. Data tests, unit tests,
-analyses, seeds, and metrics are exempt. Only the root project is checked;
-models from installed packages count as staging inputs, like sources.
+analyses, seeds, and metrics are exempt. The rules govern the root project
+and the toolkit package, ``analytics_toolkit``, so a client project and the
+toolkit models it installs follow them alike (``governed_projects``). Models
+from other installed packages count as staging inputs, like sources.
 
 Model and snapshot SQL must reach relations through ``ref()`` or ``source()``
 (or the project's ``sparse_source()``, which calls ``source()``).
@@ -39,7 +41,10 @@ MODEL_READS: dict[Layer, frozenset[Layer]] = {
     "intermediate": frozenset({"staging", "intermediate"}),
     "marts": frozenset({"staging", "intermediate", "marts"}),
 }
-# Models from installed dbt packages sit outside these layers, like sources.
+# The toolkit's dbt project (packages/transformations/dbt). A client project
+# installs it as a package and is governed together with it.
+TOOLKIT_PROJECT = "analytics_toolkit"
+# Models from other installed packages sit outside these layers, like sources.
 STAGING_INPUTS = frozenset({"source", "seed", "snapshot", "package model"})
 # Function resources are not relations, so any layer may call them.
 ALWAYS_ALLOWED = frozenset({"function"})
@@ -142,10 +147,12 @@ def parse_manifest(data: object) -> list[Resource]:
     return resources
 
 
-def root_project(data: object) -> str:
-    """Return the manifest's root project, whose resources the rules govern."""
+def governed_projects(data: object) -> frozenset[str]:
+    """The packages whose resources the rules govern: the manifest's root
+    project, which is a client project or the toolkit itself, and the toolkit."""
     metadata = _mapping(_mapping(data, "manifest").get("metadata", {}), "metadata")
-    return _text(metadata.get("project_name"), "metadata.project_name")
+    root = _text(metadata.get("project_name"), "metadata.project_name")
+    return frozenset({root, TOOLKIT_PROJECT})
 
 
 def _folder_layer(path: str) -> Layer | None:
@@ -308,7 +315,7 @@ def _dependency_violations(
     resource: Resource,
     layers: dict[str, Layer],
     by_id: dict[str, Resource],
-    project: str,
+    projects: frozenset[str],
 ) -> list[Violation]:
     violations: list[Violation] = []
     own_layer = layers.get(resource.unique_id)
@@ -318,7 +325,11 @@ def _dependency_violations(
             continue
         dependency = by_id.get(dependency_id)
         dependency_layer = layers.get(dependency_id)
-        if dependency_type == "model" and dependency and dependency.package != project:
+        if (
+            dependency_type == "model"
+            and dependency
+            and dependency.package not in projects
+        ):
             dependency_type = "package model"
         elif dependency_type == "model" and dependency_layer is None:
             continue  # The dependency reports its own layer violation.
@@ -479,14 +490,17 @@ def find_hard_coded_relations(sql: str) -> list[str]:
 
 
 def check(
-    resources: list[Resource], project: str, *, namespace: str | None = None
+    resources: list[Resource],
+    projects: frozenset[str],
+    *,
+    namespace: str | None = None,
 ) -> list[Violation]:
-    """Return every layer violation in ``project``'s own resources, sorted.
+    """Return every layer violation in the resources of ``projects``, sorted.
 
-    Resources from installed dbt packages are not checked.
+    Resources from other installed dbt packages are not checked.
     """
     by_id = {resource.unique_id: resource for resource in resources}
-    resources = [resource for resource in resources if resource.package == project]
+    resources = [resource for resource in resources if resource.package in projects]
     layers: dict[str, Layer] = {}
     violations = _naming_violations(resources, namespace)
     for resource in resources:
@@ -498,7 +512,7 @@ def check(
         if folder is not None:
             layers[resource.unique_id] = folder
     for resource in resources:
-        violations.extend(_dependency_violations(resource, layers, by_id, project))
+        violations.extend(_dependency_violations(resource, layers, by_id, projects))
         if (
             resource.resource_type in {"model", "snapshot"}
             and resource.language == "sql"

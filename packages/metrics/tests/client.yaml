@@ -1,0 +1,5 @@
+# Test client configuration. Cube reads only version and reporting_time_zone.
+version: 1
+client: sample-brand
+reporting_time_zone: America/New_York
+warehouse: snowflake

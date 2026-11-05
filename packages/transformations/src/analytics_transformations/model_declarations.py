@@ -1,19 +1,20 @@
 """Check model declarations and test blocking declarations in a dbt manifest.
 
-Every model in the root project declares its owner, row grain, and either a
+Every governed model (``governed_projects``: the root project and the toolkit
+package) declares its owner, row grain, and either a
 key or the reason it has none. A declared key has blocking not-null tests and a
 blocking uniqueness test: ``unique`` for one column, or a
 ``unique_combination`` test over exactly the key columns. Data tests use native
 severity: error fails the build, warn does not.
 
-Every root-project model, source and source table is described, and each
+Every governed model, source and source table is described, and each
 model schema (a logical collection such as ``staging``) has one
 ``meta.schema_description``, set beside ``+schema`` in ``dbt_project.yml``.
 """
 
 from dataclasses import dataclass
 
-from analytics_transformations.layer_dependencies import root_project
+from analytics_transformations.layer_dependencies import governed_projects
 from analytics_transformations.manifest_values import (
     blocking_tests,
     check_blocking,
@@ -69,8 +70,8 @@ def _declaration(
 
 
 def declarations(data: object) -> tuple[ModelDeclaration, ...]:
-    """Return root-project model declarations or raise ValueError."""
-    project = root_project(data)
+    """Return governed model declarations or raise ValueError."""
+    projects = governed_projects(data)
     nodes = {
         key: mapping(value)
         for key, value in mapping(mapping(data).get("nodes")).items()
@@ -78,14 +79,14 @@ def declarations(data: object) -> tuple[ModelDeclaration, ...]:
     tests = {
         key: node
         for key, node in nodes.items()
-        if node.get("resource_type") == "test" and node.get("package_name") == project
+        if node.get("resource_type") == "test" and node.get("package_name") in projects
     }
     for test_id, test in tests.items():
         _ = check_blocking(test_id, test)
     return tuple(
         _declaration(model_id, node, tests)
         for model_id, node in sorted(nodes.items())
-        if node.get("resource_type") == "model" and node.get("package_name") == project
+        if node.get("resource_type") == "model" and node.get("package_name") in projects
     )
 
 
@@ -94,13 +95,16 @@ def _described(value: object) -> bool:
 
 
 def check_documentation(data: object) -> None:
-    """Raise ValueError unless root-project models, schemas and sources are
+    """Raise ValueError unless governed models, schemas and sources are
     described. Column descriptions are checked with column declarations."""
-    project = root_project(data)
+    projects = governed_projects(data)
     schemas: dict[str, str] = {}
     for model_id, value in sorted(mapping(mapping(data).get("nodes")).items()):
         node = mapping(value)
-        if node.get("resource_type") != "model" or node.get("package_name") != project:
+        if (
+            node.get("resource_type") != "model"
+            or node.get("package_name") not in projects
+        ):
             continue
         if not _described(node.get("description")):
             raise ValueError(f"{model_id}: add a model description")
@@ -116,7 +120,7 @@ def check_documentation(data: object) -> None:
     sources = mapping(mapping(data).get("sources", {}))
     for source_id, value in sorted(sources.items()):
         source = mapping(value)
-        if source.get("package_name") != project:
+        if source.get("package_name") not in projects:
             continue
         if not _described(source.get("source_description")):
             raise ValueError(f"{source_id}: add a source description")

@@ -1,4 +1,4 @@
-"""Optional Loop headers must carry evidence from the same completed load."""
+"""Loop headers must carry evidence from the same completed load."""
 
 import os
 import subprocess
@@ -7,6 +7,8 @@ from pathlib import Path
 
 import duckdb
 import pytest
+
+from tests.client_files import write_client
 
 # Real dbt project nodes these tests execute (ADR 0026).
 pytestmark = pytest.mark.dbt("+stg_loop_returns__headers")
@@ -43,56 +45,51 @@ def test_headers_require_matching_completed_load(tmp_path: Path) -> None:
                 case when n=2 then 1 else 0 end as status
             from range(1, 3) as fixture(n);
         """)
-    for enabled in (False, True):
-        result = subprocess.run(
-            [
-                "dbt",
-                "build",
-                "--quiet",
-                "--select",
-                "stg_loop_returns__headers",
-                "--indirect-selection",
-                "cautious",
-                "--project-dir",
-                str(ROOT / "dbt"),
-                "--profiles-dir",
-                str(ROOT / "dbt"),
-                "--target-path",
-                str(tmp_path / "target"),
-                "--log-path",
-                str(tmp_path / "logs"),
-            ],
-            env=os.environ
-            | {
-                "DBT_TARGET": "local",
-                "DBT_NAMESPACE": "loop",
-                "DUCKDB_PATH": str(raw),
-                "LOOP_RETURNS_DATASET": "raw_loop",
-                "LOOP_RETURNS_ENABLED": str(enabled).lower(),
-            },
-            capture_output=True,
-            text=True,
-            timeout=90,
-            check=False,
-        )
-        assert result.returncode == 0, result.stdout + result.stderr
-        with duckdb.connect(str(raw)) as db:
-            rows = db.execute(
-                "select return_id, handling_fee_amount, exchange_total_amount, "
-                "is_snapshot_complete from loop_staging.stg_loop_returns__headers "
-                "order by return_id"
-            ).fetchall()
-            order_ids = db.execute(
-                "select distinct order_id from loop_staging.stg_loop_returns__headers"
-            ).fetchall()
-        assert order_ids == ([("gid://shopify/Order/123",)] if enabled else [])
-        assert rows == (
-            [
-                ("1", Decimal("15"), None, True),
-                ("2", Decimal("15"), None, False),
-                ("3", Decimal("15"), None, False),
-                ("4", Decimal("15"), None, False),
-            ]
-            if enabled
-            else []
-        )
+    result = subprocess.run(
+        [
+            "analytics-dbt",
+            "build",
+            "--quiet",
+            "--select",
+            "stg_loop_returns__headers",
+            "--indirect-selection",
+            "cautious",
+            "--project-dir",
+            str(ROOT / "dbt"),
+            "--profiles-dir",
+            str(ROOT / "dbt"),
+            "--target-path",
+            str(tmp_path / "target"),
+            "--log-path",
+            str(tmp_path / "logs"),
+        ],
+        env=os.environ
+        | write_client(tmp_path, "loop_returns")
+        | {
+            "DBT_TARGET": "local",
+            "DBT_NAMESPACE": "loop",
+            "DUCKDB_PATH": str(raw),
+            "LOOP_RETURNS_DATASET": "raw_loop",
+        },
+        capture_output=True,
+        text=True,
+        timeout=90,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    with duckdb.connect(str(raw)) as db:
+        rows = db.execute(
+            "select return_id, handling_fee_amount, exchange_total_amount, "
+            "is_snapshot_complete from loop_staging.stg_loop_returns__headers "
+            "order by return_id"
+        ).fetchall()
+        order_ids = db.execute(
+            "select distinct order_id from loop_staging.stg_loop_returns__headers"
+        ).fetchall()
+    assert order_ids == [("gid://shopify/Order/123",)]
+    assert rows == [
+        ("1", Decimal("15"), None, True),
+        ("2", Decimal("15"), None, False),
+        ("3", Decimal("15"), None, False),
+        ("4", Decimal("15"), None, False),
+    ]

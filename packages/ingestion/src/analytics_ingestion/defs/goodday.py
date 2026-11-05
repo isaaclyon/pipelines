@@ -1,4 +1,4 @@
-"""Manual GoodDay capture, enabled by listing ``goodday`` in ANALYTICS_SOURCES.
+"""Manual GoodDay capture, enabled by listing ``goodday`` in client.yaml.
 
 One asset represents the completed capture, not independently materializable
 rows and evidence tables. No schedule or automatic source access is registered.
@@ -9,6 +9,7 @@ from collections.abc import Mapping
 
 import dagster as dg
 
+from analytics_ingestion.client import ClientConfig, client_config
 from analytics_ingestion.goodday.runtime import SOURCE, load_inventory
 from analytics_ingestion.kit.dagster import Metadata, manual_capture
 
@@ -22,8 +23,9 @@ def run(env: Mapping[str, str]) -> Metadata:
     }
 
 
-def build_definitions(env: Mapping[str, str]) -> dg.Definitions:
+def build_definitions(config: ClientConfig, env: Mapping[str, str]) -> dg.Definitions:
     return manual_capture(
+        config,
         env,
         source=SOURCE,
         asset="goodday_inventory_raw",
@@ -35,4 +37,6 @@ def build_definitions(env: Mapping[str, str]) -> dg.Definitions:
     )
 
 
-defs = build_definitions(os.environ)
+@dg.definitions
+def defs() -> dg.Definitions:
+    return build_definitions(client_config(), os.environ)

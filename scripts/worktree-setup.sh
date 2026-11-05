@@ -37,7 +37,7 @@ for setup_env in .env deploy/compose/.env.local packages/ingestion/.env \
 done
 
 # Override inherited environment locations; every checkout owns its dependencies.
-for setup_project in packages/ingestion packages/transformations \
+for setup_project in packages/client-config packages/ingestion packages/transformations \
     packages/transformations/lineage deploy/dagster; do
     UV_PROJECT_ENVIRONMENT="$setup_destination/$setup_project/.venv" \
         uv sync --project "$setup_project" --frozen

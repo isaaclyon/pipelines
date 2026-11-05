@@ -3,29 +3,38 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
+from analytics_ingestion.client import LoopReturns
 from analytics_ingestion.kit.runtime import Target
 from analytics_ingestion.loop_returns.dlt_load import pipeline
 from analytics_ingestion.loop_returns.errors import ConfigurationError
 from analytics_ingestion.loop_returns.settings import (
     DEFAULT_DATASET,
-    DEFAULT_HISTORY_START,
     LoopSettings,
     read_credentials,
-    settings_from_env,
+)
+from analytics_ingestion.loop_returns.settings import (
+    settings_from_env as loop_settings,
 )
 from analytics_ingestion.loop_returns.source import (
     _scope,  # pyright: ignore[reportPrivateUsage]
 )
 from tests.loop_returns_fakes import API_KEY, SHOP_ID
 
+SOURCE = LoopReturns(SHOP_ID, datetime(2025, 3, 1, tzinfo=UTC), 0)
+
+
+def settings_from_env(values: dict[str, str]) -> LoopSettings:
+    return loop_settings(values, SOURCE)
+
 
 def credentials(tmp_path: Path, **changes: object) -> Path:
-    path = tmp_path / "loop.json"
+    path = tmp_path / "secrets" / "loop_returns.json"
+    path.parent.mkdir(exist_ok=True)
     data: dict[str, object] = {"api_key": API_KEY}
     data.update(changes)
     _ = path.write_text(json.dumps(data))
@@ -35,8 +44,7 @@ def credentials(tmp_path: Path, **changes: object) -> Path:
 def env(tmp_path: Path, **changes: str) -> dict[str, str]:
     values = {
         "ANALYTICS_ENVIRONMENT": "local",
-        "LOOP_RETURNS_CREDENTIALS_PATH": str(credentials(tmp_path)),
-        "LOOP_RETURNS_SHOPIFY_SHOP_ID": SHOP_ID,
+        "ANALYTICS_SOURCE_SECRETS_ROOT": str(credentials(tmp_path).parent),
         "ANALYTICS_INGESTION_STATE_ROOT": str(tmp_path / "state"),
     }
     values.update(changes)
@@ -50,7 +58,7 @@ def test_local_defaults_are_explicit_and_scoped_to_the_shop(tmp_path: Path) -> N
     assert settings.api_key == API_KEY
     assert settings.shop_id == SHOP_ID
     assert settings.dataset == DEFAULT_DATASET == "LOOP_RETURN_HEADERS_RAW"
-    assert settings.history_start.isoformat() == DEFAULT_HISTORY_START
+    assert settings.history_start == SOURCE.history_start
     assert settings.max_removed_rows == 0
     assert settings.target.snowflake is None
     assert settings.target.duckdb_path == (
@@ -72,13 +80,16 @@ def test_missing_environment_selects_nothing(tmp_path: Path) -> None:
         _ = settings_from_env(values)
 
 
-@pytest.mark.parametrize(
-    "shop_id",
-    ["1", "gid://shopify/Order/1", "gid://shopify/Shop/abc", "  "],
-)
-def test_shop_identity_must_be_a_shopify_shop_gid(tmp_path: Path, shop_id: str) -> None:
-    with pytest.raises(ConfigurationError, match="LOOP_RETURNS_SHOPIFY_SHOP_ID"):
-        _ = settings_from_env(env(tmp_path, LOOP_RETURNS_SHOPIFY_SHOP_ID=shop_id))
+def test_shop_history_and_removal_allowance_come_from_client_yaml(
+    tmp_path: Path,
+) -> None:
+    source = LoopReturns("gid://shopify/Shop/7", datetime(2026, 1, 1, tzinfo=UTC), 3)
+    settings = loop_settings(env(tmp_path), source)
+    assert (settings.shop_id, settings.history_start, settings.max_removed_rows) == (
+        "gid://shopify/Shop/7",
+        datetime(2026, 1, 1, tzinfo=UTC),
+        3,
+    )
 
 
 def test_credential_file_needs_an_api_key(tmp_path: Path) -> None:
@@ -88,11 +99,14 @@ def test_credential_file_needs_an_api_key(tmp_path: Path) -> None:
         _ = read_credentials(path)
 
 
-def test_unreadable_credentials_do_not_echo_the_path(tmp_path: Path) -> None:
-    with pytest.raises(ConfigurationError) as caught:
-        _ = read_credentials(tmp_path / "missing.json")
+def test_missing_settings_file_is_named(tmp_path: Path) -> None:
+    """Like every source, Loop Returns reads loop_returns.json from the folder."""
+    values = env(tmp_path)
+    settings_file = tmp_path / "secrets" / "loop_returns.json"
+    settings_file.unlink()
 
-    assert str(tmp_path) not in str(caught.value)
+    with pytest.raises(ConfigurationError, match=f"{settings_file} is unreadable"):
+        _ = settings_from_env(values)
 
 
 def test_dataset_must_be_an_identifier(tmp_path: Path) -> None:
@@ -100,18 +114,6 @@ def test_dataset_must_be_an_identifier(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigurationError, match="LOOP_RETURNS_DATASET"):
         _ = settings_from_env(values)
-
-
-def test_history_start_needs_an_offset_and_whole_seconds(tmp_path: Path) -> None:
-    with pytest.raises(ConfigurationError, match="LOOP_RETURNS_HISTORY_START"):
-        _ = settings_from_env(
-            env(tmp_path, LOOP_RETURNS_HISTORY_START="2024-06-01T00:00:00")
-        )
-
-
-def test_removal_limit_must_be_a_non_negative_integer(tmp_path: Path) -> None:
-    with pytest.raises(ConfigurationError, match="LOOP_RETURNS_MAX_REMOVED_ROWS"):
-        _ = settings_from_env(env(tmp_path, LOOP_RETURNS_MAX_REMOVED_ROWS="-1"))
 
 
 def test_production_requires_every_snowflake_value(tmp_path: Path) -> None:

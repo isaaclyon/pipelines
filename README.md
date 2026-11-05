@@ -92,12 +92,12 @@ configuration.
 
 ## Configure for your business
 
-Business settings come from environment variables in your Compose env file
-(`ANALYTICS_ENV_FILE`; `local` defaults to `deploy/compose/.env.local` when it
-exists, otherwise `deploy/compose/.env.local.example`).
-`ANALYTICS_REPORTING_TIME_ZONE` sets the calendar zone for order dates in dbt
-and Cube (default `America/Los_Angeles`). Source connectors read their own
-settings files; see the [ingestion README](packages/ingestion/README.md).
+Each business keeps its own client repository; the
+[sample client](examples/sample-client/README.md) is the template. Its
+`client.yaml` names the sources to run, their schedules, the warehouse and the
+reporting time zone. Its `.env` holds passwords and the host folder of source
+settings files, one JSON file per system, such as `shopify.json`. See
+[settings each service reads](deploy/compose/README.md#settings-each-service-reads).
 
 ## Worktrunk worktrees
 
@@ -121,8 +121,10 @@ root and in `packages/ingestion`, `packages/transformations`, and
 Missing files are skipped, existing destination files are preserved, and copied
 files receive owner-only permissions. Symlinked source env files are rejected.
 
-It runs `uv sync --frozen` independently in both Python packages, the isolated
-`packages/transformations/lineage` CLI environment, and `deploy/dagster`, including
+It runs `uv sync --frozen` independently in each Python package
+(`packages/client-config`, `packages/ingestion` and `packages/transformations`),
+the isolated `packages/transformations/lineage` CLI environment, and
+`deploy/dagster`, including
 declared development dependencies, then `npm ci` in
 `packages/metrics`. Each Python project gets its own `.venv`; lockfiles stay fixed.
 To retry setup or prepare an existing checkout, run from its root:

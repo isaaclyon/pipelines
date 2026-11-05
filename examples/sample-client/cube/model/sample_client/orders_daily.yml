@@ -1,0 +1,38 @@
+# Daily Shopify orders, over the client mart fct_orders__daily
+# (dbt/models/marts/). Client files live under sample_client/, so a toolkit
+# file can never have the same path; cube names must also differ from the
+# toolkit's (Cube startup and ./check reject both repeats).
+#
+# dbt builds the mart in <DBT_NAMESPACE>_marts. Cube model files cannot read
+# the environment, so the schema is the production namespace's. The local
+# stack compiles this model but queries no warehouse; serving arrives with
+# the warehouse settings (Roadmap Phase 3).
+cubes:
+  - name: orders_daily
+    sql_table: production_marts.fct_orders__daily
+    description: Non-test Shopify orders per reporting day, from the client
+      mart fct_orders__daily. Days without orders have no row.
+    dimensions:
+      - name: order_date
+        sql: order_date
+        # Text, not time: Cube converts time dimensions from UTC to the
+        # reporting time zone, which would move a calendar date back a day.
+        type: string
+        primary_key: true
+        public: false
+        meta: {pii: false}
+        description: Key; the reporting day as text. Use ordered_at for time series.
+      - name: ordered_at
+        sql: first_ordered_at
+        type: time
+        meta: {pii: false}
+        description: UTC instant of the day's earliest non-test order. Cube
+          shows it in the reporting time zone, so the day granularity is the
+          reporting day.
+    measures:
+      - name: order_count
+        sql: order_count
+        type: sum
+        meta: {pii: false}
+        description: Number of non-test Shopify orders on the selected
+          reporting days.

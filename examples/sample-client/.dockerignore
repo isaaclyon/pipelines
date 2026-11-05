@@ -1,0 +1,8 @@
+# Keep secrets and local dbt output out of the client images (ADR 0032).
+.env
+.env.*
+**/*.duckdb*
+dbt/target
+dbt/logs
+dbt/dbt_packages
+dbt/package-lock.yml

@@ -1,0 +1,39 @@
+#!/bin/sh
+# Build this client's images from the pinned toolkit images and run every
+# offline check. Needs only Docker and the toolkit images that toolkit.env
+# names; no network, credentials or toolkit checkout. Exits nonzero if any
+# step fails. Set TOOLKIT_VERSION to check another toolkit version without
+# editing toolkit.env.
+set -eu
+cd "$(dirname "$0")"
+
+client_compose() {
+    docker compose --env-file toolkit.env -f compose.yaml "$@"
+}
+
+# The environment overrides toolkit.env, as it does for Compose.
+version=${TOOLKIT_VERSION:-$(sed -n 's/^TOOLKIT_VERSION=//p' toolkit.env)}
+if [ -z "$version" ]; then
+    echo 'Set TOOLKIT_VERSION in toolkit.env' >&2
+    exit 2
+fi
+for component in transformations metrics; do
+    if ! docker image inspect "analytics-$component:$version" >/dev/null 2>&1; then
+        echo "Toolkit image analytics-$component:$version is missing; load toolkit $version first." >&2
+        exit 1
+    fi
+done
+
+client_compose build transformations-check metrics-check
+
+# Run both checks, even when the first fails, and report each result.
+failed=
+for service in transformations-check metrics-check; do
+    echo "Running $service against toolkit $version"
+    client_compose run --rm --no-deps --pull never -T "$service" || failed="$failed $service"
+done
+if [ -n "$failed" ]; then
+    echo "Failed:$failed" >&2
+    exit 1
+fi
+echo "Client checks passed against toolkit $version."

@@ -1,7 +1,8 @@
 """One synthetic build of the real dbt project, shared by a test session.
 
-The build runs the model gates once over every enabled source.
-Tests read its artifacts (ADR 0026).
+The build runs the model gates once over the Shopify order and customer
+sources, which its client configuration enables. Tests read its artifacts
+(ADR 0026).
 """
 
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.client_files import write_client
 from tests.customer_fixtures import write_customers
 from tests.model_build import build_models
 from tests.shopify_order_fixtures import (
@@ -26,7 +28,6 @@ ENV = {
     "DBT_TARGET": "local",
     "DBT_NAMESPACE": NAMESPACE,
     "SHOPIFY_ORDERS_DATASET": "raw",
-    "SHOPIFY_CUSTOMERS_ENABLED": "true",
     "SHOPIFY_CUSTOMERS_DATASET": "raw_customers",
 }
 
@@ -47,8 +48,9 @@ def write_project_raw(path: Path) -> None:
 def build_project(directory: Path) -> ProjectBuild:
     database = directory / "project.duckdb"
     write_project_raw(database)
+    client = write_client(directory, "shopify_orders", "shopify_customers")
     with pytest.MonkeyPatch.context() as patch:
-        for name, value in ENV.items():
+        for name, value in (ENV | client).items():
             patch.setenv(name, value)
         target = build_models(database, namespace=NAMESPACE)
     return ProjectBuild(database, target)

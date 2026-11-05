@@ -2,17 +2,18 @@
 
 The load job reads an explicit ``[start, end)`` window into the environment's
 raw dataset; the reconcile job compares creation-month counts and marks
-confirmed deletions. Setting ``SHOPIFY_ORDERS_SEED`` adds the refresh,
-nightly lookback and weekly reconcile schedules. Both jobs share one exclusive
-resource, so they never write at once.
+confirmed deletions. Nothing registers unless client.yaml lists
+``shopify_orders``; its ``schedule`` block adds the refresh, nightly lookback
+and weekly reconcile schedules. Both jobs share one exclusive resource, so
+they never write at once.
 """
 
 import os
-from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 
 import dagster as dg
 
+from analytics_ingestion.client import ClientConfig, client_config
 from analytics_ingestion.shopify.dagster import (
     REJECT_CHECK,
     ScheduleSpec,
@@ -41,12 +42,10 @@ EXCLUSIVE = {
     "dagster/retry_on_asset_or_op_failure": "false",
 }
 SCHEDULES = ScheduleSpec(
-    source="orders",
+    source="shopify_orders",
     job=JOB_NAME,
     op=OP_NAME,
     reconcile_job=RECONCILE_JOB_NAME,
-    seed_variable="SHOPIFY_ORDERS_SEED",
-    refresh_cron_variable="SHOPIFY_REFRESH_CRON",
     refresh_cron="*/5 * * * *",
     # Reread orders Shopify indexed after the refresh lag, cursor untouched.
     nightly_kind="lookback",
@@ -159,25 +158,33 @@ RECONCILE_JOB = dg.define_asset_job(  # pyright: ignore[reportUnknownMemberType,
 )
 
 
-def build_schedules(env: Mapping[str, str]) -> list[dg.ScheduleDefinition]:
+def build_schedules(config: ClientConfig) -> list[dg.ScheduleDefinition]:
     """Refresh, nightly lookback and weekly reconcile, or none before cutover.
 
-    Four readers by default keep a refresh inside its tick at about four times
-    the 2026-08-18 peak hour.
+    Scheduled loads read with ``refresh_workers`` concurrent readers.
     """
-    if not env.get(SCHEDULES.seed_variable):
+    orders = config.sources.shopify_orders
+    if orders is None:
         return []
-    workers = env.get("SHOPIFY_ORDERS_REFRESH_WORKERS") or "4"
-    if not workers.isdigit() or int(workers) < 1:
-        raise ConfigurationError(
-            "SHOPIFY_ORDERS_REFRESH_WORKERS must be a whole number of at least 1"
-        )
-    return source_schedules(env, SCHEDULES, {"workers": int(workers)})
+    return source_schedules(
+        SCHEDULES,
+        orders.schedule,
+        config.reporting_time_zone,
+        {"workers": orders.refresh_workers},
+    )
 
 
-defs = dg.Definitions(
-    assets=[shopify_orders_raw, shopify_order_source_status],
-    jobs=[JOB, RECONCILE_JOB],
-    schedules=build_schedules(os.environ),
-    resources={"shopify_orders": ShopifyOrdersDltResource()},
-)
+def build_definitions(config: ClientConfig) -> dg.Definitions:
+    if not config.enabled("shopify_orders"):
+        return dg.Definitions()
+    return dg.Definitions(
+        assets=[shopify_orders_raw, shopify_order_source_status],
+        jobs=[JOB, RECONCILE_JOB],
+        schedules=build_schedules(config),
+        resources={"shopify_orders": ShopifyOrdersDltResource()},
+    )
+
+
+@dg.definitions
+def defs() -> dg.Definitions:
+    return build_definitions(client_config())

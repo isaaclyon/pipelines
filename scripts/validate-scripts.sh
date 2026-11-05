@@ -10,6 +10,7 @@ python3 scripts/test_ci_docs.py
 sh scripts/test-platform-defaults.sh
 sh scripts/test-check.sh
 sh scripts/test-verify.sh
+sh scripts/test-release.sh
 sh scripts/test-worktree-setup.sh
 sh scripts/test-container-entrypoint.sh
 python3 scripts/test_run_context.py

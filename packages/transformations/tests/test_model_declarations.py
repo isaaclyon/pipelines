@@ -9,7 +9,7 @@ from analytics_transformations.model_declarations import (
     declarations,
 )
 
-MODEL = "model.analytics.stg_shop__orders"
+MODEL = "model.fixture.stg_shop__orders"
 
 
 def _test(
@@ -24,7 +24,7 @@ def _test(
     meta: dict[str, object] = {} if blocking is None else {"blocking": blocking}
     node: dict[str, object] = {
         "resource_type": "test",
-        "package_name": "analytics",
+        "package_name": "fixture",
         "name": name,
         "depends_on": {"nodes": [model]},
         "config": {"severity": severity, "meta": meta},
@@ -52,11 +52,11 @@ def manifest(
             _test("unique_order_id", "unique", "order_id"),
         )
     return {
-        "metadata": {"project_name": "analytics"},
+        "metadata": {"project_name": "fixture"},
         "nodes": {
             MODEL: {
                 "resource_type": "model",
-                "package_name": "analytics",
+                "package_name": "fixture",
                 "name": "stg_shop__orders",
                 "original_file_path": "models/staging/shop/stg_shop__orders.sql",
                 "description": "Shop orders, one row per order.",
@@ -66,7 +66,7 @@ def manifest(
                     "shop_id": {"description": "Shop identity."},
                 },
             },
-            **{f"test.analytics.{t['name']}": t for t in tests},
+            **{f"test.fixture.{t['name']}": t for t in tests},
         },
     }
 
@@ -180,9 +180,9 @@ def test_warning_that_does_not_block_is_allowed() -> None:
 def test_marts_need_declarations() -> None:
     value = manifest()
     nodes = cast(dict[str, dict[str, object]], value["nodes"])
-    nodes["model.analytics.fct_orders"] = {
+    nodes["model.fixture.fct_orders"] = {
         "resource_type": "model",
-        "package_name": "analytics",
+        "package_name": "fixture",
         "original_file_path": "models/marts/fct_orders.sql",
         "config": {"meta": {}},
     }
@@ -204,6 +204,23 @@ def test_package_resources_are_out_of_scope() -> None:
     assert len(declarations(value)) == 1
 
 
+def test_client_root_governs_toolkit_package_models() -> None:
+    value = manifest()
+    value["metadata"] = {"project_name": "client"}
+    nodes = cast(dict[str, dict[str, object]], value["nodes"])
+    nodes["model.analytics_toolkit.stg_shop__lines"] = {
+        "resource_type": "model",
+        "package_name": "analytics_toolkit",
+        "original_file_path": "models/staging/shop/stg_shop__lines.sql",
+        "config": {"meta": {}},
+    }
+    with pytest.raises(ValueError, match="stg_shop__lines: declare meta owner"):
+        _ = declarations(value)
+    # The fixture's own package is now an ungoverned installed package.
+    del nodes["model.analytics_toolkit.stg_shop__lines"]
+    assert declarations(value) == ()
+
+
 def manifest_tests() -> tuple[dict[str, object], ...]:
     return (
         _test("not_null_order_id", "not_null", "order_id"),
@@ -219,9 +236,9 @@ def documented() -> dict[str, object]:
         "meta": {"schema_description": "Source-shaped staging views."},
     }
     value["sources"] = {
-        "source.analytics.shop.orders": {
+        "source.fixture.shop.orders": {
             "resource_type": "source",
-            "package_name": "analytics",
+            "package_name": "fixture",
             "source_description": "Raw shop data loaded by ingestion.",
             "description": "One row per raw order.",
         },
@@ -240,10 +257,10 @@ def test_documented_models_and_sources_pass() -> None:
         (("nodes", MODEL, "description"), "model description"),
         (("nodes", MODEL, "config", "meta", "schema_description"), "schema"),
         (
-            ("sources", "source.analytics.shop.orders", "source_description"),
+            ("sources", "source.fixture.shop.orders", "source_description"),
             "source description",
         ),
-        (("sources", "source.analytics.shop.orders", "description"), "table"),
+        (("sources", "source.fixture.shop.orders", "description"), "table"),
     ],
 )
 @pytest.mark.parametrize("blank", [None, " "])
@@ -270,6 +287,6 @@ def test_one_description_per_schema() -> None:
         "schema": "staging",
         "meta": {"schema_description": "A different meaning."},
     }
-    nodes["model.analytics.stg_shop__lines"] = other
+    nodes["model.fixture.stg_shop__lines"] = other
     with pytest.raises(ValueError, match="one schema_description"):
         check_documentation(value)

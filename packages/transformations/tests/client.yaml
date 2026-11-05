@@ -1,0 +1,8 @@
+# The check client: the package check, Dagster definitions and tests that do
+# not choose their own client read this file (scripts/check-python.sh).
+version: 1
+client: check-client
+reporting_time_zone: America/New_York
+warehouse: motherduck
+sources:
+  shopify_orders:

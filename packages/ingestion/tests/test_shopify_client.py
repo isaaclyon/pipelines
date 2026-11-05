@@ -135,12 +135,13 @@ def test_window_searches_are_quoted_utc_half_open() -> None:
 
 
 def test_configuration_fails_before_any_read_or_write(tmp_path: Path) -> None:
-    credentials = tmp_path / "shopify.json"
+    credentials = tmp_path / "secrets" / "shopify.json"
+    credentials.parent.mkdir()
     credentials.write_text(
         json.dumps({"shop_domain": "example.com", "access_token": "x" * 32})
     )
     base = {
-        "SHOPIFY_CREDENTIALS_PATH": str(credentials),
+        "ANALYTICS_SOURCE_SECRETS_ROOT": str(credentials.parent),
         "ANALYTICS_INGESTION_STATE_ROOT": str(tmp_path),
     }
     with pytest.raises(ConfigurationError, match="ANALYTICS_ENVIRONMENT"):

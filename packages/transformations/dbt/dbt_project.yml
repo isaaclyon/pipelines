@@ -1,4 +1,4 @@
-name: analytics
+name: analytics_toolkit
 version: "0.1.0"
 config-version: 2
 profile: analytics
@@ -9,18 +9,30 @@ test-paths: ["tests"]
 seed-paths: ["seeds"]
 clean-targets: ["target", "dbt_packages"]
 
-# ADR 0029: the local target attaches per-source raw files read-only.
+# ADR 0029: the local target attaches per-source raw files read-only. dbt runs
+# the on-run-start hooks of installed packages too, so a client project that
+# installs this package attaches the same files.
 on-run-start: ["{{ attach_raw_files() }}"]
 
+# Client settings reach dbt only through ANALYTICS_ENABLED_SOURCES, which the
+# analytics-dbt wrapper derives from client.yaml. It has no default, so plain
+# dbt fails here instead of building an unconfigured client. dbt_project.yml
+# and properties files cannot call macros, so they repeat the expression that
+# the source_enabled() macro evaluates in SQL. Folder names under staging/ and
+# tests/ are client.yaml source names.
 models:
-  analytics:
+  analytics_toolkit:
     +meta:
       owner: Analytics Platform
     staging:
       goodday:
-        +enabled: "{{ env_var('GOODDAY_INVENTORY_ENABLED', 'false') == 'true' }}"
+        +enabled: "{{ 'goodday' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
+      loop_returns:
+        +enabled: "{{ 'loop_returns' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
       shopify_customers:
-        +enabled: "{{ env_var('SHOPIFY_CUSTOMERS_ENABLED', 'false') == 'true' }}"
+        +enabled: "{{ 'shopify_customers' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
+      shopify_orders:
+        +enabled: "{{ 'shopify_orders' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"
       +schema: staging
       +materialized: view
       +meta:
@@ -31,5 +43,7 @@ models:
 # Fail closed: a data test fails the build unless it explicitly opts down to
 # a warning. Native severity is the sole blocking declaration.
 data_tests:
-  analytics:
+  analytics_toolkit:
     +severity: error
+    shopify_orders:
+      +enabled: "{{ 'shopify_orders' in env_var('ANALYTICS_ENABLED_SOURCES').split(',') }}"

@@ -1,0 +1,18 @@
+# The client configuration `dg check defs` and the definitions test load.
+# It lists only sources whose definitions load without credential files: kit
+# sources (goodday, google_sheets, impact_radius) need their settings file and
+# Slack alerts need SLACK_WEBHOOK_PATH at definition load.
+version: 1
+client: toolkit-checks
+reporting_time_zone: UTC
+warehouse: snowflake
+sources:
+  shopify_orders:
+    schedule:
+      start: "2026-01-01T00:00:00Z"
+  shopify_customers:
+    schedule:
+      start: "2026-01-01T00:00:00Z"
+  loop_returns:
+    shop_id: gid://shopify/Shop/1
+    history_start: "2026-01-01T00:00:00Z"

@@ -1,3 +1,11 @@
+# The client's settings, as in compose.yaml; the volume lists below replace
+# the base lists, so they repeat this mount.
+x-client-config: &client-config
+  type: bind
+  source: ${CLIENT_DIR:?Set the client repository folder}/client.yaml
+  target: /etc/analytics/client.yaml
+  read_only: true
+
 services:
   webserver:
     ports: !reset []
@@ -9,16 +17,16 @@ services:
   # attachment or ingestion state in dbt.
   ingestion:
     environment:
-      SHOPIFY_CREDENTIALS_PATH: ""
-      ANALYTICS_SOURCES: ""
+      SLACK_WEBHOOK_PATH: ""
     volumes: !override
+      - *client-config
       - ingestion-state:/var/lib/analytics/ingestion
       - artifacts:/var/lib/analytics/artifacts
   transformations:
     environment:
       DBT_RAW_ROOT: ""
-      GOODDAY_INVENTORY_ENABLED: "false"
     volumes: !override
+      - *client-config
       - artifacts:/var/lib/analytics/artifacts
       - working:/var/lib/analytics/working
       - docs:/var/lib/analytics/docs

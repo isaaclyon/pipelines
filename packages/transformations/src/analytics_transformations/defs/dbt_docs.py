@@ -5,20 +5,22 @@ refreshes the site. ``dbt docs generate`` reads warehouse metadata for the
 catalog (column types and table sizes); it loads, builds and grants nothing.
 The result is dbt's single self-contained page plus a column lineage page from
 dbt-colibri at ``lineage/``. Both are swapped in only after both build: a failed
-build leaves the previous site in place.
+build leaves the previous site in place. dbt runs through ``analytics-dbt``
+against the client's dbt project at ``DBT_PROJECT_DIR``, so the site documents
+the client's models and the toolkit models it enables.
 """
 
 import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 
 import dagster as dg
 
+from analytics_transformations.client_dbt import executable
 from analytics_transformations.manifest_values import mapping, read_json, text
 
 JOB_NAME = "dbt_docs"
@@ -103,13 +105,12 @@ def _stage(page: Path, directory: Path) -> Path:
 def build_docs(env: Mapping[str, str], site: Path) -> tuple[Path, Path]:
     """Generate the docs and lineage pages and replace both in ``site``."""
     namespace = docs_namespace(env)
-    project = env.get("DBT_PROJECT_DIR", "dbt")
-    bin_dir = Path(sys.executable).parent
+    project = env["DBT_PROJECT_DIR"]
     with tempfile.TemporaryDirectory() as directory:
         target = Path(directory)
         _run(
             [
-                str(bin_dir / "dbt"),
+                executable("analytics-dbt"),
                 "docs",
                 "generate",
                 "--static",

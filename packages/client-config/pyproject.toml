@@ -1,0 +1,43 @@
+[project]
+name = "analytics_client_config"
+requires-python = ">=3.12,<3.13"
+version = "0.1.0"
+dependencies = [
+    "pyyaml==6.0.3",
+]
+
+[project.scripts]
+analytics-client-config = "analytics_client_config.__main__:main"
+
+[dependency-groups]
+dev = [
+    "basedpyright==1.40.2",
+    "pytest==9.1.1",
+    "ruff==0.16.10",
+    "types-pyyaml==6.0.12.20250915",
+]
+
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/analytics_client_config"]
+
+[tool.ruff]
+extend = "../../ruff.toml"
+
+[tool.basedpyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+reportAny = "error"
+reportExplicitAny = "error"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"analytics_ingestion" = { msg = "The client configuration depends on no package." }
+"analytics_transformations" = { msg = "The client configuration depends on no package." }

@@ -1,5 +1,4 @@
 -- Snapshot evidence is independent of return rows, so an empty load is visible.
-{% if env_var('LOOP_RETURNS_ENABLED', 'false') == 'true' %}
 with headers as (
     select
         shop_id,
@@ -42,15 +41,3 @@ left join load_rows
     on
         snapshots.shop_id = load_rows.shop_id
         and snapshots._dlt_load_id = load_rows.load_id
-{% else %}
-    select
-        cast(null as varchar) as shop_id,
-        cast(null as varchar) as snapshot_id,
-        cast(null as varchar) as snapshot_load_id,
-        cast(null as timestamp) as snapshot_ended_at,
-        cast(null as timestamp) as extraction_completed_at,
-        cast(null as bigint) as expected_return_count,
-        cast(null as bigint) as current_return_count,
-        cast(false as boolean) as is_snapshot_complete
-    where false
-{% endif %}

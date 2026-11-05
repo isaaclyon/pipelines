@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { readdir, readFile } = require('node:fs/promises');
 const { join } = require('node:path');
+const { checkModel, readModel } = require('../model-repository.cjs');
 
 const MODEL = join(__dirname, '..', 'model');
 
@@ -26,18 +26,9 @@ function checkCubePii(cubes) {
   }
 }
 
-/** Compile the maintained model offline with the pinned Cube schema compiler. */
+/** Compile the toolkit model alone, as Cube serves it without a client folder. */
 async function compileModel() {
-  const { prepareCompiler } = require('@cubejs-backend/schema-compiler');
-  const files = (await readdir(MODEL)).filter(name => name.endsWith('.js')).sort();
-  const contents = await Promise.all(files.map(name => readFile(join(MODEL, name), 'utf8')));
-  const repository = {
-    localPath: () => MODEL,
-    dataSchemaFiles: async () => files.map((name, index) => ({ fileName: `model/${name}`, content: contents[index] ?? '' })),
-  };
-  const { compiler, cubeEvaluator, metaTransformer } = prepareCompiler(repository, { standalone: true });
-  await compiler.compile();
-  return { cubeEvaluator, metaTransformer };
+  return checkModel(readModel(MODEL, join(MODEL, 'no-client-model')));
 }
 
 test('Cube requires explicit boolean PII declarations even on hidden members', () => {

@@ -1,15 +1,15 @@
 # shellcheck shell=sh
-# summary: Run offline package checks: check [ingestion|transformations|metrics] [--base REV] [--no-build]
+# summary: Run offline checks: check [ingestion|transformations|metrics|client-config|sample-client] [--base REV] [--no-build]
 # targets: local ci
 
 sh scripts/check-versions.sh || exit $?
 
 check_package=
 case "${1:-}" in
-    ingestion|transformations|metrics) check_package=$1; shift ;;
+    ingestion|transformations|metrics|client-config|sample-client) check_package=$1; shift ;;
     ''|-*) ;;
     *)
-        echo "Unknown package: $1 (expected ingestion, transformations, or metrics)" >&2
+        echo "Unknown check: $1 (expected ingestion, transformations, metrics, client-config, or sample-client)" >&2
         exit 2
         ;;
 esac
@@ -39,11 +39,20 @@ printf 'Checking packages: %s; dbt tests: %s\n' "${check_packages:-none}" "$chec
 if [ -n "$check_base" ] && printf '%s\n' "$check_route" | grep -qx 'integration=true'; then
     echo 'This change also needs integration checks: ./scripts/platform ci verify'
 fi
+# Each package has a check service. The sample-client lane runs the sample
+# client's own check script (examples/sample-client/check) on toolkit images
+# built from this checkout, as a client repository runs it on pinned images.
 check_services=
+check_builds=
 for check_package in $check_packages; do
-    check_services="$check_services $check_package-check"
+    if [ "$check_package" = sample-client ]; then
+        check_builds="$check_builds transformations-toolkit metrics-toolkit"
+    else
+        check_services="$check_services $check_package-check"
+        check_builds="$check_builds $check_package-check"
+    fi
 done
-[ -n "$check_services" ] || exit 0
+[ -n "$check_builds" ] || exit 0
 
 if [ "${1:-}" = --no-build ]; then
     shift
@@ -52,15 +61,16 @@ if [ "${1:-}" = --no-build ]; then
         exit 2
     fi
 else
-    # Word splitting is intended: check_services is a service list.
+    # Word splitting is intended: check_builds is a service list.
     # shellcheck disable=SC2086
-    compose --profile checks build $check_services "$@" || exit $?
+    compose --profile checks --profile toolkit build $check_builds "$@" || exit $?
 fi
 
 # Compose run can implicitly build a missing image. Require all images first,
 # so --no-build cannot silently fall back to a different builder or pull a tag.
+# The sample client check builds only its client layer, FROM these images.
 # shellcheck disable=SC2086
-check_images=$(compose --profile checks config --images $check_services) || exit $?
+check_images=$(compose --profile checks --profile toolkit config --images $check_builds) || exit $?
 for check_image in $check_images; do
     docker image inspect "$check_image" >/dev/null || exit $?
 done
@@ -82,7 +92,7 @@ check_interrupt() {
     done
     # Stop only check services; a local runtime stack may still be in use.
     # shellcheck disable=SC2086
-    compose --profile checks rm --stop --force $check_services || :
+    [ -z "$check_services" ] || compose --profile checks rm --stop --force $check_services || :
     exit "$1"
 }
 trap 'check_interrupt 130' INT
@@ -100,8 +110,9 @@ check_wait() {
     check_pending=
 }
 
-# Two independent Python environments run together (at most 4 GiB combined).
-# Metrics runs after that pair. Wait for every result, even when one fails.
+# Checks run two at a time, in lane order, using at most 4 GiB combined: each
+# check service has a 2 GiB limit or less, and the sample client runs its two
+# checks one after the other. Wait for every result, even when one fails.
 # Changed dbt tests compare with the base commit's packages/transformations.
 case " $check_services " in
     *" transformations-check "*)
@@ -113,18 +124,27 @@ case " $check_services " in
 esac
 
 check_count=0
-for check_service in $check_services; do
+check_lanes=$check_services
+case " $check_packages " in
+    *" sample-client "*) check_lanes="$check_lanes sample-client-check" ;;
+esac
+for check_service in $check_lanes; do
     printf 'Starting %s\n' "$check_service"
-    if [ "$check_service" = transformations-check ]; then
-        set -- -e "DBT_CHECKS=$check_dbt"
-        if [ "$check_dbt" = changed ]; then
-            set -- "$@" -e DBT_BASE_PROJECT=/base -v "$check_work/base/packages/transformations:/base:ro"
-        fi
+    if [ "$check_service" = sample-client-check ]; then
+        TOOLKIT_VERSION=local sh examples/sample-client/check \
+            > "$check_work/$check_service.log" 2>&1 &
     else
-        set --
+        if [ "$check_service" = transformations-check ]; then
+            set -- -e "DBT_CHECKS=$check_dbt"
+            if [ "$check_dbt" = changed ]; then
+                set -- "$@" -e DBT_BASE_PROJECT=/base -v "$check_work/base/packages/transformations:/base:ro"
+            fi
+        else
+            set --
+        fi
+        compose --profile checks run --rm --no-deps --pull never -T "$@" "$check_service" \
+            > "$check_work/$check_service.log" 2>&1 &
     fi
-    compose --profile checks run --rm --no-deps --pull never -T "$@" "$check_service" \
-        > "$check_work/$check_service.log" 2>&1 &
     check_pending="$check_pending $!:$check_service"
     check_count=$((check_count + 1))
     if [ "$check_count" -eq 2 ]; then

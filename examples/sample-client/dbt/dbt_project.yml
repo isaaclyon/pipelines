@@ -1,0 +1,31 @@
+name: sample_client
+version: "0.1.0"
+config-version: 2
+# Toolkit-owned targets: the transformations image provides profiles.yml
+# through DBT_PROFILES_DIR.
+profile: analytics
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  sample_client:
+    +meta:
+      owner: Sample Client
+    marts:
+      +schema: marts
+      +materialized: table
+      +access: public
+      +contract:
+        enforced: true
+      +meta:
+        schema_description: >
+          Tables that the client's dashboards and tools read.
+
+# Fail closed, like the toolkit: a data test fails the build unless it
+# explicitly opts down to a warning.
+data_tests:
+  sample_client:
+    +severity: error

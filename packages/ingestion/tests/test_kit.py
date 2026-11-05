@@ -1,4 +1,4 @@
-"""The shared source kit: on/off list, settings files, destination and job."""
+"""The shared source kit: settings files, destination and job."""
 
 import json
 from pathlib import Path
@@ -7,7 +7,8 @@ import dagster as dg
 import pytest
 
 from analytics_ingestion.kit.dagster import manual_capture
-from analytics_ingestion.kit.runtime import enabled, read_settings, target
+from analytics_ingestion.kit.runtime import read_settings, target
+from tests.client_files import listing
 
 
 def secrets(root: Path, source: str, value: object) -> dict[str, str]:
@@ -19,20 +20,6 @@ def secrets(root: Path, source: str, value: object) -> dict[str, str]:
         "ANALYTICS_SOURCE_SECRETS_ROOT": str(folder),
         "ANALYTICS_INGESTION_STATE_ROOT": str(root / "state"),
     }
-
-
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [("", False), ("fixture", True), (" other , fixture ", True), ("other", False)],
-)
-def test_sources_are_enabled_by_one_list(value: str, expected: bool) -> None:
-    assert enabled({"ANALYTICS_SOURCES": value}, "fixture") is expected
-
-
-@pytest.mark.parametrize("value", ["Fixture", "fixture,,other", "fix-ture"])
-def test_source_list_rejects_unclear_names(value: str) -> None:
-    with pytest.raises(ValueError, match="ANALYTICS_SOURCES"):
-        _ = enabled({"ANALYTICS_SOURCES": value}, "fixture")
 
 
 def test_settings_come_from_the_source_file(tmp_path: Path) -> None:
@@ -91,10 +78,21 @@ def test_remote_target_loads_snowflake(tmp_path: Path) -> None:
         _ = target(env, "fixture")
 
 
-def build(env: dict[str, str]) -> dg.Definitions:
+# client.yaml lists only toolkit sources, so a real name stands in for a fixture.
+SOURCE = "impact_radius"
+
+
+def build(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *listed: str,
+    env: dict[str, str] | None = None,
+) -> dg.Definitions:
+    """Build the job with ``listed`` sources in client.yaml."""
     return manual_capture(
-        env,
-        source="fixture",
+        listing(monkeypatch, tmp_path, *listed),
+        secrets(tmp_path, SOURCE, {}) if env is None else env,
+        source=SOURCE,
         asset="fixture_raw",
         job="fixture_capture",
         kinds={"dlt"},
@@ -103,25 +101,29 @@ def build(env: dict[str, str]) -> dg.Definitions:
     )
 
 
-def test_disabled_source_registers_no_job(tmp_path: Path) -> None:
-    assert not build(secrets(tmp_path, "fixture", {})).jobs
+def test_unlisted_source_registers_no_job(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    assert not build(monkeypatch, tmp_path).jobs
+    assert not build(monkeypatch, tmp_path, "goodday").jobs
 
 
-def test_enabled_source_registers_a_manual_serialized_job(tmp_path: Path) -> None:
-    env = secrets(tmp_path, "fixture", {}) | {"ANALYTICS_SOURCES": "fixture"}
-    definitions = build(env)
+def test_listed_source_registers_a_manual_serialized_job(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    definitions = build(monkeypatch, tmp_path, SOURCE)
     job = definitions.resolve_job_def("fixture_capture")
-    assert job.tags["analytics/exclusive-resource"] == "fixture"
+    assert job.tags["analytics/exclusive-resource"] == "impact-radius"
     assert job.tags["dagster/retry_on_asset_or_op_failure"] == "false"
     assert job.tags["dagster/max_runtime"] == "3600"
     assert definitions.schedules is None
-    asset = definitions.resolve_assets_def(
-        dg.AssetKey(["raw", "fixture", "fixture_raw"])
-    )
+    asset = definitions.resolve_assets_def(dg.AssetKey(["raw", SOURCE, "fixture_raw"]))
     assert dg.materialize([asset]).success
 
 
-def test_activation_requires_a_readable_settings_file(tmp_path: Path) -> None:
-    env = secrets(tmp_path, "other", {}) | {"ANALYTICS_SOURCES": "fixture"}
-    with pytest.raises(ValueError, match=r"fixture\.json"):
-        _ = build(env)
+def test_activation_requires_a_readable_settings_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    env = secrets(tmp_path, "other", {})
+    with pytest.raises(ValueError, match=rf"{SOURCE}\.json"):
+        _ = build(monkeypatch, tmp_path, SOURCE, env=env)

@@ -9,6 +9,8 @@ from typing import cast
 import dagster as dg
 import pytest
 
+import analytics_ingestion.defs.shopify_customers as customers_defs
+from analytics_ingestion.client import ClientConfig
 from analytics_ingestion.defs.shopify_customers import (
     JOB,
     JOB_NAME,
@@ -33,6 +35,7 @@ from analytics_ingestion.shopify.customer_source import (
     load_customers,
 )
 from analytics_ingestion.shopify.errors import ConfigurationError
+from tests.client_files import client, write_client
 from tests.customer_fakes import FakeCustomerShop, customer, customer_settings
 
 SHOPS: dict[str, FakeCustomerShop] = {}
@@ -146,7 +149,13 @@ def test_customers_use_their_own_exclusive_resource() -> None:
     assert resources == {"shopify-customers"}
 
 
-ENV = {"SHOPIFY_CUSTOMERS_SEED": "2026-10-14T15:00:00+00:00"}
+CUSTOMERS = """\
+sources:
+  shopify_customers:
+    schedule:
+      start: "2026-10-14T15:00:00+00:00"
+"""
+START = "2026-10-14T15:00:00+00:00"
 TICK = datetime(2026, 10, 14, 16, 15, 0, 250000, tzinfo=UTC)
 
 
@@ -161,17 +170,24 @@ def tick(
     return requests, data.skip_message
 
 
-def schedules(env: dict[str, str]) -> dict[str, dg.ScheduleDefinition]:
-    return {s.name: s for s in build_schedules(env)}
+@pytest.fixture
+def config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ClientConfig:
+    return client(monkeypatch, tmp_path, CUSTOMERS)
 
 
-def test_schedules_are_off_without_a_seed() -> None:
-    assert build_schedules({}) == []
-    assert build_schedules({"SHOPIFY_CUSTOMERS_SEED": ""}) == []
+def schedules(config: ClientConfig) -> dict[str, dg.ScheduleDefinition]:
+    return {s.name: s for s in build_schedules(config)}
 
 
-def test_all_schedules_start_stopped() -> None:
-    found = build_schedules(ENV)
+def test_schedules_are_off_without_a_schedule_block(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    listed = client(monkeypatch, tmp_path, "sources:\n  shopify_customers:\n")
+    assert build_schedules(listed) == []
+
+
+def test_all_schedules_start_stopped(config: ClientConfig) -> None:
+    found = build_schedules(config)
     assert {s.name for s in found} == {
         "shopify_customers_dlt_refresh_schedule",
         "shopify_customers_dlt_sweep_schedule",
@@ -180,8 +196,9 @@ def test_all_schedules_start_stopped() -> None:
     assert {s.default_status for s in found} == {dg.DefaultScheduleStatus.STOPPED}
 
 
-def test_refresh_starts_from_the_seed() -> None:
-    schedule = schedules(ENV)["shopify_customers_dlt_refresh_schedule"]
+def test_refresh_starts_from_the_schedule_start(config: ClientConfig) -> None:
+    schedule = schedules(config)["shopify_customers_dlt_refresh_schedule"]
+    assert schedule.cron_schedule == "*/15 * * * *"
     with dg.instance_for_test() as instance:
         [request], _ = tick(schedule, instance)
     assert request.run_config["ops"][OP_NAME]["config"] == {
@@ -192,8 +209,16 @@ def test_refresh_starts_from_the_seed() -> None:
     assert request.tags["dagster/priority"] == "10"
 
 
-def test_refresh_skips_while_a_run_is_active() -> None:
-    schedule = schedules(ENV)["shopify_customers_dlt_refresh_schedule"]
+def test_refresh_cron_can_be_overridden(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = client(monkeypatch, tmp_path, CUSTOMERS + '      refresh: "0 * * * *"\n')
+    schedule = schedules(config)["shopify_customers_dlt_refresh_schedule"]
+    assert schedule.cron_schedule == "0 * * * *"
+
+
+def test_refresh_skips_while_a_run_is_active(config: ClientConfig) -> None:
+    schedule = schedules(config)["shopify_customers_dlt_refresh_schedule"]
     with dg.instance_for_test() as instance:
         instance.add_run(
             dg.DagsterRun(
@@ -204,39 +229,96 @@ def test_refresh_skips_while_a_run_is_active() -> None:
     assert not requests and "dlt" in (skipped or "")
 
 
-def test_nightly_sweep() -> None:
-    schedule = schedules(ENV)["shopify_customers_dlt_sweep_schedule"]
+def test_nightly_sweep(config: ClientConfig) -> None:
+    schedule = schedules(config)["shopify_customers_dlt_sweep_schedule"]
     assert schedule.cron_schedule == "30 1 * * *"
-    assert schedule.execution_timezone == "America/Los_Angeles"
     with dg.instance_for_test() as instance:
         [sweep], _ = tick(schedule, instance)
     assert sweep.run_config["ops"][OP_NAME]["config"] == {
         "kind": "sweep",
-        "start": ENV["SHOPIFY_CUSTOMERS_SEED"],
+        "start": START,
         "end": "2026-10-14T16:15:00+00:00",
     }
     assert int(sweep.tags["dagster/priority"]) < 10
 
 
-def test_reconcile_is_daily_in_the_background() -> None:
-    schedule = schedules(ENV)[f"{RECONCILE_JOB_NAME}_schedule"]
+def test_reconcile_is_daily_in_the_background(config: ClientConfig) -> None:
+    schedule = schedules(config)[f"{RECONCILE_JOB_NAME}_schedule"]
     assert schedule.job_name == RECONCILE_JOB_NAME
     with dg.instance_for_test() as instance:
         [request], _ = tick(schedule, instance)
     assert int(request.tags["dagster/priority"]) < 10
 
 
-@pytest.mark.parametrize(
-    ("change", "message"),
-    [
-        ({"SHOPIFY_CUSTOMERS_SEED": "2026-10-14T15:00:00"}, "UTC offset"),
-        ({"SHOPIFY_CUSTOMERS_SEED": "yesterday"}, "SHOPIFY_CUSTOMERS_SEED"),
-        ({"SHOPIFY_CUSTOMERS_REFRESH_CRON": "never"}, "refresh schedule"),
-    ],
-)
-def test_schedules_reject_unsafe_settings(change: dict[str, str], message: str) -> None:
-    with pytest.raises(ConfigurationError, match=message):
-        build_schedules({**ENV, **change})
+def test_an_invalid_refresh_cron_names_the_setting(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = client(monkeypatch, tmp_path, CUSTOMERS + '      refresh: "0 25 * * *"\n')
+    with pytest.raises(
+        ConfigurationError, match=r"sources\.shopify_customers\.schedule\.refresh"
+    ):
+        _ = build_schedules(config)
+
+
+def run_resource(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    """Load one run through the real resource; returns the collection options."""
+    seen: dict[str, object] = {}
+
+    def load(
+        settings: object,
+        run: CustomersRun,
+        *,
+        collect_tax_id: bool,
+        approved_metafields: frozenset[tuple[str, str]],
+    ) -> RunReport:
+        seen.update(tax_id=collect_tax_id, metafields=approved_metafields)
+        return RunReport(run.run_id, run.kind)
+
+    def settings(env: object) -> None:
+        return None
+
+    monkeypatch.setattr(customers_defs, "customer_settings_from_env", settings)
+    monkeypatch.setattr(customers_defs, "load_customers", load)
+    start = datetime(2026, 10, 1, tzinfo=UTC)
+    run = CustomersRun("run", "refresh", start, start + timedelta(hours=1))
+    _ = ShopifyCustomersDltResource().load(run)
+    return seen
+
+
+def test_resource_collects_what_client_yaml_approves(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _ = write_client(
+        monkeypatch,
+        tmp_path,
+        """\
+        sources:
+          shopify_customers:
+            collect_tax_id: true
+            approved_metafields:
+              - {namespace: custom, key: loyalty_tier}
+        """,
+    )
+    assert run_resource(monkeypatch) == {
+        "tax_id": True,
+        "metafields": frozenset({("custom", "loyalty_tier")}),
+    }
+
+
+def test_resource_collects_neither_by_default(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _ = write_client(monkeypatch, tmp_path, "sources:\n  shopify_customers:\n")
+    assert run_resource(monkeypatch) == {"tax_id": False, "metafields": frozenset()}
+
+
+def test_resource_refuses_a_source_client_yaml_no_longer_lists(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = write_client(monkeypatch, tmp_path, "sources:\n  shopify_orders:\n")
+    with pytest.raises(ConfigurationError, match="sources.shopify_customers") as error:
+        _ = run_resource(monkeypatch)
+    assert str(path) in str(error.value)
 
 
 def test_open_rejects_warn_then_fail_after_a_day() -> None:
@@ -311,13 +393,8 @@ def test_reconcile_cap_rejects_values_outside_bounds(
     assert "max_candidates" in str(failure.step_failure_data.error)
 
 
-def test_nightly_schedules_follow_the_reporting_time_zone() -> None:
-    env = {**ENV, "ANALYTICS_REPORTING_TIME_ZONE": "Europe/London"}
-    built = schedules(env)
-    assert {
-        built[name].execution_timezone
-        for name in (
-            "shopify_customers_dlt_sweep_schedule",
-            "shopify_customers_reconcile_schedule",
-        )
-    } == {"Europe/London"}
+def test_every_schedule_runs_in_the_reporting_time_zone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = client(monkeypatch, tmp_path, CUSTOMERS, zone="Europe/London")
+    assert {s.execution_timezone for s in build_schedules(config)} == {"Europe/London"}

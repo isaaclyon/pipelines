@@ -7,6 +7,7 @@ sources:
   schema: '{{ env_var(''SHOPIFY_ORDERS_DATASET'', ''SHOPIFY_ORDERS_RAW'') | lower if target.type == ''duckdb'' and env_var(''DBT_RAW_ROOT'', '''') else env_var(''SHOPIFY_ORDERS_DATASET'', ''SHOPIFY_ORDERS_RAW'') }}'
   config:
     meta: {raw_file: shopify_orders/local/shopify_orders.duckdb}
+    enabled: '{{ ''shopify_orders'' in env_var(''ANALYTICS_ENABLED_SOURCES'').split('','') }}'
   tables:
   - name: ingestion_batches
     description: 'One row per successful ingestion run, written after its orders load. A complete refresh''s
@@ -48,12 +49,12 @@ sources:
       config:
         meta: {pii: false}
       description: Inclusive UTC start of the covered window.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: window_end
       config:
         meta: {pii: false}
       description: Exclusive UTC end of the covered window; freshness reads it.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: status
       config:
         meta: {pii: false}
@@ -73,17 +74,17 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant extraction started reading the window.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: observed_finished_at
       config:
         meta: {pii: false}
       description: UTC instant extraction finished reading the window.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: completed_at
       config:
         meta: {pii: false}
       description: UTC instant the run recorded this evidence after its load.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: orders_observed
       config:
         meta: {pii: false}
@@ -149,17 +150,17 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant Shopify created the order.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: updated_at
       config:
         meta: {pii: false}
       description: UTC instant Shopify last changed the order; the merge keeps the newest.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: processed_at
       config:
         meta: {pii: false}
       description: UTC instant the order was processed; imports can predate creation.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: test
       config:
         meta: {pii: false}
@@ -179,12 +180,12 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant the order was cancelled; null unless cancelled.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: closed_at
       config:
         meta: {pii: false}
       description: UTC instant the order was closed; null while open.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: customer_id
       config:
         meta: {pii: false}
@@ -381,7 +382,7 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant ingestion read the order's source page.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: _extraction_kind
       config:
         meta: {pii: false}
@@ -757,12 +758,12 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant the transaction was created.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: processed_at
       config:
         meta: {pii: false}
       description: UTC instant the gateway processed it.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: kind
       config:
         meta: {pii: false}
@@ -833,12 +834,12 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant the refund was created.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: updated_at
       config:
         meta: {pii: false}
       description: UTC instant Shopify last changed the refund.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: total_refunded_shop_amount
       config:
         meta: {pii: false}
@@ -873,7 +874,7 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant the refund was processed.
-      data_type: timestamp
+      data_type: timestamp with time zone
   - name: orders__refunds__transactions
     description: 'One row per (shop_id, order_id, refund_id, transaction_id). Links a refund to an order
       transaction without repeating transaction amounts.
@@ -972,7 +973,7 @@ sources:
       config:
         meta: {pii: false}
       description: UTC instant the agreement took effect.
-      data_type: timestamp
+      data_type: timestamp with time zone
     - name: reason
       config:
         meta: {pii: false}

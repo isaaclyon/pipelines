@@ -19,8 +19,8 @@ import snowflake.connector
 
 from analytics_transformations.layer_dependencies import (
     check,
+    governed_projects,
     parse_manifest,
-    root_project,
 )
 
 # A sample dbt project with copies of the real macros (ADR 0026).
@@ -213,7 +213,9 @@ def test_executed_identifiers_and_independent_namespaces(
                     json.loads((projects[index] / "target/manifest.json").read_text()),
                 )
                 resources = parse_manifest(data)
-                assert check(resources, root_project(data), namespace=namespace) == []
+                assert (
+                    check(resources, governed_projects(data), namespace=namespace) == []
+                )
                 model = next(node for node in resources if node.name == "fct_customers")
                 for bad in (
                     "fct_" + "a" * 252,
@@ -224,12 +226,14 @@ def test_executed_identifiers_and_independent_namespaces(
                         replace(node, alias=bad) if node == model else node
                         for node in resources
                     ]
-                    assert check(invalid, root_project(data), namespace=namespace), bad
+                    assert check(
+                        invalid, governed_projects(data), namespace=namespace
+                    ), bad
                 collision = [
                     replace(node, alias="fct_orders_v1") if node == model else node
                     for node in resources
                 ]
-                assert check(collision, root_project(data), namespace=namespace)
+                assert check(collision, governed_projects(data), namespace=namespace)
             _build(projects[0], environments[0], 99)
             outputs(namespaces[0], 99)
             outputs(namespaces[1], 11)

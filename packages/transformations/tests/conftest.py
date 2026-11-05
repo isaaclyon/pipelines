@@ -18,6 +18,10 @@ Writing artifacts takes much of the rest: ``json.dump`` encodes in pure Python,
 so the suite writes dbt's JSON artifacts with the identical, C-encoded
 ``json.dumps``. dbt usage tracking is off, so commands do not wait on the network.
 
+``analytics-dbt`` commands run the same way, with the environment its
+``dbt_env`` derives from the client configuration, so they see what the wrapper
+would pass to dbt. Tests that choose no client use the package check's client.
+
 Tests marked ``dbt_subprocess`` start real dbt processes, so the production
 subprocess path stays covered.
 """
@@ -41,6 +45,7 @@ from typing import cast
 import dbt.artifacts.schemas.base
 import dbt.artifacts.schemas.run.v5.run
 import pytest
+from analytics_client_config import ConfigError
 from dbt.adapters.duckdb.connections import DuckDBConnectionManager
 from dbt.adapters.factory import get_adapter
 from dbt.artifacts.schemas.freshness import FreshnessResult
@@ -55,7 +60,9 @@ from dbt_common.events.functions import get_metadata_vars
 from dbt_common.invocation import get_invocation_id, get_invocation_started_at
 from dbt_common.utils.encoding import JSONEncoder
 
+from analytics_transformations.client_dbt import dbt_env
 from tests import dbt_selection
+from tests.client_files import CHECK_CLIENT
 from tests.project_build import ProjectBuild, build_project
 
 Output = str | bytes | None
@@ -186,6 +193,8 @@ def _manifest_key(arguments: list[str], env: Mapping[str, str]) -> Key | None:
 # Real dbt processes that tests start inherit this; in-process commands set it.
 _NO_TRACKING = {"DBT_SEND_ANONYMOUS_USAGE_STATS": "false"}
 os.environ.update(_NO_TRACKING)
+_ = os.environ.setdefault("ANALYTICS_CLIENT_CONFIG", str(CHECK_CLIENT))
+_DBT_NAMES = {"dbt", "analytics-dbt"}
 
 
 def _write_json(path: str, data: object) -> bool:
@@ -213,14 +222,43 @@ def _dbt_command(command: object) -> list[str] | None:
     if not isinstance(command, (list, tuple)):
         return None
     parts = [str(part) for part in cast(Sequence[object], command)]
-    if not parts or Path(parts[0]).name != "dbt":
+    if not parts or Path(parts[0]).name not in _DBT_NAMES:
         return None
     return parts
+
+
+def _outputs(text: str, options: Mapping[str, object]) -> tuple[Output, Output]:
+    """Captured ``stdout`` and ``stderr``, in the form ``options`` requested."""
+    captured = options.get("capture_output") or options.get("stdout") == (
+        subprocess.PIPE
+    )
+    if not captured:
+        return None, None
+    if options.get("text") or options.get("universal_newlines"):
+        return text, ""
+    return text.encode(), b""
+
+
+def _refused(
+    command: list[str], options: Mapping[str, object], message: str
+) -> Completed:
+    """The wrapper's own refusal: it prints to stderr and exits 2."""
+    stdout, stderr = _outputs("", options)
+    if stderr is not None:
+        stderr = message if isinstance(stderr, str) else message.encode()
+    if options.get("check"):
+        raise subprocess.CalledProcessError(2, command, stdout, stderr)
+    return subprocess.CompletedProcess(command, 2, stdout, stderr)
 
 
 def _invoke(command: list[str], options: Mapping[str, object]) -> Completed:
     global _reused
     env = cast(Mapping[str, str] | None, options.get("env"))
+    if Path(command[0]).name == "analytics-dbt":
+        try:
+            env = dbt_env(os.environ if env is None else env)
+        except ConfigError as error:
+            return _refused(command, options, f"analytics-dbt: {error}\n")
     saved = dict(os.environ)
     if env is not None:
         os.environ.clear()
@@ -258,15 +296,7 @@ def _invoke(command: list[str], options: Mapping[str, object]) -> Completed:
     elif isinstance(result.result, FreshnessResult):
         _executed.update(source.node.unique_id for source in result.result.results)
     code = 0 if result.success else 2 if result.exception is not None else 1
-    captured = options.get("capture_output") or options.get("stdout") == (
-        subprocess.PIPE
-    )
-    as_text = bool(options.get("text") or options.get("universal_newlines"))
-    stdout: Output = None
-    stderr: Output = None
-    if captured:
-        stdout = output.getvalue() if as_text else output.getvalue().encode()
-        stderr = "" if as_text else b""
+    stdout, stderr = _outputs(output.getvalue(), options)
     if options.get("check") and code:
         raise subprocess.CalledProcessError(code, command, stdout)
     return subprocess.CompletedProcess(command, code, stdout, stderr)
